@@ -95,6 +95,16 @@ export interface PitchingSeason {
   war: number | null;
 }
 
+export interface SimilarPlayer {
+  bbref_id: string;
+  first_name: string;
+  last_name: string;
+  mlb_played_first: number | null;
+  mlb_played_last: number | null;
+  career_war: number;
+  is_pitcher: boolean;
+}
+
 export interface PaginatedResponse<T> {
   count: number;
   next: string | null;

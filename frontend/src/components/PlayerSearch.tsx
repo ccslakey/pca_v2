@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { usePlayerSearch } from '../hooks';
 import type { PlayerSummary } from '../types';
+import { playerColor } from '../utils/color';
 
 interface Props {
   selectedIds: string[];
@@ -12,13 +13,6 @@ function headshot(p: PlayerSummary) {
   return `${p.first_name[0] ?? ''}${p.last_name[0] ?? ''}`.toUpperCase();
 }
 
-function headshotColor(bbrefId: string) {
-  // deterministic color from bbref_id
-  let h = 0;
-  for (const c of bbrefId) h = (h * 31 + c.charCodeAt(0)) & 0xffff;
-  const hue = h % 360;
-  return `oklch(0.72 0.18 ${hue})`;
-}
 
 export function PlayerSearch({ selectedIds, onSelect, maxPlayers }: Props) {
   const [q, setQ]               = useState('');
@@ -103,7 +97,7 @@ export function PlayerSearch({ selectedIds, onSelect, maxPlayers }: Props) {
                 onMouseEnter={() => setActiveIdx(i)}
                 onMouseDown={e => { e.preventDefault(); if (!taken) pick(p); }}
               >
-                <div className="search-headshot" style={{ background: headshotColor(p.bbref_id) }}>
+                <div className="search-headshot" style={{ background: playerColor(p.bbref_id) }}>
                   {headshot(p)}
                 </div>
                 <div className="search-result-info">

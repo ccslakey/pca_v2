@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import type { ChartPlayer, MetricId } from '../types';
 import { METRICS } from '../constants';
 import { peakSeason, careerWar, fmtMetric } from '../utils/chart';
@@ -34,9 +35,13 @@ export function PlayerCard({ player, metric, isHovered, onHoverEnter, onHoverLea
           {player.initials}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="player-card-name" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <Link
+            to={`/player/${player.id}`}
+            className="player-card-name"
+            style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'inherit', textDecoration: 'none' }}
+          >
             {player.name}
-          </div>
+          </Link>
           <div className="player-card-meta">{player.pos} · {player.years}</div>
         </div>
         <button className="chip-x" onClick={onRemove} title="Remove from comparison">

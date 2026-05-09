@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { fetchBattingSeasons, fetchPitchingSeasons, fetchPlayer, searchPlayers } from './api';
+import { fetchBattingSeasons, fetchPitchingSeasons, fetchPlayer, fetchSimilarPlayers, searchPlayers } from './api';
 import type { BattingSeason, ChartPlayer, ChartSeason, PitchingSeason } from './types';
 import { PLAYER_COLORS } from './constants';
 
@@ -109,6 +109,15 @@ function round1(n: number) {
 
 function initials(firstName: string, lastName: string) {
   return `${firstName[0] ?? ''}${lastName[0] ?? ''}`.toUpperCase();
+}
+
+export function useSimilarPlayers(bbrefId: string | null) {
+  return useQuery({
+    queryKey: ['similar', bbrefId],
+    queryFn: () => fetchSimilarPlayers(bbrefId!),
+    enabled: bbrefId != null,
+    staleTime: Infinity,
+  });
 }
 
 /** Load all data for one selected player and build a ChartPlayer. */
