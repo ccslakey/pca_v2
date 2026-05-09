@@ -1,0 +1,138 @@
+import { useState, useRef, useEffect, useMemo } from 'react';
+import type { MetricId } from '../types';
+import { useChartPlayer } from '../hooks';
+import { TopBar } from '../components/TopBar';
+import { ChipBar } from '../components/ChipBar';
+import { MetricToggle } from '../components/MetricToggle';
+import { CareerChart } from '../components/CareerChart';
+import { BrushChart } from '../components/BrushChart';
+import { PlayerCard } from '../components/PlayerCard';
+
+function useChartPlayers(selectedIds: string[]) {
+  const p0 = useChartPlayer(selectedIds[0] ?? null, 0);
+  const p1 = useChartPlayer(selectedIds[1] ?? null, 1);
+  const p2 = useChartPlayer(selectedIds[2] ?? null, 2);
+  const p3 = useChartPlayer(selectedIds[3] ?? null, 3);
+  const p4 = useChartPlayer(selectedIds[4] ?? null, 4);
+  const p5 = useChartPlayer(selectedIds[5] ?? null, 5);
+  const p6 = useChartPlayer(selectedIds[6] ?? null, 6);
+  const p7 = useChartPlayer(selectedIds[7] ?? null, 7);
+  const p8 = useChartPlayer(selectedIds[8] ?? null, 8);
+  const p9 = useChartPlayer(selectedIds[9] ?? null, 9);
+
+  return useMemo(() => {
+    return [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9]
+      .slice(0, selectedIds.length)
+      .map(r => r.data)
+      .filter((p): p is NonNullable<typeof p> => p != null);
+  }, [selectedIds.length, p0.data, p1.data, p2.data, p3.data, p4.data, p5.data, p6.data, p7.data, p8.data, p9.data]); // eslint-disable-line react-hooks/exhaustive-deps
+}
+
+export function ComparePage() {
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [metric, setMetric] = useState<MetricId>('war');
+  const [hoverPlayerId, setHoverPlayerId] = useState<string | null>(null);
+  const [chartWidth, setChartWidth] = useState(800);
+
+  const chartCardRef = useRef<HTMLDivElement>(null);
+
+  const players = useChartPlayers(selectedIds);
+
+  const fullRange = useMemo<[number, number]>(() => {
+    let lo = Infinity, hi = -Infinity;
+    players.forEach(p => p.seasons.forEach(s => {
+      if (s.season < lo) lo = s.season;
+      if (s.season > hi) hi = s.season;
+    }));
+    return lo > hi ? [2000, 2024] : [lo, hi];
+  }, [players]);
+
+  const [yearRange, setYearRange] = useState<[number, number]>(fullRange);
+
+  useEffect(() => {
+    setYearRange(fullRange);
+  }, [fullRange[0], fullRange[1]]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const el = chartCardRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(entries => {
+      const w = entries[0]?.contentRect.width;
+      if (w) setChartWidth(w);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  function addPlayer(id: string) {
+    setSelectedIds(prev => prev.includes(id) ? prev : [...prev, id]);
+  }
+
+  function removePlayer(id: string) {
+    setSelectedIds(prev => prev.filter(x => x !== id));
+  }
+
+  const isEmpty = players.length === 0;
+
+  return (
+    <div className="app">
+      <TopBar selectedIds={selectedIds} onSelect={addPlayer} />
+
+      <div className="main">
+      <ChipBar
+        players={players}
+        hoverPlayerId={hoverPlayerId}
+        setHoverPlayerId={setHoverPlayerId}
+        onRemove={removePlayer}
+      />
+        <MetricToggle metric={metric} onChange={setMetric} />
+
+        <div className="chart-card" ref={chartCardRef}>
+          {isEmpty ? (
+            <div className="chart-empty">
+              <div className="chart-empty-title">Search for players above to compare career arcs</div>
+              <div className="chart-empty-sub">Up to 10 players · WAR, HR, AVG, OPS, ERA, SO</div>
+            </div>
+          ) : (
+            <>
+              <CareerChart
+                players={players}
+                metric={metric}
+                yearRange={yearRange}
+                hoverPlayerId={hoverPlayerId}
+                setHoverPlayerId={setHoverPlayerId}
+                width={chartWidth}
+              />
+              <BrushChart
+                players={players}
+                metric={metric}
+                yearRange={yearRange}
+                fullRange={fullRange}
+                setYearRange={setYearRange}
+                width={chartWidth}
+              />
+            </>
+          )}
+        </div>
+
+        {players.length > 0 && (
+          <div className="cards-row">
+            {players.map(p => (
+              <PlayerCard
+                key={p.id}
+                player={p}
+                metric={metric}
+                isHovered={hoverPlayerId === p.id}
+                onHoverEnter={() => setHoverPlayerId(p.id)}
+                onHoverLeave={() => setHoverPlayerId(null)}
+                onRemove={() => removePlayer(p.id)}
+              />
+            ))}
+          </div>
+        )}
+
+        <p className="footer-note">Data: Baseball Reference · All WAR values are bWAR · Career Arc Visualizer</p>
+      </div>
+    </div>
+  );
+}
