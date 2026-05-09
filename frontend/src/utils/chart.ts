@@ -1,47 +1,5 @@
 import type { ChartSeason, MetricId } from '../types';
 
-// ---- Linear scale ----
-
-export interface Scale {
-  (v: number): number;
-  invert(p: number): number;
-  domain(): [number, number];
-  range(): [number, number];
-}
-
-export function scaleLinear(domain: [number, number], range: [number, number]): Scale {
-  const [d0, d1] = domain;
-  const [r0, r1] = range;
-  const span = d1 - d0 || 1;
-  const fn = (v: number) => r0 + ((v - d0) / span) * (r1 - r0);
-  fn.invert = (p: number) => d0 + ((p - r0) / (r1 - r0)) * span;
-  fn.domain = () => domain;
-  fn.range  = () => range;
-  return fn as Scale;
-}
-
-// ---- Catmull-Rom → cubic Bezier path ----
-
-type Point = [number, number];
-
-export function smoothPath(points: Point[]): string {
-  if (!points.length) return '';
-  if (points.length === 1) return `M ${points[0][0]} ${points[0][1]}`;
-  let d = `M ${points[0][0]} ${points[0][1]}`;
-  for (let i = 0; i < points.length - 1; i++) {
-    const p0 = points[i - 1] ?? points[i];
-    const p1 = points[i];
-    const p2 = points[i + 1];
-    const p3 = points[i + 2] ?? p2;
-    const c1x = p1[0] + (p2[0] - p0[0]) / 6;
-    const c1y = p1[1] + (p2[1] - p0[1]) / 6;
-    const c2x = p2[0] - (p3[0] - p1[0]) / 6;
-    const c2y = p2[1] - (p3[1] - p1[1]) / 6;
-    d += ` C ${c1x.toFixed(2)} ${c1y.toFixed(2)}, ${c2x.toFixed(2)} ${c2y.toFixed(2)}, ${p2[0].toFixed(2)} ${p2[1].toFixed(2)}`;
-  }
-  return d;
-}
-
 // ---- Metric formatting ----
 
 export function fmtMetric(metric: MetricId, v: number | null): string {

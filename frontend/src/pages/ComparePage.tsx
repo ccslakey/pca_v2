@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { ParentSize } from '@visx/responsive';
 import type { MetricId } from '../types';
 import { useChartPlayer } from '../hooks';
 import { TopBar } from '../components/TopBar';
@@ -32,9 +33,6 @@ export function ComparePage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [metric, setMetric] = useState<MetricId>('war');
   const [hoverPlayerId, setHoverPlayerId] = useState<string | null>(null);
-  const [chartWidth, setChartWidth] = useState(800);
-
-  const chartCardRef = useRef<HTMLDivElement>(null);
 
   const players = useChartPlayers(selectedIds);
 
@@ -52,17 +50,6 @@ export function ComparePage() {
   useEffect(() => {
     setYearRange(fullRange);
   }, [fullRange[0], fullRange[1]]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    const el = chartCardRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(entries => {
-      const w = entries[0]?.contentRect.width;
-      if (w) setChartWidth(w);
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
 
   function addPlayer(id: string) {
     setSelectedIds(prev => prev.includes(id) ? prev : [...prev, id]);
@@ -87,31 +74,35 @@ export function ComparePage() {
       />
         <MetricToggle metric={metric} onChange={setMetric} />
 
-        <div className="chart-card" ref={chartCardRef}>
+        <div className="chart-card">
           {isEmpty ? (
             <div className="chart-empty">
               <div className="chart-empty-title">Search for players above to compare career arcs</div>
               <div className="chart-empty-sub">Up to 10 players · WAR, HR, AVG, OPS, ERA, SO</div>
             </div>
           ) : (
-            <>
-              <CareerChart
-                players={players}
-                metric={metric}
-                yearRange={yearRange}
-                hoverPlayerId={hoverPlayerId}
-                setHoverPlayerId={setHoverPlayerId}
-                width={chartWidth}
-              />
-              <BrushChart
-                players={players}
-                metric={metric}
-                yearRange={yearRange}
-                fullRange={fullRange}
-                setYearRange={setYearRange}
-                width={chartWidth}
-              />
-            </>
+            <ParentSize>
+              {({ width }) => (
+                <>
+                  <CareerChart
+                    players={players}
+                    metric={metric}
+                    yearRange={yearRange}
+                    hoverPlayerId={hoverPlayerId}
+                    setHoverPlayerId={setHoverPlayerId}
+                    width={width}
+                  />
+                  <BrushChart
+                    players={players}
+                    metric={metric}
+                    yearRange={yearRange}
+                    fullRange={fullRange}
+                    setYearRange={setYearRange}
+                    width={width}
+                  />
+                </>
+              )}
+            </ParentSize>
           )}
         </div>
 
