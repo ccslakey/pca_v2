@@ -1,0 +1,39 @@
+from __future__ import annotations
+
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import viewsets, filters
+
+from .models import BattingSeason, PitchingSeason
+from .serializers import BattingSeasonSerializer, PitchingSeasonSerializer
+
+
+class BattingSeasonViewSet(viewsets.ReadOnlyModelViewSet[BattingSeason]):
+    """
+    Season batting stats. Filter by player, year, team, or league.
+    Supports ordering on any numeric field via ?ordering=war or ?ordering=-home_runs.
+    """
+    queryset = BattingSeason.objects.select_related('player').order_by('year', 'stint')
+    serializer_class = BattingSeasonSerializer
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ['player', 'year', 'team', 'league']
+    ordering_fields = [
+        'year', 'games', 'plate_appearances', 'at_bats', 'runs', 'hits',
+        'doubles', 'triples', 'home_runs', 'rbi', 'stolen_bases',
+        'walks', 'strikeouts', 'batting_avg', 'on_base_pct',
+        'slugging_pct', 'ops', 'ops_plus', 'war',
+    ]
+
+
+class PitchingSeasonViewSet(viewsets.ReadOnlyModelViewSet[PitchingSeason]):
+    """
+    Season pitching stats. Filter by player, year, team, or league.
+    """
+    queryset = PitchingSeason.objects.select_related('player').order_by('year', 'stint')
+    serializer_class = PitchingSeasonSerializer
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ['player', 'year', 'team', 'league']
+    ordering_fields = [
+        'year', 'games', 'games_started', 'wins', 'losses', 'saves',
+        'ip_outs', 'strikeouts', 'walks', 'era', 'era_plus',
+        'fip', 'whip', 'war',
+    ]
