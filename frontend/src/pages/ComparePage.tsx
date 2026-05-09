@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { ParentSize } from '@visx/responsive';
 import type { MetricId } from '../types';
 import { useChartPlayer } from '../hooks';
@@ -30,7 +31,11 @@ function useChartPlayers(selectedIds: string[]) {
 }
 
 export function ComparePage() {
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [searchParams] = useSearchParams();
+  const initialCompare = searchParams.get('compare');
+  const [selectedIds, setSelectedIds] = useState<string[]>(
+    initialCompare ? [initialCompare] : []
+  );
   const [metric, setMetric] = useState<MetricId>('war');
   const [hoverPlayerId, setHoverPlayerId] = useState<string | null>(null);
 
