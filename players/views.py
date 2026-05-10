@@ -90,14 +90,14 @@ class PlayerViewSet(viewsets.ReadOnlyModelViewSet[Player]):
                 career_hr=Sum("home_runs"),
             )
         }
-        # PA-weighted career OPS (skip null ops/pa rows)
+        # PA-weighted career OPS+ (era-adjusted, 100 = league avg; skip null rows)
         _bat_ops_num: dict[str, float] = {}
         _bat_ops_den: dict[str, int] = {}
-        for r in BattingSeason.objects.values("player_id", "ops", "plate_appearances"):
-            if r["ops"] is None or not r["plate_appearances"]:
+        for r in BattingSeason.objects.values("player_id", "ops_plus", "plate_appearances"):
+            if r["ops_plus"] is None or not r["plate_appearances"]:
                 continue
             pid = r["player_id"]
-            _bat_ops_num[pid] = _bat_ops_num.get(pid, 0.0) + r["ops"] * r["plate_appearances"]
+            _bat_ops_num[pid] = _bat_ops_num.get(pid, 0.0) + r["ops_plus"] * r["plate_appearances"]
             _bat_ops_den[pid] = _bat_ops_den.get(pid, 0) + r["plate_appearances"]
 
         # --- Pitching aggregates ---
@@ -112,14 +112,14 @@ class PlayerViewSet(viewsets.ReadOnlyModelViewSet[Player]):
                 career_gs=Sum("games_started"),
             )
         }
-        # IP-weighted career ERA
+        # IP-weighted career ERA+ (era-adjusted, 100 = league avg, higher = better; skip null rows)
         _pit_era_num: dict[str, float] = {}
         _pit_era_den: dict[str, int] = {}
-        for r in PitchingSeason.objects.values("player_id", "era", "ip_outs"):
-            if r["era"] is None or not r["ip_outs"]:
+        for r in PitchingSeason.objects.values("player_id", "era_plus", "ip_outs"):
+            if r["era_plus"] is None or not r["ip_outs"]:
                 continue
             pid = r["player_id"]
-            _pit_era_num[pid] = _pit_era_num.get(pid, 0.0) + r["era"] * r["ip_outs"]
+            _pit_era_num[pid] = _pit_era_num.get(pid, 0.0) + r["era_plus"] * r["ip_outs"]
             _pit_era_den[pid] = _pit_era_den.get(pid, 0) + r["ip_outs"]
 
         pitcher_ids: set[str] = set(pit_totals.keys())
@@ -127,14 +127,14 @@ class PlayerViewSet(viewsets.ReadOnlyModelViewSet[Player]):
 
         def batter_vec(pid: str) -> list[float]:
             t = bat_totals.get(pid, {})
-            war  = t.get("career_war") or 0.0
-            peak = t.get("peak_war")   or 0.0
-            pa   = t.get("career_pa")  or 0
-            hr   = t.get("career_hr")  or 0
-            n, d = _bat_ops_num.get(pid, 0.0), _bat_ops_den.get(pid, 0)
-            ops  = n / d if d > 0 else 0.720
-            hr_rate = hr / pa * 600 if pa > 0 else 0.0  # HR per 600 PA
-            return [war, peak, ops, hr_rate]
+            war     = t.get("career_war") or 0.0
+            peak    = t.get("peak_war")   or 0.0
+            pa      = t.get("career_pa")  or 0
+            hr      = t.get("career_hr")  or 0
+            n, d    = _bat_ops_num.get(pid, 0.0), _bat_ops_den.get(pid, 0)
+            ops_plus = n / d if d > 0 else 100.0  # 100 = league avg
+            hr_rate  = hr / pa * 600 if pa > 0 else 0.0  # HR per 600 PA
+            return [war, peak, ops_plus, hr_rate]
 
         def pitcher_vec(pid: str) -> list[float]:
             t = pit_totals.get(pid, {})
@@ -144,11 +144,11 @@ class PlayerViewSet(viewsets.ReadOnlyModelViewSet[Player]):
             so   = t.get("career_so")  or 0
             g    = t.get("career_g")   or 1
             gs   = t.get("career_gs")  or 0
-            n, d = _pit_era_num.get(pid, 0.0), _pit_era_den.get(pid, 0)
-            era    = n / d if d > 0 else 4.50
-            k9     = so / (ip / 27) if ip > 0 else 6.0
-            sp_pct = gs / g if g > 0 else 0.0  # 0 = pure RP, 1 = pure SP
-            return [war, peak, era, k9, sp_pct]
+            n, d     = _pit_era_num.get(pid, 0.0), _pit_era_den.get(pid, 0)
+            era_plus = n / d if d > 0 else 100.0  # 100 = league avg, higher = better
+            k9       = so / (ip / 27) if ip > 0 else 6.0
+            sp_pct   = gs / g if g > 0 else 0.0   # 0 = pure RP, 1 = pure SP
+            return [war, peak, era_plus, k9, sp_pct]
 
         # Build comparison pool (same role, minimum 1 career WAR)
         if target_is_pitcher:
