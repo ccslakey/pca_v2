@@ -18,7 +18,7 @@ Portfolio improvement backlog — ordered by priority.
 - [ ] Env var configuration — replace hardcoded `settings.py` values with `python-decouple` or `django-environ`
 - [ ] Docker — `Dockerfile` + `docker-compose.yml` for local parity and deploy readiness
 - [ ] Live deployment — Railway or Fly.io; blocked on Docker + env vars
-- [ ] Cache `similar/` aggregation queries with Redis — currently uses Django's `LocMemCache` (1 h TTL, per-process); switch to Redis for cross-process sharing and add explicit invalidation in ingest scripts when seasons are written
+- [ ] Cache `similar/` aggregation queries with Redis — currently uses Django's `LocMemCache` (1 h TTL, per-process); only worth upgrading if running multiple Gunicorn workers; deploy with a single worker to avoid cross-process staleness and defer Redis (~$10/mo) until traffic justifies it; also add explicit cache invalidation at end of ingest scripts
 - [ ] Remove or replace fake monthly heatmap data — real source is `pybaseball.get_splits` but costs 1 BRef req/player/year (see `pipeline/explore_monthly_splits.py`); shelved
 
 ## Done
