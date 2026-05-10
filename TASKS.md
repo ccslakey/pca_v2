@@ -9,6 +9,12 @@ Portfolio improvement backlog — ordered by priority.
 
 ## Up next
 
+- [ ] Pitch zone heatmap — Statcast via pybaseball, 9×9 grid, blurred SVG render (see `pipeline/explore_pitch_zone.py`)
+  - **Phase 1** — `StatcastZoneBucket` model + migration (raw x/z at 0.1 ft resolution, frontend bins to 15×15)
+  - **Phase 2** — `pipeline/ingest_statcast_zones.py` (WAR-threshold subset, idempotent)
+  - **Phase 3** — `pitch_zone/` action on `PlayerViewSet`
+  - **Phase 4** — `PitchZone` frontend component (blurred SVG, zone overlay, toggle)
+  - **Phase 5** — Wire into ProfilePage
 - [ ] GitHub Actions CI — lint + `pytest` + frontend build on push
 
 ## Backlog

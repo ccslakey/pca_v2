@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import BattingSeason, PitchingSeason, PlayerAward
+from .models import BattingSeason, PitchingSeason, PlayerAward, StatcastZoneBucket
 
 
 class BattingSeasonSerializer(serializers.ModelSerializer[BattingSeason]):
