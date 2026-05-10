@@ -5,6 +5,7 @@ import type {
   BattingSeason,
   PitchingSeason,
   SimilarPlayer,
+  PlayerAward,
 } from './types';
 
 const BASE = '/api';
@@ -34,4 +35,8 @@ export function fetchPitchingSeasons(bbrefId: string): Promise<PitchingSeason[]>
 
 export function fetchSimilarPlayers(bbrefId: string): Promise<SimilarPlayer[]> {
   return get<SimilarPlayer[]>(`/players/${bbrefId}/similar/`);
+}
+
+export function fetchPlayerAwards(bbrefId: string): Promise<PlayerAward[]> {
+  return get<PlayerAward[]>(`/players/${bbrefId}/awards/`);
 }

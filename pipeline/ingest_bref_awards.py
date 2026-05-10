@@ -532,81 +532,114 @@ def scrape_postseason_mvp(
 
 
 # ---------------------------------------------------------------------------
-# Scraper: All-Star career totals
+# Scraper: All-Star game per-year rosters
 #
-# Updates Player.asg_games / asg_first / asg_last directly.
-# Processes batting and pitching registers; for two-way players, takes max.
+# Fetches /allstar/ index to collect all game page URLs (1933–present),
+# then scrapes each game page for NL/AL batting and pitching tables
+# (embedded in HTML comments). One PlayerAward(kind='asg') row per
+# player per year per league. Idempotency is per-year.
 # ---------------------------------------------------------------------------
+
+ASG_TABLES = [
+    ("NLAllStarsbatting",  "NL"),
+    ("ALAllStarsbatting",  "AL"),
+    ("NLAllStarspitching", "NL"),
+    ("ALAllStarspitching", "AL"),
+]
+
+
+def parse_asg_index(session: BRefSession) -> list[tuple[int, str]]:
+    """Return [(year, url)] for every All-Star game in BRef history."""
+    url = f"{BREF}/allstar/"
+    print(f"  asg index: {url}")
+    resp = fetch_with_retry(session, url)
+    soup = BeautifulSoup(resp.content, "lxml")
+    table = soup.find("table", id="allstar-main-index_all")
+    if table is None:
+        print("  WARNING: allstar index table not found")
+        return []
+
+    games: list[tuple[int, str]] = []
+    for tr in table.select("tr"):
+        link = tr.find("a", href=lambda h: h and "/allstar/" in h and "allstar-game" in h)
+        if not link:
+            continue
+        year_txt = re.sub(r"\D", "", link.get_text(strip=True))
+        if not year_txt:
+            continue
+        games.append((int(year_txt), BREF + link["href"]))
+
+    return games
+
+
+def scrape_asg_game(
+    soup: BeautifulSoup,
+    year: int,
+    known_ids: set[str],
+    dry_run: bool,
+    verbose: bool,
+) -> int:
+    """Parse one All-Star game page and return count of awards written."""
+    seen: set[tuple[str, str]] = set()  # (bbref_id, league) — dedupe batting+pitching tables
+    count = 0
+
+    for comment in soup.find_all(string=lambda s: isinstance(s, Comment)):
+        csoup = BeautifulSoup(comment, "lxml")
+        for table_id, league in ASG_TABLES:
+            table = csoup.find("table", id=table_id)
+            if table is None:
+                continue
+            for tr in table.select("tbody tr"):
+                if "thead" in tr.get("class", []):
+                    continue
+                player_cell = tr.find(attrs={"data-append-csv": True})
+                if not player_cell:
+                    continue
+                bbref_id = player_cell.get("data-append-csv", "").strip()
+                if not bbref_id or (bbref_id, league) in seen:
+                    continue
+                seen.add((bbref_id, league))
+                if upsert_award(bbref_id, year, "asg", known_ids, league=league,
+                                dry_run=dry_run, verbose=verbose):
+                    count += 1
+
+    return count
 
 
 def scrape_allstar(
     session: BRefSession,
+    known_ids: set[str],
+    force: bool = False,
     dry_run: bool = False,
     verbose: bool = False,
 ) -> int:
-    urls = [
-        f"{BREF}/allstar/bat-register.shtml",
-        f"{BREF}/allstar/pitch-register.shtml",
-    ]
-    # bbref_id → (games, first, last)
-    asg_data: dict[str, tuple[int, int, int]] = {}
+    games = parse_asg_index(session)
+    print(f"  asg: {len(games)} game pages found")
 
-    for url in urls:
-        print(f"  asg: {url}")
-        resp = fetch_with_retry(session, url)
-        soup = BeautifulSoup(resp.content, "lxml")
-        # Table id varies: "batting_register" or "pitching_register"
-        table = soup.find("table") or find_table(soup, "batting_register") or find_table(soup, "pitching_register")
-        if table is None:
-            print("  WARNING: All-Star register table not found")
+    total = 0
+    for year, url in sorted(games):
+        source_key = f"bref_awards_asg_{year}"
+        if not force and not dry_run and already_ingested(source_key):
+            if verbose:
+                print(f"    [{year}] already ingested, skipping")
             continue
 
-        for tr in table.select("tbody tr"):
-            if "thead" in tr.get("class", []):
-                continue
-            player_cell = tr.find(attrs={"data-append-csv": True})
-            if not player_cell:
-                continue
-            bbref_id = player_cell.get("data-append-csv", "").strip()
-            if not bbref_id:
-                continue
+        print(f"    [{year}] {url}")
+        try:
+            resp = fetch_with_retry(session, url)
+            soup = BeautifulSoup(resp.content, "lxml")
+            n = scrape_asg_game(soup, year, known_ids, dry_run=dry_run, verbose=verbose)
+            if not dry_run:
+                log_success(source_key, n)
+            total += n
+            if verbose:
+                print(f"      {n} selections")
+        except Exception as exc:
+            print(f"    ERROR [{year}]: {exc}")
+            if not dry_run:
+                log_error(source_key, exc)
 
-            from_td = tr.find("td", attrs={"data-stat": "year_min"})
-            to_td   = tr.find("td", attrs={"data-stat": "year_max"})
-            g_td    = tr.find("td", attrs={"data-stat": "G"})
-
-            if not (from_td and to_td and g_td):
-                continue
-
-            try:
-                first = int(from_td.get_text(strip=True))
-                last  = int(to_td.get_text(strip=True))
-                games = int(g_td.get_text(strip=True))
-            except (ValueError, TypeError):
-                continue
-
-            # Merge: take most games for two-way players
-            existing = asg_data.get(bbref_id)
-            if existing is None or games > existing[0]:
-                asg_data[bbref_id] = (games, first, last)
-
-    if not asg_data:
-        return 0
-
-    if dry_run:
-        if verbose:
-            for pid, (g, f, l) in list(asg_data.items())[:5]:
-                print(f"    [dry-run] {pid} asg_games={g} {f}–{l}")
-        return len(asg_data)
-
-    updated = 0
-    for bbref_id, (games, first, last) in asg_data.items():
-        rows = Player.objects.filter(bbref_id=bbref_id).update(
-            asg_games=games, asg_first=first, asg_last=last
-        )
-        if rows:
-            updated += 1
-    return updated
+    return total
 
 
 # ---------------------------------------------------------------------------
@@ -771,7 +804,7 @@ def run_kind(
     if kind == "all_mlb":
         return scrape_all_mlb(session, known_ids, dry_run=dry_run, verbose=verbose)
     if kind == "asg":
-        return scrape_allstar(session, dry_run=dry_run, verbose=verbose)
+        return scrape_allstar(session, known_ids, force=force, dry_run=dry_run, verbose=verbose)
     if kind == "ws":
         return scrape_world_series(session, known_ids, force=force,
                                    dry_run=dry_run, verbose=verbose)
@@ -814,8 +847,8 @@ def main() -> None:
     total = 0
     for kind in kinds_to_run:
         source_key = SOURCE_KEYS.get(kind)
-        if kind == "ws":
-            # WS uses per-year keys; handled inside scrape_world_series
+        if kind in ("ws", "asg"):
+            # WS and ASG use per-year keys; handled inside their scrapers
             n = run_kind(kind, session, known_ids, args.force, args.dry_run, args.verbose)
             total += n
             continue

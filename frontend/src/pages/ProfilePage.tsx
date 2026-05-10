@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ParentSize } from '@visx/responsive';
-import { useChartPlayer, useSimilarPlayers } from '../hooks';
+import { useChartPlayer, useSimilarPlayers, usePlayerAwards } from '../hooks';
 import { ProfileChart } from '../components/ProfileChart';
 import { Sparkline } from '../components/Sparkline';
-import { MonthlyHeatmap } from '../components/MonthlyHeatmap';
+// import { MonthlyHeatmap } from '../components/MonthlyHeatmap'; // shelved — needs real monthly split data (see pipeline/explore_monthly_splits.py)
 import { AnnotationGlyph } from '../components/AnnotationGlyph';
 import { METRICS } from '../constants';
-import type { MetricId, ChartSeason } from '../types';
+import type { MetricId, ChartSeason, AwardKind } from '../types';
 import { fmtMetric, peakSeason, careerWar } from '../utils/chart';
 import { playerColor, colorTint } from '../utils/color';
 
@@ -16,6 +16,31 @@ function initials(name: string) {
   return parts.length >= 2
     ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
     : name.slice(0, 2).toUpperCase();
+}
+
+const AWARD_LABELS: Record<AwardKind, string> = {
+  mvp:       'MVP',
+  cy:        'Cy Young',
+  roty:      'Rookie of the Year',
+  gg:        'Gold Glove',
+  ss:        'Silver Slugger',
+  tc_b:      'Triple Crown (Batting)',
+  tc_p:      'Triple Crown (Pitching)',
+  hof:       'Hall of Fame',
+  postmvp:   'Postseason MVP',
+  bat_title: 'Batting Title',
+  era_title: 'ERA Title',
+  all_mlb:   'All-MLB Team',
+  ws:        'World Series',
+  asg:       'All-Star',
+};
+
+function awardGlyphKind(kind: AwardKind): 'mvp' | 'cy' | 'gg' | 'asg' | 'il' {
+  if (kind === 'mvp') return 'mvp';
+  if (kind === 'cy') return 'cy';
+  if (kind === 'gg' || kind === 'ss') return 'gg';
+  if (kind === 'asg') return 'asg';
+  return 'il';
 }
 
 function sumMetric(seasons: ChartSeason[], metric: MetricId): number | null {
@@ -34,6 +59,7 @@ export function ProfilePage() {
 
   const { data: player, isLoading } = useChartPlayer(bbrefId ?? null, 0);
   const { data: similar } = useSimilarPlayers(bbrefId ?? null);
+  const { data: awards = [] } = usePlayerAwards(bbrefId ?? null);
 
   if (isLoading || !player) {
     return (
@@ -332,7 +358,7 @@ export function ProfilePage() {
               </div>
             )}
 
-            {/* Monthly heatmap */}
+            {/* Monthly OPS heatmap — shelved; real data needs 1 BRef req/player/year (see pipeline/explore_monthly_splits.py)
             {player.isBatter && player.seasons.length >= 2 && (
               <div className="panel">
                 <div className="panel-header">
@@ -346,37 +372,39 @@ export function ProfilePage() {
                 </div>
               </div>
             )}
+            */}
 
-            {/* Awards placeholder — no annotation data yet */}
             <div className="panel">
               <div className="panel-header">
                 <div className="panel-title">Awards & milestones</div>
               </div>
-              <div style={{ color: 'var(--text-3)', fontSize: 12, padding: '8px 4px' }}>
-                Award data coming soon.
-              </div>
-              <div className="awards-list" style={{ marginTop: 8 }}>
-                {[
-                  { kind: 'mvp', label: 'MVP' },
-                  { kind: 'cy', label: 'Cy Young' },
-                  { kind: 'gg', label: 'Gold Glove' },
-                  { kind: 'asg', label: 'All-Star' },
-                  { kind: 'il', label: 'IL stint' },
-                ].map(({ kind, label }) => (
-                  <div key={kind} className="award-row" style={{ opacity: 0.35 }}>
-                    <div className="yr">—</div>
-                    <div className="glyph">
-                      <svg width="14" height="14" viewBox="-7 -7 14 14">
-                        <AnnotationGlyph
-                          kind={kind as 'mvp' | 'cy' | 'gg' | 'asg' | 'il'}
-                          color={kind === 'il' ? '#f87171' : color}
-                        />
-                      </svg>
-                    </div>
-                    <div className="label">{label}</div>
-                  </div>
-                ))}
-              </div>
+              {awards.length === 0 ? (
+                <div style={{ color: 'var(--text-3)', fontSize: 12, padding: '8px 4px' }}>
+                  No awards on record.
+                </div>
+              ) : (
+                <div className="awards-list" style={{ marginTop: 8 }}>
+                  {awards.map((a) => {
+                    const glyphKind = awardGlyphKind(a.kind);
+                    const label = AWARD_LABELS[a.kind];
+                    const suffix = [a.league, a.notes].filter(Boolean).join(' · ');
+                    return (
+                      <div key={a.id} className="award-row">
+                        <div className="yr">{a.year}</div>
+                        <div className="glyph">
+                          <svg width="14" height="14" viewBox="-7 -7 14 14">
+                            <AnnotationGlyph kind={glyphKind} color={color} />
+                          </svg>
+                        </div>
+                        <div className="label">
+                          {label}
+                          {suffix && <span className="muted" style={{ marginLeft: 6 }}>{suffix}</span>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </div>

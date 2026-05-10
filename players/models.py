@@ -29,11 +29,6 @@ class Player(models.Model):
     mlb_played_first = models.SmallIntegerField(null=True)
     mlb_played_last  = models.SmallIntegerField(null=True)
 
-    # All-Star career totals (per-year selections not available without per-game scraping)
-    asg_games = models.SmallIntegerField(null=True)
-    asg_first = models.SmallIntegerField(null=True)
-    asg_last  = models.SmallIntegerField(null=True)
-
     class Meta:
         indexes = [
             models.Index(fields=['last_name', 'first_name']),

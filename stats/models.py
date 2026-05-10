@@ -143,6 +143,7 @@ class PlayerAward(models.Model):
         ERA_TITLE = 'era_title', 'ERA Title'
         ALL_MLB   = 'all_mlb',   'All-MLB Team'
         WS        = 'ws',        'World Series Champion'
+        ASG       = 'asg',       'All-Star Game'
 
     player = models.ForeignKey(Player, on_delete=models.CASCADE, related_name='awards')
     year   = models.SmallIntegerField()

@@ -95,6 +95,19 @@ export interface PitchingSeason {
   war: number | null;
 }
 
+export type AwardKind =
+  | 'mvp' | 'cy' | 'roty' | 'gg' | 'ss'
+  | 'tc_b' | 'tc_p' | 'hof' | 'postmvp'
+  | 'bat_title' | 'era_title' | 'all_mlb' | 'ws' | 'asg';
+
+export interface PlayerAward {
+  id: number;
+  year: number;
+  kind: AwardKind;
+  league: string | null;
+  notes: string | null;
+}
+
 export interface SimilarPlayer {
   bbref_id: string;
   first_name: string;

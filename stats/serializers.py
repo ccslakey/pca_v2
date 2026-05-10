@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import BattingSeason, PitchingSeason
+from .models import BattingSeason, PitchingSeason, PlayerAward
 
 
 class BattingSeasonSerializer(serializers.ModelSerializer[BattingSeason]):
@@ -12,3 +12,9 @@ class PitchingSeasonSerializer(serializers.ModelSerializer[PitchingSeason]):
     class Meta:
         model = PitchingSeason
         fields = '__all__'
+
+
+class PlayerAwardSerializer(serializers.ModelSerializer[PlayerAward]):
+    class Meta:
+        model = PlayerAward
+        fields = ['id', 'year', 'kind', 'league', 'notes']

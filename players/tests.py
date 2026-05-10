@@ -4,7 +4,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase
 
 from players.models import Player
-from stats.models import BattingSeason, PitchingSeason
+from stats.models import BattingSeason, PitchingSeason, PlayerAward
 
 
 def make_player(bbref_id: str, first: str = 'Test', last: str = 'Player', **kwargs) -> Player:
@@ -224,3 +224,45 @@ class TestSimilarAction(APITestCase):
         ids = [p['bbref_id'] for p in r.data]
         # ford (pitcher) should not appear in his own results
         self.assertNotIn('fordwh01', ids)
+
+
+class TestAwardsAction(APITestCase):
+    def setUp(self):
+        self.player = make_player('ruthba01', 'Babe', 'Ruth')
+        PlayerAward.objects.create(player=self.player, year=1923, kind='mvp')
+        PlayerAward.objects.create(player=self.player, year=1927, kind='ws', league='AL')
+        PlayerAward.objects.create(player=self.player, year=1933, kind='asg', league='AL')
+
+    def test_returns_200(self):
+        r = self.client.get(reverse('player-awards', kwargs={'pk': 'ruthba01'}))
+        self.assertEqual(r.status_code, 200)
+
+    def test_returns_all_awards(self):
+        r = self.client.get(reverse('player-awards', kwargs={'pk': 'ruthba01'}))
+        self.assertEqual(len(r.data), 3)
+
+    def test_ordered_by_year(self):
+        r = self.client.get(reverse('player-awards', kwargs={'pk': 'ruthba01'}))
+        years = [a['year'] for a in r.data]
+        self.assertEqual(years, sorted(years))
+
+    def test_response_fields(self):
+        r = self.client.get(reverse('player-awards', kwargs={'pk': 'ruthba01'}))
+        a = r.data[0]
+        for field in ('id', 'year', 'kind', 'league', 'notes'):
+            self.assertIn(field, a)
+
+    def test_league_and_notes_preserved(self):
+        r = self.client.get(reverse('player-awards', kwargs={'pk': 'ruthba01'}))
+        ws = next(a for a in r.data if a['kind'] == 'ws')
+        self.assertEqual(ws['league'], 'AL')
+
+    def test_empty_for_player_with_no_awards(self):
+        make_player('nobody00', 'No', 'Awards')
+        r = self.client.get(reverse('player-awards', kwargs={'pk': 'nobody00'}))
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.data, [])
+
+    def test_404_for_unknown_player(self):
+        r = self.client.get(reverse('player-awards', kwargs={'pk': 'ghost000'}))
+        self.assertEqual(r.status_code, 404)
