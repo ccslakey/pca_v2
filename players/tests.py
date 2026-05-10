@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from django.core.cache import cache
 from django.urls import reverse
 from rest_framework.test import APITestCase
 
@@ -157,6 +158,7 @@ class TestPitchingAction(APITestCase):
 
 class TestSimilarAction(APITestCase):
     def setUp(self):
+        cache.clear()
         self.ruth = make_player('ruthba01', 'Babe', 'Ruth')
         add_batting(self.ruth, 2000, war=10.0)
 

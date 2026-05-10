@@ -18,6 +18,7 @@ import argparse
 import os
 import sys
 import time
+import warnings
 
 import django
 
@@ -26,6 +27,11 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'pca_backend.settings')
 django.setup()
 
 import pandas as pd
+
+# pybaseball reads multi-year CSVs with mixed-type columns; the DtypeWarning
+# is harmless since pandas falls back to object dtype safely.
+warnings.filterwarnings('ignore', category=pd.errors.DtypeWarning, module='pybaseball')
+
 from pybaseball import statcast_batter, statcast_pitcher
 
 from django.db.models import Sum

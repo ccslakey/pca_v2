@@ -4,6 +4,7 @@ import math
 import statistics
 from typing import TYPE_CHECKING, Callable
 
+from django.core.cache import cache
 from django.db.models import Max, Sum
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, viewsets
@@ -80,47 +81,55 @@ class PlayerViewSet(viewsets.ReadOnlyModelViewSet[Player]):
     def similar(self, request: Request, pk: str | None = None) -> Response:
         player: Player = self.get_object()
 
-        # --- Batting aggregates ---
-        bat_totals: dict[str, dict] = {
-            r["player_id"]: r
-            for r in BattingSeason.objects.values("player_id").annotate(
-                career_war=Sum("war"),
-                peak_war=Max("war"),
-                career_pa=Sum("plate_appearances"),
-                career_hr=Sum("home_runs"),
-            )
-        }
-        # PA-weighted career OPS+ (era-adjusted, 100 = league avg; skip null rows)
-        _bat_ops_num: dict[str, float] = {}
-        _bat_ops_den: dict[str, int] = {}
-        for r in BattingSeason.objects.values("player_id", "ops_plus", "plate_appearances"):
-            if r["ops_plus"] is None or not r["plate_appearances"]:
-                continue
-            pid = r["player_id"]
-            _bat_ops_num[pid] = _bat_ops_num.get(pid, 0.0) + r["ops_plus"] * r["plate_appearances"]
-            _bat_ops_den[pid] = _bat_ops_den.get(pid, 0) + r["plate_appearances"]
+        # --- Batting aggregates (cached 1 h; invalidate if seasons are re-ingested) ---
+        bat_agg = cache.get("sim_bat_agg")
+        if bat_agg is None:
+            bat_totals: dict[str, dict] = {
+                r["player_id"]: r
+                for r in BattingSeason.objects.values("player_id").annotate(
+                    career_war=Sum("war"),
+                    peak_war=Max("war"),
+                    career_pa=Sum("plate_appearances"),
+                    career_hr=Sum("home_runs"),
+                )
+            }
+            _bat_ops_num: dict[str, float] = {}
+            _bat_ops_den: dict[str, int] = {}
+            for r in BattingSeason.objects.values("player_id", "ops_plus", "plate_appearances"):
+                if r["ops_plus"] is None or not r["plate_appearances"]:
+                    continue
+                pid = r["player_id"]
+                _bat_ops_num[pid] = _bat_ops_num.get(pid, 0.0) + r["ops_plus"] * r["plate_appearances"]
+                _bat_ops_den[pid] = _bat_ops_den.get(pid, 0) + r["plate_appearances"]
+            bat_agg = (bat_totals, _bat_ops_num, _bat_ops_den)
+            cache.set("sim_bat_agg", bat_agg, timeout=3600)
+        bat_totals, _bat_ops_num, _bat_ops_den = bat_agg
 
-        # --- Pitching aggregates ---
-        pit_totals: dict[str, dict] = {
-            r["player_id"]: r
-            for r in PitchingSeason.objects.values("player_id").annotate(
-                career_war=Sum("war"),
-                peak_war=Max("war"),
-                career_ip=Sum("ip_outs"),
-                career_so=Sum("strikeouts"),
-                career_g=Sum("games"),
-                career_gs=Sum("games_started"),
-            )
-        }
-        # IP-weighted career ERA+ (era-adjusted, 100 = league avg, higher = better; skip null rows)
-        _pit_era_num: dict[str, float] = {}
-        _pit_era_den: dict[str, int] = {}
-        for r in PitchingSeason.objects.values("player_id", "era_plus", "ip_outs"):
-            if r["era_plus"] is None or not r["ip_outs"]:
-                continue
-            pid = r["player_id"]
-            _pit_era_num[pid] = _pit_era_num.get(pid, 0.0) + r["era_plus"] * r["ip_outs"]
-            _pit_era_den[pid] = _pit_era_den.get(pid, 0) + r["ip_outs"]
+        # --- Pitching aggregates (cached 1 h) ---
+        pit_agg = cache.get("sim_pit_agg")
+        if pit_agg is None:
+            pit_totals: dict[str, dict] = {
+                r["player_id"]: r
+                for r in PitchingSeason.objects.values("player_id").annotate(
+                    career_war=Sum("war"),
+                    peak_war=Max("war"),
+                    career_ip=Sum("ip_outs"),
+                    career_so=Sum("strikeouts"),
+                    career_g=Sum("games"),
+                    career_gs=Sum("games_started"),
+                )
+            }
+            _pit_era_num: dict[str, float] = {}
+            _pit_era_den: dict[str, int] = {}
+            for r in PitchingSeason.objects.values("player_id", "era_plus", "ip_outs"):
+                if r["era_plus"] is None or not r["ip_outs"]:
+                    continue
+                pid = r["player_id"]
+                _pit_era_num[pid] = _pit_era_num.get(pid, 0.0) + r["era_plus"] * r["ip_outs"]
+                _pit_era_den[pid] = _pit_era_den.get(pid, 0) + r["ip_outs"]
+            pit_agg = (pit_totals, _pit_era_num, _pit_era_den)
+            cache.set("sim_pit_agg", pit_agg, timeout=3600)
+        pit_totals, _pit_era_num, _pit_era_den = pit_agg
 
         pitcher_ids: set[str] = set(pit_totals.keys())
         batter_ids:  set[str] = set(bat_totals.keys())
