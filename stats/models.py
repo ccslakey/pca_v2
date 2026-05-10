@@ -123,6 +123,41 @@ class PitchingSeason(models.Model):
         return f"{self.player_id} {self.year} {self.team} stint={self.stint}"
 
 
+class PlayerAward(models.Model):
+    """
+    One row per award instance. Career milestones like HOF use the induction
+    year; All-Star career totals are stored on the Player model instead.
+    """
+
+    class Kind(models.TextChoices):
+        MVP       = 'mvp',       'Most Valuable Player'
+        CY        = 'cy',        'Cy Young Award'
+        ROTY      = 'roty',      'Rookie of the Year'
+        GG        = 'gg',        'Gold Glove'
+        SS        = 'ss',        'Silver Slugger'
+        TC_B      = 'tc_b',      'Triple Crown (Batting)'
+        TC_P      = 'tc_p',      'Triple Crown (Pitching)'
+        HOF       = 'hof',       'Hall of Fame'
+        POSTMVP   = 'postmvp',   'Postseason MVP'
+        BAT_TITLE = 'bat_title', 'Batting Title'
+        ERA_TITLE = 'era_title', 'ERA Title'
+        ALL_MLB   = 'all_mlb',   'All-MLB Team'
+        WS        = 'ws',        'World Series Champion'
+
+    player = models.ForeignKey(Player, on_delete=models.CASCADE, related_name='awards')
+    year   = models.SmallIntegerField()
+    kind   = models.CharField(max_length=12, choices=Kind.choices)
+    league = models.CharField(max_length=3, null=True, blank=True)  # AL/NL or 1st/2nd for All-MLB
+    notes  = models.CharField(max_length=50, null=True, blank=True) # position (GG/SS/All-MLB), WS/ALCS/NLCS (postmvp)
+
+    class Meta:
+        unique_together = [('player', 'year', 'kind', 'league')]
+        indexes = [models.Index(fields=['player', 'year'])]
+
+    def __str__(self):
+        return f"{self.player_id} {self.year} {self.kind}"
+
+
 class IngestionLog(models.Model):
     """Tracks completed ingestion runs to allow safe re-runs."""
     source       = models.CharField(max_length=50)   # e.g. 'bref_batting_MLB_2023'
