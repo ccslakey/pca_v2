@@ -4,7 +4,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase
 
 from players.models import Player
-from stats.models import BattingSeason, PitchingSeason, PlayerAward
+from stats.models import BattingSeason, PitchingSeason, PlayerAward, StatcastZoneBucket
 
 
 def make_player(bbref_id: str, first: str = 'Test', last: str = 'Player', **kwargs) -> Player:
@@ -241,10 +241,10 @@ class TestAwardsAction(APITestCase):
         r = self.client.get(reverse('player-awards', kwargs={'pk': 'ruthba01'}))
         self.assertEqual(len(r.data), 3)
 
-    def test_ordered_by_year(self):
+    def test_ordered_by_year_descending(self):
         r = self.client.get(reverse('player-awards', kwargs={'pk': 'ruthba01'}))
         years = [a['year'] for a in r.data]
-        self.assertEqual(years, sorted(years))
+        self.assertEqual(years, sorted(years, reverse=True))
 
     def test_response_fields(self):
         r = self.client.get(reverse('player-awards', kwargs={'pk': 'ruthba01'}))
@@ -265,4 +265,64 @@ class TestAwardsAction(APITestCase):
 
     def test_404_for_unknown_player(self):
         r = self.client.get(reverse('player-awards', kwargs={'pk': 'ghost000'}))
+        self.assertEqual(r.status_code, 404)
+
+
+class TestPitchZoneAction(APITestCase):
+    def setUp(self):
+        self.player = make_player('troutmi01', 'Mike', 'Trout')
+        add_batting(self.player, 2023, 8.0)
+        for px, pz, count, total in [(-0.5, 2.5, 10, 40), (0.3, 3.1, 5, 20), (0.8, 1.8, 2, 15)]:
+            StatcastZoneBucket.objects.create(
+                player=self.player, role='B', outcome='contact',
+                plate_x=px, plate_z=pz, count=count, total=total,
+            )
+        StatcastZoneBucket.objects.create(
+            player=self.player, role='B', outcome='whiffs',
+            plate_x=0.5, plate_z=3.0, count=8, total=12,
+        )
+
+    def test_returns_200(self):
+        r = self.client.get(reverse('player-pitch-zone', kwargs={'pk': 'troutmi01'}))
+        self.assertEqual(r.status_code, 200)
+
+    def test_default_role_and_outcome(self):
+        r = self.client.get(reverse('player-pitch-zone', kwargs={'pk': 'troutmi01'}))
+        self.assertEqual(r.data['role'], 'B')
+        self.assertEqual(r.data['outcome'], 'contact')
+
+    def test_bucket_count_matches_outcome(self):
+        r = self.client.get(reverse('player-pitch-zone', kwargs={'pk': 'troutmi01'}),
+                            {'role': 'B', 'outcome': 'contact'})
+        self.assertEqual(len(r.data['buckets']), 3)
+
+    def test_outcome_filter(self):
+        r = self.client.get(reverse('player-pitch-zone', kwargs={'pk': 'troutmi01'}),
+                            {'role': 'B', 'outcome': 'whiffs'})
+        self.assertEqual(len(r.data['buckets']), 1)
+
+    def test_bucket_fields(self):
+        r = self.client.get(reverse('player-pitch-zone', kwargs={'pk': 'troutmi01'}))
+        b = r.data['buckets'][0]
+        for field in ('plate_x', 'plate_z', 'count', 'total'):
+            self.assertIn(field, b)
+
+    def test_empty_for_no_data(self):
+        make_player('nobody00', 'No', 'Data')
+        r = self.client.get(reverse('player-pitch-zone', kwargs={'pk': 'nobody00'}))
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.data['buckets'], [])
+
+    def test_invalid_outcome_returns_400(self):
+        r = self.client.get(reverse('player-pitch-zone', kwargs={'pk': 'troutmi01'}),
+                            {'role': 'B', 'outcome': 'bogus'})
+        self.assertEqual(r.status_code, 400)
+
+    def test_invalid_role_returns_400(self):
+        r = self.client.get(reverse('player-pitch-zone', kwargs={'pk': 'troutmi01'}),
+                            {'role': 'X', 'outcome': 'contact'})
+        self.assertEqual(r.status_code, 400)
+
+    def test_404_for_unknown_player(self):
+        r = self.client.get(reverse('player-pitch-zone', kwargs={'pk': 'ghost000'}))
         self.assertEqual(r.status_code, 404)

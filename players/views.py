@@ -15,6 +15,7 @@ from stats.serializers import (
     BattingSeasonSerializer,
     PitchingSeasonSerializer,
     PlayerAwardSerializer,
+    StatcastZoneBucketSerializer,
 )
 
 from .models import Player
@@ -54,6 +55,24 @@ class PlayerViewSet(viewsets.ReadOnlyModelViewSet[Player]):
         player: Player = self.get_object()
         qs = player.awards.all().order_by("-year", "kind")
         return Response(PlayerAwardSerializer(qs, many=True).data)
+
+    @action(detail=True, url_path="pitch_zone")
+    def pitch_zone(self, request: Request, pk: str | None = None) -> Response:
+        player: Player = self.get_object()
+        role    = request.query_params.get("role", "B")
+        outcome = request.query_params.get("outcome", "contact")
+
+        VALID_ROLES    = {"B", "P"}
+        VALID_OUTCOMES = {"contact", "hits", "whiffs"}
+        if role not in VALID_ROLES or outcome not in VALID_OUTCOMES:
+            return Response({"detail": "Invalid role or outcome."}, status=400)
+
+        qs = player.zone_buckets.filter(role=role, outcome=outcome)
+        return Response({
+            "role": role,
+            "outcome": outcome,
+            "buckets": StatcastZoneBucketSerializer(qs, many=True).data,
+        })
 
     @action(detail=True, url_path="similar")
     def similar(self, request: Request, pk: str | None = None) -> Response:

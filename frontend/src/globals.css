@@ -614,3 +614,29 @@ svg.chart { display: block; width: 100%; user-select: none; }
   color: var(--text-2);
 }
 .tab.is-active { background: var(--bg-1); color: var(--text-0); }
+
+/* Pitch zone heatmap */
+.pitch-zone-wrap { display: flex; flex-direction: column; gap: 8px; }
+.pitch-zone-tabs {
+  display: inline-flex;
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+  align-self: flex-start;
+}
+.pitch-zone-tab {
+  background: transparent; border: none; cursor: pointer;
+  padding: 3px 10px; border-radius: 6px;
+  font-size: 11px; color: var(--text-2);
+  font-family: var(--font-mono);
+}
+.pitch-zone-tab.active { background: var(--bg-1); color: var(--text-0); }
+.pitch-zone-legend {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 10px; color: var(--text-3); font-family: var(--font-mono);
+}
+.pitch-zone-gradient {
+  flex: 1; height: 6px; border-radius: 3px;
+}

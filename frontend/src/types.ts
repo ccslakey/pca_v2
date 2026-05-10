@@ -118,6 +118,22 @@ export interface SimilarPlayer {
   is_pitcher: boolean;
 }
 
+export type ZoneRole    = 'B' | 'P';
+export type ZoneOutcome = 'contact' | 'hits' | 'whiffs';
+
+export interface ZoneBucket {
+  plate_x: number;
+  plate_z: number;
+  count:   number;
+  total:   number;
+}
+
+export interface ZoneResponse {
+  role:    ZoneRole;
+  outcome: ZoneOutcome;
+  buckets: ZoneBucket[];
+}
+
 export interface PaginatedResponse<T> {
   count: number;
   next: string | null;

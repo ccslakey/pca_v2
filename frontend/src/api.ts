@@ -6,6 +6,9 @@ import type {
   PitchingSeason,
   SimilarPlayer,
   PlayerAward,
+  ZoneRole,
+  ZoneOutcome,
+  ZoneResponse,
 } from './types';
 
 const BASE = '/api';
@@ -39,4 +42,13 @@ export function fetchSimilarPlayers(bbrefId: string): Promise<SimilarPlayer[]> {
 
 export function fetchPlayerAwards(bbrefId: string): Promise<PlayerAward[]> {
   return get<PlayerAward[]>(`/players/${bbrefId}/awards/`);
+}
+
+export function fetchPitchZone(
+  bbrefId: string,
+  role: ZoneRole,
+  outcome: ZoneOutcome,
+): Promise<ZoneResponse> {
+  const params = new URLSearchParams({ role, outcome });
+  return get<ZoneResponse>(`/players/${bbrefId}/pitch_zone/?${params}`);
 }

@@ -6,6 +6,7 @@ import { ProfileChart } from '../components/ProfileChart';
 import { Sparkline } from '../components/Sparkline';
 // import { MonthlyHeatmap } from '../components/MonthlyHeatmap'; // shelved — needs real monthly split data (see pipeline/explore_monthly_splits.py)
 import { AnnotationGlyph } from '../components/AnnotationGlyph';
+import { PitchZone } from '../components/PitchZone';
 import { METRICS } from '../constants';
 import type { MetricId, ChartSeason, AwardKind } from '../types';
 import { fmtMetric, peakSeason, careerWar } from '../utils/chart';
@@ -373,6 +374,23 @@ export function ProfilePage() {
               </div>
             )}
             */}
+
+            {(player.isBatter || player.isPitcher) && (
+              <div className="panel">
+                <div className="panel-header">
+                  <div className="panel-title">
+                    Pitch zone
+                    <span className="muted">Statcast 2015–present</span>
+                  </div>
+                </div>
+                <PitchZone
+                  bbrefId={player.id}
+                  isBatter={player.isBatter}
+                  isPitcher={player.isPitcher}
+                  color={color}
+                />
+              </div>
+            )}
 
             <div className="panel">
               <div className="panel-header">

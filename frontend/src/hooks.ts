@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { fetchBattingSeasons, fetchPitchingSeasons, fetchPlayer, fetchPlayerAwards, fetchSimilarPlayers, searchPlayers } from './api';
+import { fetchBattingSeasons, fetchPitchingSeasons, fetchPlayer, fetchPlayerAwards, fetchPitchZone, fetchSimilarPlayers, searchPlayers } from './api';
+import type { ZoneOutcome, ZoneRole } from './types';
 import type { BattingSeason, ChartPlayer, ChartSeason, PitchingSeason } from './types';
 import { PLAYER_COLORS } from './constants';
 
@@ -109,6 +110,19 @@ function round1(n: number) {
 
 function initials(firstName: string, lastName: string) {
   return `${firstName[0] ?? ''}${lastName[0] ?? ''}`.toUpperCase();
+}
+
+export function usePitchZone(
+  bbrefId: string | null,
+  role: ZoneRole,
+  outcome: ZoneOutcome,
+) {
+  return useQuery({
+    queryKey: ['pitchZone', bbrefId, role, outcome],
+    queryFn: () => fetchPitchZone(bbrefId!, role, outcome),
+    enabled: bbrefId != null,
+    staleTime: Infinity,
+  });
 }
 
 export function usePlayerAwards(bbrefId: string | null) {
