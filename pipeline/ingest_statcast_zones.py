@@ -169,7 +169,7 @@ def ingest_player_role(player: Player, role: str, force: bool,
 def players_by_war(min_war: float, roles: set[str]) -> list[tuple[Player, set[str]]]:
     """
     Return [(player, {roles})] for players with career WAR >= min_war
-    and mlbam_id available and mlb_played_last >= 2015.
+    and mlbam_id available and at least one season >= 2015.
     """
     bat_war = {
         r['player_id']: r['s'] or 0.0
@@ -179,13 +179,18 @@ def players_by_war(min_war: float, roles: set[str]) -> list[tuple[Player, set[st
         r['player_id']: r['s'] or 0.0
         for r in PitchingSeason.objects.values('player_id').annotate(s=Sum('war'))
     }
-    batter_ids = set(BattingSeason.objects.values_list('player_id', flat=True).distinct())
+    # Players with at least one season >= 2015 (Statcast era)
+    recent_bat = set(BattingSeason.objects.filter(year__gte=2015).values_list('player_id', flat=True).distinct())
+    recent_pit = set(PitchingSeason.objects.filter(year__gte=2015).values_list('player_id', flat=True).distinct())
+    recent_ids = recent_bat | recent_pit
+
+    batter_ids  = set(BattingSeason.objects.values_list('player_id', flat=True).distinct())
     pitcher_ids = set(PitchingSeason.objects.values_list('player_id', flat=True).distinct())
 
     results = []
     qs = Player.objects.filter(
         mlbam_id__isnull=False,
-        mlb_played_last__gte=2015,
+        bbref_id__in=recent_ids,
     )
     for p in qs:
         career_war = (bat_war.get(p.bbref_id, 0.0) or 0.0) + \
