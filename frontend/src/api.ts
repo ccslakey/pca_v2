@@ -4,7 +4,7 @@ import type {
   PlayerDetail,
   BattingSeason,
   PitchingSeason,
-  SimilarPlayer,
+  SimilarPlayersResponse,
   PlayerAward,
   ZoneRole,
   ZoneOutcome,
@@ -36,8 +36,8 @@ export function fetchPitchingSeasons(bbrefId: string): Promise<PitchingSeason[]>
   return get<PitchingSeason[]>(`/players/${bbrefId}/pitching/`);
 }
 
-export function fetchSimilarPlayers(bbrefId: string): Promise<SimilarPlayer[]> {
-  return get<SimilarPlayer[]>(`/players/${bbrefId}/similar/`);
+export function fetchSimilarPlayers(bbrefId: string): Promise<SimilarPlayersResponse> {
+  return get<SimilarPlayersResponse>(`/players/${bbrefId}/similar/`);
 }
 
 export function fetchPlayerAwards(bbrefId: string): Promise<PlayerAward[]> {

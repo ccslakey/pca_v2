@@ -182,9 +182,14 @@ class TestSimilarAction(APITestCase):
         r = self.client.get(self.url)
         self.assertEqual(r.status_code, 200)
 
+    def test_response_shape(self):
+        r = self.client.get(self.url)
+        self.assertIn('batters', r.data)
+        self.assertIn('pitchers', r.data)
+
     def test_excludes_self(self):
         r = self.client.get(self.url)
-        ids = [p['bbref_id'] for p in r.data]
+        ids = [p['bbref_id'] for p in r.data['batters']]
         self.assertNotIn('ruthba01', ids)
 
     def test_returns_at_most_four(self):
@@ -192,28 +197,35 @@ class TestSimilarAction(APITestCase):
             p = make_player(f'extra{i:02d}01', war_val=8.0)
             add_batting(p, 2000, war=8.0)
         r = self.client.get(self.url)
-        self.assertLessEqual(len(r.data), 4)
+        self.assertLessEqual(len(r.data['batters']), 4)
 
     def test_excludes_low_war_players(self):
         r = self.client.get(self.url)
-        ids = [p['bbref_id'] for p in r.data]
+        ids = [p['bbref_id'] for p in r.data['batters']]
         self.assertNotIn('scrubXX01', ids)
 
-    def test_batters_rank_above_pitchers(self):
+    def test_batters_not_in_pitcher_list(self):
         r = self.client.get(self.url)
-        ids = [p['bbref_id'] for p in r.data]
-        # gehrig and dimaggio (batters) should appear before ford (pitcher)
-        batter_positions = [i for i, x in enumerate(ids) if x in ('gehrilo01', 'dimagjo01')]
-        pitcher_positions = [i for i, x in enumerate(ids) if x == 'fordwh01']
-        if batter_positions and pitcher_positions:
-            self.assertLess(min(batter_positions), max(pitcher_positions))
+        # ruth is a batter — pitchers list should be empty
+        self.assertEqual(r.data['pitchers'], [])
+        # gehrig and dimaggio should appear in batters list
+        ids = [p['bbref_id'] for p in r.data['batters']]
+        self.assertTrue(any(x in ids for x in ('gehrilo01', 'dimagjo01')))
 
     def test_response_fields(self):
         r = self.client.get(self.url)
-        self.assertTrue(len(r.data) > 0)
-        p = r.data[0]
-        for field in ('bbref_id', 'first_name', 'last_name', 'career_war', 'is_pitcher'):
+        self.assertTrue(len(r.data['batters']) > 0)
+        p = r.data['batters'][0]
+        for field in ('bbref_id', 'first_name', 'last_name', 'career_war', 'is_pitcher', 'similarity'):
             self.assertIn(field, p)
+
+    def test_similarity_descending(self):
+        for i in range(5):
+            pl = make_player(f'extra{i:02d}01', war_val=8.0)
+            add_batting(pl, 2000, war=float(8 - i))
+        r = self.client.get(self.url)
+        sims = [p['similarity'] for p in r.data['batters']]
+        self.assertEqual(sims, sorted(sims, reverse=True))
 
     def test_404_for_unknown_player(self):
         r = self.client.get(reverse('player-similar', kwargs={'pk': 'nobody00'}))
@@ -221,9 +233,19 @@ class TestSimilarAction(APITestCase):
 
     def test_pitcher_similarity(self):
         r = self.client.get(reverse('player-similar', kwargs={'pk': 'fordwh01'}))
-        ids = [p['bbref_id'] for p in r.data]
-        # ford (pitcher) should not appear in his own results
+        ids = [p['bbref_id'] for p in r.data['pitchers']]
         self.assertNotIn('fordwh01', ids)
+        # ford is a pitcher — batters list should be empty
+        self.assertEqual(r.data['batters'], [])
+
+    def test_two_way_player(self):
+        ohtani = make_player('ohtansh01', 'Shohei', 'Ohtani')
+        add_batting(ohtani, 2022, war=5.0)
+        add_pitching(ohtani, 2022, war=4.0)
+        r = self.client.get(reverse('player-similar', kwargs={'pk': 'ohtansh01'}))
+        self.assertEqual(r.status_code, 200)
+        self.assertGreater(len(r.data['batters']), 0)
+        self.assertGreater(len(r.data['pitchers']), 0)
 
 
 class TestAwardsAction(APITestCase):

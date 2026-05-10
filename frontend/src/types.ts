@@ -116,6 +116,12 @@ export interface SimilarPlayer {
   mlb_played_last: number | null;
   career_war: number;
   is_pitcher: boolean;
+  similarity: number;
+}
+
+export interface SimilarPlayersResponse {
+  batters:  SimilarPlayer[];
+  pitchers: SimilarPlayer[];
 }
 
 export type ZoneRole    = 'B' | 'P';

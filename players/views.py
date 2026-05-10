@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 import statistics
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 from django.db.models import Max, Sum
 from django_filters.rest_framework import DjangoFilterBackend
@@ -123,15 +123,17 @@ class PlayerViewSet(viewsets.ReadOnlyModelViewSet[Player]):
             _pit_era_den[pid] = _pit_era_den.get(pid, 0) + r["ip_outs"]
 
         pitcher_ids: set[str] = set(pit_totals.keys())
+        batter_ids:  set[str] = set(bat_totals.keys())
+        target_is_batter  = player.bbref_id in batter_ids
         target_is_pitcher = player.bbref_id in pitcher_ids
 
         def batter_vec(pid: str) -> list[float]:
             t = bat_totals.get(pid, {})
-            war     = t.get("career_war") or 0.0
-            peak    = t.get("peak_war")   or 0.0
-            pa      = t.get("career_pa")  or 0
-            hr      = t.get("career_hr")  or 0
-            n, d    = _bat_ops_num.get(pid, 0.0), _bat_ops_den.get(pid, 0)
+            war      = t.get("career_war") or 0.0
+            peak     = t.get("peak_war")   or 0.0
+            pa       = t.get("career_pa")  or 0
+            hr       = t.get("career_hr")  or 0
+            n, d     = _bat_ops_num.get(pid, 0.0), _bat_ops_den.get(pid, 0)
             ops_plus = n / d if d > 0 else 100.0  # 100 = league avg
             hr_rate  = hr / pa * 600 if pa > 0 else 0.0  # HR per 600 PA
             return [war, peak, ops_plus, hr_rate]
@@ -150,65 +152,77 @@ class PlayerViewSet(viewsets.ReadOnlyModelViewSet[Player]):
             sp_pct   = gs / g if g > 0 else 0.0   # 0 = pure RP, 1 = pure SP
             return [war, peak, era_plus, k9, sp_pct]
 
-        # Build comparison pool (same role, minimum 1 career WAR)
-        if target_is_pitcher:
-            pool = {pid for pid, t in pit_totals.items() if (t.get("career_war") or 0) >= 1.0}
-            pool_vecs = {pid: pitcher_vec(pid) for pid in pool}
-            weights   = [2.0, 1.0, 1.5, 1.0, 0.8]  # war, peak, era, k9, sp_pct
-            target_vec = pitcher_vec(player.bbref_id)
-        else:
-            pool = {pid for pid, t in bat_totals.items() if (t.get("career_war") or 0) >= 1.0}
-            pool_vecs = {pid: batter_vec(pid) for pid in pool}
-            weights   = [2.0, 1.0, 1.5, 0.8]  # war, peak, ops, hr_rate
-            target_vec = batter_vec(player.bbref_id)
+        def _top4(
+            target_pid: str,
+            pool_pids: set[str],
+            vec_fn: Callable[[str], list[float]],
+            weights: list[float],
+        ) -> list[dict]:
+            pool_vecs = {pid: vec_fn(pid) for pid in pool_pids}
+            target_vec = vec_fn(target_pid)
+            n_feat = len(target_vec)
 
-        # Normalize each feature by its std dev across the pool
-        n_feat = len(target_vec)
-        stds: list[float] = []
-        for i in range(n_feat):
-            vals = [v[i] for v in pool_vecs.values()]
-            try:
-                s = statistics.stdev(vals)
-            except statistics.StatisticsError:
-                s = 1.0
-            stds.append(s if s > 0 else 1.0)
+            stds: list[float] = []
+            for i in range(n_feat):
+                vals = [v[i] for v in pool_vecs.values()]
+                try:
+                    s = statistics.stdev(vals)
+                except statistics.StatisticsError:
+                    s = 1.0
+                stds.append(s if s > 0 else 1.0)
 
-        def dist(vec: list[float]) -> float:
-            return math.sqrt(sum(
-                weights[i] * ((target_vec[i] - vec[i]) / stds[i]) ** 2
-                for i in range(n_feat)
-            ))
+            def dist(vec: list[float]) -> float:
+                return math.sqrt(sum(
+                    weights[i] * ((target_vec[i] - vec[i]) / stds[i]) ** 2
+                    for i in range(n_feat)
+                ))
 
-        scored: list[tuple[float, str]] = [
-            (dist(vec), pid)
-            for pid, vec in pool_vecs.items()
-            if pid != player.bbref_id
-        ]
-        scored.sort(key=lambda x: x[0])
-        top_ids = [pid for _, pid in scored[:8]]
-
-        players_map = {
-            p.bbref_id: p
-            for p in Player.objects.filter(bbref_id__in=top_ids).only(
-                "bbref_id", "first_name", "last_name", "mlb_played_first", "mlb_played_last"
+            scored = sorted(
+                [(dist(vec), pid) for pid, vec in pool_vecs.items() if pid != target_pid],
+                key=lambda x: x[0],
             )
-        }
+            # Calibrate exponential decay so the median pool member scores ~30%.
+            # sim = 100 * exp(-k * distance), k = ln(0.30) / median_distance.
+            all_dists = [d for d, _ in scored]
+            median_dist = all_dists[len(all_dists) // 2] if all_dists else 1.0
+            k = -math.log(0.30) / max(median_dist, 1e-6)
+            top_ids = [pid for _, pid in scored[:8]]
+            players_map = {
+                p.bbref_id: p
+                for p in Player.objects.filter(bbref_id__in=top_ids).only(
+                    "bbref_id", "first_name", "last_name", "mlb_played_first", "mlb_played_last"
+                )
+            }
+            results = []
+            for rank, (d, pid) in enumerate(scored[:8]):
+                p = players_map.get(pid)
+                if not p:
+                    continue
+                career_war = (bat_totals.get(pid, {}).get("career_war") or 0.0) + \
+                             (pit_totals.get(pid, {}).get("career_war") or 0.0)
+                similarity = round(100 * math.exp(-k * d))
+                results.append({
+                    "bbref_id": p.bbref_id,
+                    "first_name": p.first_name,
+                    "last_name": p.last_name,
+                    "mlb_played_first": p.mlb_played_first,
+                    "mlb_played_last": p.mlb_played_last,
+                    "career_war": round(career_war, 1),
+                    "is_pitcher": pid in pitcher_ids,
+                    "similarity": similarity,
+                })
+                if len(results) == 4:
+                    break
+            return results
 
-        results = []
-        for _, pid in scored[:8]:
-            p = players_map.get(pid)
-            if not p:
-                continue
-            career_war = (bat_totals.get(pid, {}).get("career_war") or 0.0) + \
-                         (pit_totals.get(pid, {}).get("career_war") or 0.0)
-            results.append({
-                "bbref_id": p.bbref_id,
-                "first_name": p.first_name,
-                "last_name": p.last_name,
-                "mlb_played_first": p.mlb_played_first,
-                "mlb_played_last": p.mlb_played_last,
-                "career_war": round(career_war, 1),
-                "is_pitcher": pid in pitcher_ids,
-            })
+        bat_pool = {pid for pid, t in bat_totals.items() if (t.get("career_war") or 0) >= 1.0}
+        pit_pool = {pid for pid, t in pit_totals.items() if (t.get("career_war") or 0) >= 1.0}
+        bat_weights = [2.0, 1.0, 1.5, 0.8]        # war, peak, ops+, hr_rate
+        pit_weights = [2.0, 1.0, 1.5, 1.0, 0.8]   # war, peak, era+, k9, sp_pct
 
-        return Response(results[:4])
+        return Response({
+            "batters": _top4(player.bbref_id, bat_pool, batter_vec, bat_weights)
+                       if target_is_batter else [],
+            "pitchers": _top4(player.bbref_id, pit_pool, pitcher_vec, pit_weights)
+                        if target_is_pitcher else [],
+        })

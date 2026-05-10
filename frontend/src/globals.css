@@ -564,6 +564,15 @@ svg.chart { display: block; width: 100%; user-select: none; }
   border: 1px solid var(--line);
 }
 
+.similar-role-label {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 8px 0 4px;
+}
+
 /* Heatmap (monthly performance by season) */
 .heatmap-wrap { overflow-x: auto; }
 .heatmap {
