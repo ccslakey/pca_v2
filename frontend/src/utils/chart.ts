@@ -76,3 +76,12 @@ export function peakSeason(
 export function careerWar(seasons: { war: number | null }[]): number {
   return Math.round(seasons.reduce((sum, s) => sum + (s.war ?? 0), 0) * 10) / 10;
 }
+
+export function sumMetric(seasons: ChartSeason[], metric: MetricId): number | null {
+  if (['war', 'hr', 'so'].includes(metric)) {
+    return seasons.reduce((s, x) => s + (x[metric] ?? 0), 0);
+  }
+  const vals = seasons.map(s => s[metric]).filter((v): v is number => v != null);
+  if (!vals.length) return null;
+  return vals.reduce((a, b) => a + b, 0) / vals.length;
+}

@@ -1,66 +1,27 @@
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ParentSize } from '@visx/responsive';
 import { useChartPlayer, useSimilarPlayers, usePlayerAwards } from '../hooks';
-import { ProfileChart } from '../components/ProfileChart';
-import { Sparkline } from '../components/Sparkline';
-// import { MonthlyHeatmap } from '../components/MonthlyHeatmap'; // shelved — needs real monthly split data (see pipeline/explore_monthly_splits.py)
-import { AnnotationGlyph } from '../components/AnnotationGlyph';
-import { PitchZone } from '../components/PitchZone';
 import { METRICS } from '../constants';
-import type { MetricId, ChartSeason, AwardKind } from '../types';
-import { fmtMetric, peakSeason, careerWar } from '../utils/chart';
+import type { MetricId } from '../types';
+import { peakSeason, careerWar, sumMetric } from '../utils/chart';
 import { playerColor, colorTint } from '../utils/color';
-
-function initials(name: string) {
-  const parts = name.trim().split(' ');
-  return parts.length >= 2
-    ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-    : name.slice(0, 2).toUpperCase();
-}
-
-const AWARD_LABELS: Record<AwardKind, string> = {
-  mvp:       'MVP',
-  cy:        'Cy Young',
-  roty:      'Rookie of the Year',
-  gg:        'Gold Glove',
-  ss:        'Silver Slugger',
-  tc_b:      'Triple Crown (Batting)',
-  tc_p:      'Triple Crown (Pitching)',
-  hof:       'Hall of Fame',
-  postmvp:   'Postseason MVP',
-  bat_title: 'Batting Title',
-  era_title: 'ERA Title',
-  all_mlb:   'All-MLB Team',
-  ws:        'World Series',
-  asg:       'All-Star',
-};
-
-function awardGlyphKind(kind: AwardKind): 'mvp' | 'cy' | 'gg' | 'asg' | 'il' {
-  if (kind === 'mvp') return 'mvp';
-  if (kind === 'cy') return 'cy';
-  if (kind === 'gg' || kind === 'ss') return 'gg';
-  if (kind === 'asg') return 'asg';
-  return 'il';
-}
-
-function sumMetric(seasons: ChartSeason[], metric: MetricId): number | null {
-  if (['war', 'hr', 'so'].includes(metric)) {
-    return seasons.reduce((s, x) => s + (x[metric] ?? 0), 0);
-  }
-  const vals = seasons.map(s => s[metric]).filter((v): v is number => v != null);
-  if (!vals.length) return null;
-  return vals.reduce((a, b) => a + b, 0) / vals.length;
-}
+import { HeroSection }         from '../components/profile/HeroSection';
+import { StatGrid }            from '../components/profile/StatGrid';
+import { CareerArcPanel }      from '../components/profile/CareerArcPanel';
+import { SparklinePanel }      from '../components/profile/SparklinePanel';
+import { SeasonLogPanel }      from '../components/profile/SeasonLogPanel';
+import { SimilarPlayersPanel } from '../components/profile/SimilarPlayersPanel';
+import { AwardsPanel }         from '../components/profile/AwardsPanel';
+import { PitchZone }           from '../components/PitchZone';
 
 export function ProfilePage() {
   const { bbrefId } = useParams<{ bbrefId: string }>();
   const [metric, setMetric] = useState<MetricId>('war');
-  const [tab, setTab] = useState<'standard' | 'advanced'>('standard');
+  const [tab,    setTab]    = useState<'standard' | 'advanced'>('standard');
 
-  const { data: player, isLoading } = useChartPlayer(bbrefId ?? null, 0);
-  const { data: similar } = useSimilarPlayers(bbrefId ?? null);
-  const { data: awards = [] } = usePlayerAwards(bbrefId ?? null);
+  const { data: player,          isLoading } = useChartPlayer(bbrefId ?? null, 0);
+  const { data: similar }                    = useSimilarPlayers(bbrefId ?? null);
+  const { data: awards = [] }                = usePlayerAwards(bbrefId ?? null);
 
   if (isLoading || !player) {
     return (
@@ -70,23 +31,21 @@ export function ProfilePage() {
     );
   }
 
-  const color = playerColor(player.id);
+  const color   = playerColor(player.id);
   const cssVars = {
     '--team-color': color,
-    '--team-tint': colorTint(color, 0.10),
-    '--team-glow': colorTint(color, 0.22),
+    '--team-tint':  colorTint(color, 0.10),
+    '--team-glow':  colorTint(color, 0.22),
   } as React.CSSProperties;
 
-  const war    = careerWar(player.seasons);
-  const peak   = peakSeason(player.seasons, 'war');
-  const careerHR  = sumMetric(player.seasons, 'hr') ?? 0;
-  const careerSO  = sumMetric(player.seasons, 'so') ?? 0;
+  const war       = careerWar(player.seasons);
+  const peak      = peakSeason(player.seasons, 'war');
+  const careerHR  = sumMetric(player.seasons, 'hr')  ?? 0;
+  const careerSO  = sumMetric(player.seasons, 'so')  ?? 0;
   const careerAVG = sumMetric(player.seasons, 'avg');
   const careerOPS = sumMetric(player.seasons, 'ops');
   const careerERA = sumMetric(player.seasons, 'era');
-
   const jerseyNum = (player.id.charCodeAt(0) % 60) + 1;
-  const isPitcher = player.isPitcher && !player.isBatter;
 
   const availableMetrics = METRICS.filter(m => {
     if (m.id === 'era') return player.isPitcher;
@@ -96,7 +55,6 @@ export function ProfilePage() {
 
   return (
     <div className="profile" style={cssVars}>
-      {/* Topbar */}
       <div className="topbar">
         <Link to="/" className="profile-back">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -116,276 +74,28 @@ export function ProfilePage() {
       </div>
 
       <div className="profile-main">
-        {/* Hero */}
-        <div className="hero">
-          <div className="hero-left">
-            <div className="hero-headshot" style={{ background: color }}>
-              {initials(player.name)}
-              <span className="hero-jersey">#{jerseyNum}</span>
-            </div>
-          </div>
-          <div className="hero-mid">
-            <div className="hero-eyebrow">
-              <span className="swatch" style={{ background: color }} />
-              {player.pos} · {player.years}
-            </div>
-            <h1 className="hero-name">{player.name}</h1>
-            <div className="hero-meta">
-              <span><span className="label">Pos</span> {player.pos}</span>
-              <span className="sep">·</span>
-              <span><span className="label">Active</span> {player.years}</span>
-              <span className="sep">·</span>
-              <span><span className="label">Seasons</span> {player.seasons.length}</span>
-              {peak && (
-                <>
-                  <span className="sep">·</span>
-                  <span><span className="label">Peak WAR</span> {peak.val.toFixed(1)} ({peak.season})</span>
-                </>
-              )}
-            </div>
-          </div>
-          <div className="hero-right hero-actions">
-            <Link to={`/?compare=${player.id}`} className="btn">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 5v14M5 12h14" />
-              </svg>
-              Compare
-            </Link>
-          </div>
-        </div>
+        <HeroSection player={player} color={color} jerseyNum={jerseyNum} peak={peak} />
+        <StatGrid
+          player={player} war={war} peak={peak}
+          careerHR={careerHR} careerSO={careerSO}
+          careerAVG={careerAVG} careerOPS={careerOPS} careerERA={careerERA}
+        />
 
-        {/* Headline stats */}
-        <div className="stat-grid">
-          <div className="stat-block is-headline">
-            <div className="stat-label">Career WAR</div>
-            <div className="stat-value">{war.toFixed(1)}</div>
-            {peak && <div className="stat-sub">Peak {peak.val.toFixed(1)} in {peak.season}</div>}
-          </div>
-          {player.isBatter && (
-            <div className="stat-block">
-              <div className="stat-label">Home Runs</div>
-              <div className="stat-value">{careerHR}</div>
-              <div className="stat-sub">{(careerHR / player.seasons.length).toFixed(1)} / yr</div>
-            </div>
-          )}
-          {player.isBatter && (
-            <div className="stat-block">
-              <div className="stat-label">AVG / OPS</div>
-              <div className="stat-value">{fmtMetric('avg', careerAVG)}</div>
-              <div className="stat-sub">OPS {fmtMetric('ops', careerOPS)}</div>
-            </div>
-          )}
-          {player.isPitcher && (
-            <div className="stat-block">
-              <div className="stat-label">ERA</div>
-              <div className="stat-value">{fmtMetric('era', careerERA)}</div>
-              <div className="stat-sub">{careerSO} K career</div>
-            </div>
-          )}
-          <div className="stat-block">
-            <div className="stat-label">{isPitcher ? 'Strikeouts' : 'Career SO'}</div>
-            <div className="stat-value">{careerSO}</div>
-            <div className="stat-sub">{player.seasons.length > 0 ? (careerSO / player.seasons.length).toFixed(0) : '—'} / yr</div>
-          </div>
-        </div>
-
-        {/* 2-col body */}
         <div className="col-2">
-          {/* Left column */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {/* Career arc chart */}
-            <div className="panel">
-              <div className="panel-header">
-                <div className="panel-title">
-                  Career arc
-                  <span className="muted">{METRICS.find(m => m.id === metric)?.full}</span>
-                </div>
-                <div className="metric-toggle" style={{ padding: 2 }}>
-                  {availableMetrics.map(m => (
-                    <button
-                      key={m.id}
-                      className={`metric-pill ${metric === m.id ? 'is-active' : ''}`}
-                      style={{ padding: '4px 10px', fontSize: 11.5 }}
-                      onClick={() => setMetric(m.id)}
-                    >
-                      {m.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <ParentSize>
-                {({ width }) => width > 0 && (
-                  <ProfileChart player={{ ...player, color }} metric={metric} width={width} height={280} />
-                )}
-              </ParentSize>
-            </div>
-
-            {/* By the numbers — sparkline grid */}
-            <div className="panel">
-              <div className="panel-header">
-                <div className="panel-title">
-                  By the numbers
-                  <span className="muted">all metrics, season by season</span>
-                </div>
-                {player.seasons[0] && (
-                  <div className="panel-action">since {player.seasons[0].season}</div>
-                )}
-              </div>
-              <div className="spark-grid">
-                {availableMetrics.map(m => {
-                  const series = player.seasons
-                    .map(s => s[m.id])
-                    .filter((v): v is number => v != null);
-                  if (!series.length) return null;
-                  const total = sumMetric(player.seasons, m.id);
-                  const pk = peakSeason(player.seasons, m.id);
-                  return (
-                    <div key={m.id} className="spark">
-                      <div className="spark-head">
-                        <span className="spark-label">{m.label} · {m.full}</span>
-                        <span className="spark-value">
-                          {fmtMetric(m.id, total)}
-                          {pk && (
-                            <span className="spark-sub">
-                              {['war', 'hr', 'so'].includes(m.id) ? 'career' : 'career avg'}
-                              {' · '}peak {fmtMetric(m.id, pk.val)} '{String(pk.season).slice(2)}
-                            </span>
-                          )}
-                        </span>
-                      </div>
-                      <Sparkline data={series} color={color} invert={m.id === 'era'} />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Season log table */}
-            <div className="panel">
-              <div className="panel-header">
-                <div className="panel-title">
-                  Season log
-                  <span className="muted">{player.seasons.length} seasons</span>
-                </div>
-                <div className="tabs">
-                  <button
-                    className={`tab ${tab === 'standard' ? 'is-active' : ''}`}
-                    onClick={() => setTab('standard')}
-                  >
-                    Standard
-                  </button>
-                  <button
-                    className={`tab ${tab === 'advanced' ? 'is-active' : ''}`}
-                    onClick={() => setTab('advanced')}
-                  >
-                    Advanced
-                  </button>
-                </div>
-              </div>
-              <div style={{ overflowX: 'auto' }}>
-                <table className="season-table">
-                  <thead>
-                    <tr>
-                      <th className="year-col">Year</th>
-                      <th>WAR</th>
-                      {player.isBatter && <th>AVG</th>}
-                      {player.isBatter && <th>HR</th>}
-                      {player.isBatter && <th>OPS</th>}
-                      {player.isPitcher && <th>ERA</th>}
-                      {player.isPitcher && <th>SO</th>}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[...player.seasons].reverse().map(s => {
-                      const isPeak = peak?.season === s.season;
-                      const warWidth = Math.max(2, Math.min(80, ((s.war ?? 0) / 10) * 80));
-                      return (
-                        <tr key={s.season} className={isPeak ? 'is-peak' : ''}>
-                          <td>{s.season}</td>
-                          <td>
-                            <span
-                              className="micro-bar"
-                              style={{ width: warWidth, background: color }}
-                            />
-                            {fmtMetric('war', s.war)}
-                          </td>
-                          {player.isBatter && <td>{fmtMetric('avg', s.avg)}</td>}
-                          {player.isBatter && <td>{s.hr ?? '—'}</td>}
-                          {player.isBatter && <td>{fmtMetric('ops', s.ops)}</td>}
-                          {player.isPitcher && <td>{fmtMetric('era', s.era)}</td>}
-                          {player.isPitcher && <td>{s.so ?? '—'}</td>}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <CareerArcPanel
+              player={player} color={color}
+              metric={metric} setMetric={setMetric}
+              availableMetrics={availableMetrics}
+            />
+            <SparklinePanel player={player} color={color} availableMetrics={availableMetrics} />
+            <SeasonLogPanel player={player} color={color} peak={peak} tab={tab} setTab={setTab} />
           </div>
 
-          {/* Right column */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {/* Similar players */}
             {similar && (similar.batters.length > 0 || similar.pitchers.length > 0) && (
-              <div className="panel">
-                <div className="panel-header">
-                  <div className="panel-title">
-                    Similar players
-                    <span className="muted">by WAR & profile</span>
-                  </div>
-                </div>
-                {[
-                  { list: similar.batters,  label: 'As a batter'  },
-                  { list: similar.pitchers, label: 'As a pitcher' },
-                ].map(({ list, label }) => {
-                  if (!list.length) return null;
-                  const isTwoWay = similar.batters.length > 0 && similar.pitchers.length > 0;
-                  return (
-                    <div key={label}>
-                      {isTwoWay && (
-                        <div className="similar-role-label">{label}</div>
-                      )}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                        {list.map(p => {
-                          const c = playerColor(p.bbref_id);
-                          return (
-                            <Link key={p.bbref_id} to={`/player/${p.bbref_id}`} className="comp-row">
-                              <div className="comp-shot" style={{ background: c }}>
-                                {initials(`${p.first_name} ${p.last_name}`)}
-                              </div>
-                              <div className="comp-info">
-                                <div className="comp-name">{p.first_name} {p.last_name}</div>
-                                <div className="comp-meta">
-                                  {p.is_pitcher ? 'P' : 'B'} · {p.career_war.toFixed(1)} WAR
-                                  {p.mlb_played_first && ` · ${p.mlb_played_first}–${p.mlb_played_last ?? 'pres'}`}
-                                </div>
-                              </div>
-                              <div className="comp-score">{p.similarity}% sim</div>
-                            </Link>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              <SimilarPlayersPanel similar={similar} />
             )}
-
-            {/* Monthly OPS heatmap — shelved; real data needs 1 BRef req/player/year (see pipeline/explore_monthly_splits.py)
-            {player.isBatter && player.seasons.length >= 2 && (
-              <div className="panel">
-                <div className="panel-header">
-                  <div className="panel-title">
-                    Monthly OPS heatmap
-                    <span className="muted">last 6 seasons</span>
-                  </div>
-                </div>
-                <div className="heatmap-wrap">
-                  <MonthlyHeatmap seasons={player.seasons} color={color} />
-                </div>
-              </div>
-            )}
-            */}
 
             {(player.isBatter || player.isPitcher) && (
               <div className="panel">
@@ -404,38 +114,7 @@ export function ProfilePage() {
               </div>
             )}
 
-            <div className="panel">
-              <div className="panel-header">
-                <div className="panel-title">Awards & milestones</div>
-              </div>
-              {awards.length === 0 ? (
-                <div style={{ color: 'var(--text-3)', fontSize: 12, padding: '8px 4px' }}>
-                  No awards on record.
-                </div>
-              ) : (
-                <div className="awards-list" style={{ marginTop: 8 }}>
-                  {awards.map((a) => {
-                    const glyphKind = awardGlyphKind(a.kind);
-                    const label = AWARD_LABELS[a.kind];
-                    const suffix = [a.league, a.notes].filter(Boolean).join(' · ');
-                    return (
-                      <div key={a.id} className="award-row">
-                        <div className="yr">{a.year}</div>
-                        <div className="glyph">
-                          <svg width="14" height="14" viewBox="-7 -7 14 14">
-                            <AnnotationGlyph kind={glyphKind} color={color} />
-                          </svg>
-                        </div>
-                        <div className="label">
-                          {label}
-                          {suffix && <span className="muted" style={{ marginLeft: 6 }}>{suffix}</span>}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+            <AwardsPanel awards={awards} color={color} />
           </div>
         </div>
 

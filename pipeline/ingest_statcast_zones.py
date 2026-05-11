@@ -5,13 +5,20 @@ Usage:
     python pipeline/ingest_statcast_zones.py [options]
 
 Options:
-    --min-war FLOAT   Minimum career WAR to include (default: 10.0)
-    --limit INT       Stop after this many players (useful for testing)
-    --force           Re-ingest even if already logged as successful
-    --dry-run         Print what would be ingested without writing to DB
-    --verbose         Print per-player bucket counts
-    --roles B|P|both  Which role to ingest (default: both)
-    --bbref-ids ID…   Ingest specific players by bbref_id (skips WAR filter)
+    --min-war FLOAT       Minimum career WAR to include (default: 10.0)
+    --limit INT           Stop after this many players (useful for testing)
+    --force               Re-ingest even if already logged as successful
+    --dry-run             Print what would be ingested without writing to DB
+    --verbose             Print per-player bucket counts
+    --roles B|P|both      Which role to ingest (default: both)
+    --bbref-ids ID…       Ingest specific players by bbref_id (skips WAR filter)
+    --start-date DATE     Start date YYYY-MM-DD (default: 2015-03-01)
+    --end-date DATE       End date YYYY-MM-DD (default: today)
+
+When --start-date is not the default (2015-03-01), the script runs in
+incremental mode: new bucket counts are merged into existing DB rows rather
+than replacing them.  The IngestionLog key includes the date range so the
+idempotency check is per-range, not per-player.
 """
 
 import argparse
@@ -19,6 +26,7 @@ import os
 import sys
 import time
 import warnings
+from datetime import date
 
 import django
 
@@ -42,8 +50,8 @@ from players.models import Player
 # Constants
 # ---------------------------------------------------------------------------
 
-START_DATE = '2015-03-01'
-END_DATE   = '2024-11-01'
+DEFAULT_START_DATE = '2015-03-01'
+DEFAULT_END_DATE   = date.today().strftime('%Y-%m-%d')
 
 BATTER_OUTCOMES = {
     'contact': lambda df: df['description'] == 'hit_into_play',
@@ -106,32 +114,68 @@ def aggregate_buckets(df: pd.DataFrame, outcome_fns: dict) -> list[dict]:
     return buckets
 
 
-def write_buckets(player: Player, role: str, buckets: list[dict], dry_run: bool) -> int:
+def write_buckets(player: Player, role: str, buckets: list[dict],
+                  dry_run: bool, incremental: bool = False) -> int:
     if dry_run or not buckets:
         return len(buckets)
 
-    # Delete existing rows for this (player, role) and replace
-    StatcastZoneBucket.objects.filter(player=player, role=role).delete()
+    if not incremental:
+        StatcastZoneBucket.objects.filter(player=player, role=role).delete()
+        objs = [
+            StatcastZoneBucket(
+                player=player,
+                role=role,
+                outcome=b['outcome'],
+                plate_x=b['plate_x'],
+                plate_z=b['plate_z'],
+                count=b['count'],
+                total=b['total'],
+            )
+            for b in buckets
+        ]
+        StatcastZoneBucket.objects.bulk_create(objs)
+        return len(objs)
 
-    objs = [
-        StatcastZoneBucket(
-            player=player,
-            role=role,
-            outcome=b['outcome'],
-            plate_x=b['plate_x'],
-            plate_z=b['plate_z'],
-            count=b['count'],
-            total=b['total'],
-        )
-        for b in buckets
-    ]
-    StatcastZoneBucket.objects.bulk_create(objs)
-    return len(objs)
+    # Incremental: add new counts to existing rows, insert new locations
+    existing = {
+        (r.outcome, r.plate_x, r.plate_z): r
+        for r in StatcastZoneBucket.objects.filter(player=player, role=role)
+    }
+    new_objs:    list[StatcastZoneBucket] = []
+    update_objs: list[StatcastZoneBucket] = []
+    for b in buckets:
+        key = (b['outcome'], b['plate_x'], b['plate_z'])
+        if key in existing:
+            row = existing[key]
+            row.count += b['count']
+            row.total += b['total']
+            update_objs.append(row)
+        else:
+            new_objs.append(StatcastZoneBucket(
+                player=player, role=role,
+                outcome=b['outcome'],
+                plate_x=b['plate_x'],
+                plate_z=b['plate_z'],
+                count=b['count'],
+                total=b['total'],
+            ))
+    if new_objs:
+        StatcastZoneBucket.objects.bulk_create(new_objs)
+    if update_objs:
+        StatcastZoneBucket.objects.bulk_update(update_objs, ['count', 'total'])
+    return len(new_objs) + len(update_objs)
 
 
 def ingest_player_role(player: Player, role: str, force: bool,
-                       dry_run: bool, verbose: bool) -> int:
-    source_key = f'statcast_zone_{role.lower()}_{player.bbref_id}'
+                       dry_run: bool, verbose: bool,
+                       start_date: str, end_date: str,
+                       incremental: bool = False) -> int:
+    # Incremental runs get a date-range-specific key so the full-ingest log
+    # doesn't prevent them from running, and re-running the same range is idempotent.
+    if incremental:
+        source_key = f'statcast_zone_{role.lower()}_{player.bbref_id}_{start_date}_{end_date}'
+    else:
+        source_key = f'statcast_zone_{role.lower()}_{player.bbref_id}'
 
     if not force and not dry_run and already_ingested(source_key):
         if verbose:
@@ -146,14 +190,14 @@ def ingest_player_role(player: Player, role: str, force: bool,
 
     try:
         if role == 'B':
-            df = statcast_batter(START_DATE, END_DATE, mlbam)
+            df = statcast_batter(start_date, end_date, mlbam)
             outcome_fns = BATTER_OUTCOMES
         else:
-            df = statcast_pitcher(START_DATE, END_DATE, mlbam)
+            df = statcast_pitcher(start_date, end_date, mlbam)
             outcome_fns = PITCHER_OUTCOMES
 
         buckets = aggregate_buckets(df, outcome_fns)
-        n = write_buckets(player, role, buckets, dry_run)
+        n = write_buckets(player, role, buckets, dry_run, incremental=incremental)
 
         if not dry_run:
             log_success(source_key, n)
@@ -238,7 +282,16 @@ def main() -> None:
                         help='Which role to ingest (default: both)')
     parser.add_argument('--bbref-ids', nargs='+', metavar='ID',
                         help='Ingest specific players by bbref_id')
+    parser.add_argument('--start-date', default=DEFAULT_START_DATE,
+                        help=f'Start date YYYY-MM-DD (default: {DEFAULT_START_DATE})')
+    parser.add_argument('--end-date', default=DEFAULT_END_DATE,
+                        help='End date YYYY-MM-DD (default: today)')
     args = parser.parse_args()
+
+    start_date  = args.start_date
+    end_date    = args.end_date
+    # When fetching a sub-range, merge into existing buckets rather than replace
+    incremental = (start_date != DEFAULT_START_DATE)
 
     roles: set[str] = {'B', 'P'} if args.roles == 'both' else {args.roles}
 
@@ -266,6 +319,10 @@ def main() -> None:
         targets = targets[:args.limit]
 
     print(f'Players to ingest: {len(targets)}')
+    print(f'Date range: {start_date} → {end_date}', end='')
+    if incremental:
+        print('  (incremental — merging into existing buckets)', end='')
+    print()
     if args.dry_run:
         print('  (dry-run — no DB writes)')
 
@@ -273,7 +330,8 @@ def main() -> None:
     for i, (player, player_roles) in enumerate(targets, 1):
         print(f'  [{i}/{len(targets)}] {player.bbref_id} — {player.first_name} {player.last_name}')
         for role in sorted(player_roles):
-            n = ingest_player_role(player, role, args.force, args.dry_run, args.verbose)
+            n = ingest_player_role(player, role, args.force, args.dry_run, args.verbose,
+                                   start_date, end_date, incremental)
             total_buckets += n
             # Statcast has its own rate limiting but we add a small gap
             # between players to be polite to the API

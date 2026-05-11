@@ -26,16 +26,16 @@ export function MetricToggle({ metric, onChange }: Props) {
       </div>
 
       <div className="metric-meta">
-        {[
-          { kind: 'mvp', label: 'MVP' },
-          { kind: 'cy',  label: 'Cy Young' },
-          { kind: 'gg',  label: 'Gold Glove' },
-          { kind: 'asg', label: 'All-Star' },
-          { kind: 'il',  label: 'IL stint' },
-        ].map(({ kind, label }) => (
+        {([
+          { kind: 'mvp', label: 'MVP'       },
+          { kind: 'cy',  label: 'Cy Young'  },
+          { kind: 'gg',  label: 'Gold Glove'},
+          { kind: 'asg', label: 'All-Star'  },
+          { kind: 'ws',  label: 'World Series' },
+        ] as const).map(({ kind, label }) => (
           <span key={kind} className="key">
             <svg width="11" height="11" viewBox="-7 -7 14 14">
-              <AnnotationGlyph kind={kind as 'mvp' | 'cy' | 'gg' | 'asg' | 'il'} color={kind === 'il' ? '#f87171' : '#f5f7fb'} />
+              <AnnotationGlyph kind={kind} color="#f5f7fb" />
             </svg>
             {label}
           </span>

@@ -48,7 +48,7 @@ const PITCHER_OUTCOMES: { id: ZoneOutcome; label: string }[] = [
 function toSvgX(ft: number) { return ((ft - X_MIN) / (X_MAX - X_MIN)) * WIDTH;  }
 function toSvgZ(ft: number) { return ((Z_MAX - ft)  / (Z_MAX - Z_MIN)) * HEIGHT; }
 
-export function PitchZone({ bbrefId, isBatter, isPitcher, color: _color }: Props) {
+export function PitchZone({ bbrefId, isBatter, isPitcher, color }: Props) {
   const isTwoWay = isBatter && isPitcher;
   const [role,    setRole]    = useState<ZoneRole>(isBatter ? 'B' : 'P');
   const outcomes = role === 'P' ? PITCHER_OUTCOMES : BATTER_OUTCOMES;
@@ -172,13 +172,13 @@ export function PitchZone({ bbrefId, isBatter, isPitcher, color: _color }: Props
           {/* Strike zone overlay */}
           <rect
             x={szX1} y={szZ1} width={szX2 - szX1} height={szZ2 - szZ1}
-            fill="none" stroke="rgba(255,255,255,0.30)"
+            fill="none" stroke={color} opacity={0.35}
             strokeWidth={1} strokeDasharray="4 3"
           />
           <line x1={(szX1 + szX2) / 2} y1={szZ1} x2={(szX1 + szX2) / 2} y2={szZ2}
-                stroke="rgba(255,255,255,0.10)" strokeWidth={0.75} />
+                stroke={color} opacity={0.15} strokeWidth={0.75} />
           <line x1={szX1} y1={(szZ1 + szZ2) / 2} x2={szX2} y2={(szZ1 + szZ2) / 2}
-                stroke="rgba(255,255,255,0.10)" strokeWidth={0.75} />
+                stroke={color} opacity={0.15} strokeWidth={0.75} />
 
           {([
             { label: 'UP',   x: WIDTH / 2, y: 11,         anchor: 'middle' },
