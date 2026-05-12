@@ -4,133 +4,127 @@ Living doc. Update as priorities shift or features ship.
 
 ---
 
+## Shipped
+
+- **Leaderboard / Browse page** — filterable, sortable table; position, era, WAR filters; award badge tooltips on hover
+- **Browse Players link in TopBar** — navigation entry point from the compare chart
+- **Shareable multi-player comparison URLs** — `?compare=ruthba01,youngcy01` syncs to URL on every add/remove, parses on load; commas unencoded
+- **Award glyphs on compare chart** — circled icons on chart lines for all 13 award kinds (MVP, Cy Young, Gold Glove, All-Star, World Series, Silver Slugger, ERA Title, batting title, Triple Crown, etc.); priority system shows the rarest award when multiple fall in the same year; show/hide toggle to the left of the legend
+- **Age / Calendar X-axis toggle** — align players by career age instead of calendar year for cross-era comparison; brush resets to full range on toggle or when a new player is added
+- **Player bio DateFields** — replaced `birth_year` integer with `birth_date` DateField; `debut` and `final_game` stored as dates end-to-end (Django DateField → ISO string API → `getUTCFullYear()` in frontend); backfill script populated 22,163 birth dates from Lahman People.csv
+- **Monthly heatmap cut** — removed; generated fake data from a seeded RNG which is a credibility hit in a data tool; needs real monthly splits before it can return
+- **Player position data** — `FieldingSeason` model, `primary_position` on `Player`, position-based leaderboard filtering, serializer/view updates
+
+---
+
 ## Known Integrity Issues (fix before public launch)
 
-### Monthly heatmap uses fake data
-`MonthlyHeatmap.tsx` generates values with a seeded RNG based on OPS. There is no real monthly breakdown in the current data model. Options:
-- **Wire to real data** — ingest monthly splits from Baseball Reference or Statcast. Statcast has month-level granularity for 2015+.
-- **Cut it** — remove the panel entirely until real data exists. A simulated visualization in a data tool is a credibility hit.
-
-### Comparison URLs only support 1 player
-`?compare=troutmi01` works but linking a multi-player comparison requires the user to rebuild it manually. Shareable state is table stakes for a tool people will want to send around.
+### Monthly heatmap (cut pending real data)
+No real monthly breakdown in the current data model. Real data options:
+- Ingest monthly splits from Baseball Reference or Statcast (Statcast has month-level for 2015+)
+- Until then: panel is removed
 
 ---
 
-## Priority 1 — Discovery / Onboarding
+## Priority 1 — Fast Analytical Wins
 
-### Leaderboard / Browse page
-**Problem:** new users hit a blank search field and must already know a player name. The tool is unusable without prior knowledge.
+All of these use only data already in the DB — no new ingestion required.
 
-**What it needs:**
-- Filterable list of players by position, era/decade, team, WAR threshold
-- Sortable columns (career WAR, peak WAR, HR, ERA, etc.)
-- Clicking a row opens the profile page
-- Search still lives in the topbar for direct lookup
+### HOF Monitor + Black Ink + Gray Ink (Bill James scores)
+Three classic sabermetric scores that are pure SQL aggregations over existing season data:
+- **Black Ink** — points for leading the league in standard categories each year
+- **Gray Ink** — points for finishing top 10
+- **HOF Monitor** — weighted score (MVPs, batting titles, milestones, career rates) designed to predict HOF election
 
-**Why it matters for resume:** it's the difference between a demo you have to narrate and one that speaks for itself.
-
----
-
-## Priority 2 — Data Integrity / Model Completeness
-
-### Player position data
-The app currently has no position data — `Player` only has `bats`/`throws`. This weakens similarity matching, blocks position-based filtering on the leaderboard, and leaves the profile page unable to say "SS" or "CF".
-
-**Plan:**
-1. **`FieldingSeason` model** in `stats/` — one row per (player, year, team, stint, position), storing `games` at that position. Mirrors the BRef standard fielding table, supports multi-position players across all eras.
-2. **`primary_position` on `Player`** — stored CharField (`"P"`, `"SS"`, `"CF"`, etc.), computed from career games-by-position. Pitchers default to `"P"` from PitchingSeason. Recomputed by a management command after each ingest run.
-3. **`ingest_bref_fielding.py`** — same BRefSession/rate-limit/IngestionLog pattern as batting/pitching. Scrapes `/leagues/MLB/{year}-standard-fielding.shtml`. ~150 lines.
-4. **`compute_primary_positions` management command** — aggregates career games by position, writes `primary_position` to each Player.
-5. **Serializer + view updates** — expose `primary_position` in the player API.
-
-**Why it matters:** positions unlock era-adjusted percentiles by position, aging curves per position group, "top SS by WAR" leaderboard filtering, and tighter similarity matching (CF vs. LF is a real distinction).
-
----
-
-## Priority 3 — Fast Analytical Wins
+Reduces to "rank each league-year, sum points." High analytical credibility, sits naturally on the profile next to career WAR. Strongest portfolio signal in this section.
 
 ### Percentile rankings
 Show context next to every career stat: "Career WAR ranks 12th all-time among CF" or "top 3% of all pitchers by ERA".
 
 - Compute at query time or precompute into a `career_percentiles` table
 - Surface on the stat grid in the profile page (small badge or tooltip)
-- Requires no new data ingestion
+- Now that `primary_position` exists, percentiles by position become possible
 
-### Shareable multi-player comparison URLs
-Extend `?compare=` to `?players=troutmi01,bondsba01,ruthba01`.
+### Career milestone overlay on the compare chart
+Mark the season when a player crossed 500 HR / 3000 H / 300 W / 3000 K / 2000 RBI etc. as labeled markers on the career arc. Year-by-year cumulative totals are already derivable; just precompute crossings.
 
-- Serialize selected player IDs into the URL on every change
-- Parse on load and pre-populate the comparison
-- Small change, high polish signal
+### Team timeline on the profile
+A horizontal stripe showing which teams the player played for and when, derived from the `team` field on BattingSeason/PitchingSeason. One pass over the season log; zero new fields.
+
+### Career rate-stat slash line in the hero
+Career AVG/OBP/SLG/OPS (or ERA/WHIP/K9 for pitchers) computed from existing totals. Many profiles likely don't surface this yet despite the data being available.
+
+### Year-by-year league leadership badges
+For each season in the season-log panel, add small "1st" / "T-2nd" badges next to WAR, HR, ERA, etc. when the player led/co-led the league. Pure ranking query within (year, league). Polish-tier — useful but lower analytical signal than the rest.
 
 ---
 
-## Priority 4 — Analytical Depth (resume differentiators)
+## Priority 2 — Analytical Depth (resume differentiators)
 
 ### Era-adjusted stats
-Raw batting average and ERA are not comparable across eras. Normalizing stats to a common baseline (e.g., league-average ERA+ style) makes cross-era comparisons meaningful.
+Raw batting average and ERA are not comparable across eras. Normalizing stats to a common baseline makes cross-era comparisons meaningful.
 
-- Requires league-average stats per year (easily derivable from existing season data)
+- Requires league-average stats per year (derivable from existing season data)
 - Surface as a toggle: "raw" vs "era-adjusted" on the career arc and stat grid
-- Sabermetrically serious — shows understanding of why naive comparisons fail
+- OPS+ and ERA+ are already ingested — could surface those directly as a first pass
+
+### "Similar through age N" — career-stage similarity
+Extend the similarity engine to support comps at any career stage, not just career totals. BBref's similarity tool exposes both — "similar through age N" is the canonical prospect-comp question (e.g. "who was Mike Trout most like at 24?"). Currently we only do career totals.
+
+- Swap the career aggregations in `_load_*_agg()` for seasonal totals truncated at age N
+- Surface as a slider or dropdown on the similar-players panel
+- See [`SIMILARITY.md`](SIMILARITY.md) for the full gap list
 
 ### Aging curve overlay with documented methodology
 Show a player's career arc against the positional average aging curve.
 
 - Compute average WAR-by-age for each position group across all players in the DB
 - Overlay as a shaded band or dashed line on the career arc chart
-- Document the methodology explicitly: what smoothing is applied, minimum PA/IP thresholds, how survivorship bias is handled
-- Immediately answers "did this player age well or decline early?"
-- Visually striking, analytically meaningful
+- Document smoothing applied, minimum PA/IP thresholds, how survivorship bias is handled
+- Pairs naturally with the existing age/calendar toggle
 
 ### Stuff+ implementation
-Pitch-quality metric that measures how often a given pitch would be expected to generate whiffs and weak contact, holding location constant.
+Pitch-quality metric measuring expected whiffs and weak contact, holding location constant.
 
 - Requires Statcast pitch-level data (pitch type, velocity, spin rate, movement, release point)
 - Model: regress whiff rate on pitch characteristics within pitch-type buckets
 - Output: per-pitch-type Stuff+ score normalized to 100 = league average
-- Enables comparisons like "how did Kershaw's curveball rate against the league that year?"
 
 ### Pitch arsenal analysis
-Profile each pitcher's full mix — not just how individual pitches grade, but how the arsenal functions as a unit.
+Profile each pitcher's full mix — not just individual pitch grades, but how the arsenal functions as a unit.
 
 - Usage rates by count, platoon, leverage
 - Movement profile plots (horizontal vs. vertical break)
 - Tunnel analysis: do pitches share a release window before diverging?
-- Separates pitchers who throw hard from pitchers who throw smart
 
 ### WAR decomposition (data ingest)
 Break career WAR into components on the profile page: batting runs, fielding runs, baserunning runs, positional adjustment.
 
 - Baseball Reference exposes these in the detailed season tables
 - Would require additional ingest columns
-- Useful for answering "is this a bat-only player or a complete player?"
 
 ---
 
-## Priority 5 — Ambitious / Differentiating
+## Priority 3 — Ambitious / Differentiating
 
 ### Natural language player search
 "Find me pitchers like Sandy Koufax but modern era" or "dominant lefties with short careers".
 
 - The similarity embedding model already exists — this is a query interface on top of it
 - Could use an LLM to parse the query into filters + a similarity anchor
-- Would be the most demo-able feature by far
 
 ### Player projection system
-Given a player's career arc to date, project performance for the next 1-3 seasons.
+Given a player's career arc to date, project performance for the next 1–3 seasons.
 
 - Anchor to the aging curve: expected decline rate by age and position
 - Regression-to-the-mean on rate stats (BABIP, strand rate, etc.)
 - Confidence intervals widen with each projected year
-- Pairs with the aging curve overlay — shows where the player *is* vs. where they're likely *going*
-- Would be the most analytically ambitious feature in the tool
+- Pairs with the aging curve overlay
 
 ### Hall of Fame probability
 Given a player's career trajectory at age X, what's the probability they reach Cooperstown?
 
-- Requires a labeled training set (inducted vs. not)
-- Logistic regression on career WAR, peak WAR, awards, longevity is a reasonable baseline
+- Logistic regression on career WAR, peak WAR, awards, longevity as a baseline
 - Show as a career-stage progress indicator on the profile page
 
 ---
@@ -138,36 +132,31 @@ Given a player's career trajectory at age X, what's the probability they reach C
 ## Production Deployment
 
 ### Full production deployment with pipeline documentation
-The tool currently runs locally. Getting it production-ready and documenting the data pipeline is itself a portfolio signal.
 
 **What it takes:**
 - Containerize backend + frontend (Docker Compose, or separate services)
 - CI/CD pipeline: tests on PR, deploy on merge to main
 - Environment config: secrets management, prod database, CORS settings
-- Data pipeline docs in the repo: what data comes from where, ingest frequency, how to re-run from scratch
+- Data pipeline docs: what data comes from where, ingest frequency, how to re-run from scratch
 
-**Why it matters:** most portfolio projects are localhost demos. A live URL with a documented data pipeline shows you can operate a system end-to-end, not just build features. Baseball ops teams run actual pipelines — the ability to document and deploy one is a direct signal.
-
-**Platform:** Render or Railway for the app (low-ops, free tier for hobby projects); Neon or Supabase for Postgres with a generous free tier.
+**Platform:** Render or Railway for the app; Neon or Supabase for Postgres.
 
 ---
 
 ## Scheduled Data Jobs
 
-The DB needs periodic refreshes to stay current through a season. See [`SCHEDULED_JOBS.md`](SCHEDULED_JOBS.md) for the full breakdown.
+See [`SCHEDULED_JOBS.md`](SCHEDULED_JOBS.md) for the full breakdown.
 
 **What needs scheduling:**
-- Weekly stats refresh (BattingSeason, PitchingSeason, StatcastZoneBucket) — stats finalize ~3 days after games
-- Season-start pass for new players and rookies not yet in the DB
+- Weekly stats refresh (BattingSeason, PitchingSeason, StatcastZoneBucket)
+- Season-start pass for new players and rookies
 - Post-season awards ingest (November)
-- Similarity vector recompute after every stats update (vectors drift as the season progresses)
-
-**Platform choice:** GitHub Actions cron is the lowest-friction option for a portfolio project (no extra infra, free tier, config lives in the repo). Django-Q or Celery Beat make more sense if the app needs real-time jobs or a retry queue.
+- Similarity vector recompute after every stats update
 
 **Three requirements for a trustworthy cron system:**
 1. **Failure alerting** — a silent failure that leaves stale data is worse than no job at all
 2. **Staleness detection** — the API should expose `last_updated` so stale data is visible in the UI
-3. **Dependency ordering** — similarity vectors must recompute *after* the stats update completes, not in parallel
+3. **Dependency ordering** — similarity vectors must recompute *after* the stats update completes
 
 ---
 
@@ -179,19 +168,7 @@ The DB needs periodic refreshes to stay current through a season. See [`SCHEDULE
 - Mobile layout — currently desktop-only, not blocking for a portfolio tool
 
 ### xBA / xERA from first principles
-Build own expected batting average and expected ERA models rather than consuming Baseball Savant's published numbers.
+Build own expected batting average and ERA models rather than consuming Baseball Savant's published numbers. High methodological value, low demo value — requires full pitch-level Statcast ingest and the output won't visually differ from Savant's numbers. Better to explain the methodology gap in interviews.
 
-**Why from first principles:**
-Baseball Savant already publishes xBA and xERA. The reason to build your own is not to get different numbers — it's to demonstrate you understand the machinery. xBA is essentially a logistic regression (or gradient boosted model) mapping launch angle + exit velocity → probability of hit, with adjustments for park and spray angle. xERA aggregates pitch-level expected outcomes into a rate stat. If you can only consume Savant's published values, you can't: (a) add features Savant doesn't expose (pitch location, count, batter handedness), (b) apply the methodology to contexts where Savant doesn't publish (minor leagues, historical pre-Statcast data), or (c) explain in an interview exactly how the number is constructed. Baseball ops teams build proprietary versions of these metrics precisely because the published ones are black boxes — building your own, even if it correlates closely with Savant's output, proves you can work inside the black box.
-
-**Why deferred:** requires full pitch-level Statcast ingest (large dataset), and the output won't visually differ much from just displaying Savant's numbers. High methodological value, low demo value.
-
-### WAR decomposition from first principles (own positional adjustments)
-Reconstruct WAR from linear weights rather than using bWAR/fWAR directly, with documented positional adjustment decisions.
-
-**Why from first principles:**
-bWAR and fWAR regularly disagree by 1-3 WAR for the same player in the same season. The disagreement comes from different defensive metrics (DRS vs. UZR), different positional adjustments, different replacement-level baselines, and different park factor methodologies. Building your own WAR from components forces you to make each choice explicitly — what is the positional adjustment for a catcher vs. a corner outfielder, and why? Documenting where your version diverges from published WAR and explaining the reasoning is exactly the kind of analytical rigor R&D teams evaluate. Most applicants treat WAR as a given; being able to reconstruct it from components is a meaningful signal of depth.
-
-The existing "WAR decomposition" entry in Priority 3 is about displaying bWAR's published component breakdown — this is different: computing the components yourself.
-
-**Why deferred:** substantial modeling work with diminishing visual return. Better to cite the methodology gap clearly in interviews and have a scoped spec than to ship something that quietly disagrees with consensus WAR without a strong justification.
+### WAR decomposition from first principles
+Reconstruct WAR from linear weights rather than using bWAR/fWAR directly. bWAR and fWAR regularly disagree by 1–3 WAR due to different defensive metrics, positional adjustments, and park factors. Building your own forces each choice to be explicit — but substantial modeling work with diminishing visual return for a portfolio tool.
