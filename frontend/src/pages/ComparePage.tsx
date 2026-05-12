@@ -40,6 +40,7 @@ export function ComparePage() {
   });
   const [metric, setMetric] = useState<MetricId>('war');
   const [xMode, setXMode] = useState<XMode>('year');
+  const [showGlyphs, setShowGlyphs] = useState(true);
   const [hoverPlayerId, setHoverPlayerId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -87,7 +88,7 @@ export function ComparePage() {
         setHoverPlayerId={setHoverPlayerId}
         onRemove={removePlayer}
       />
-        <MetricToggle metric={metric} onChange={setMetric} xMode={xMode} onXModeChange={setXMode} />
+        <MetricToggle metric={metric} onChange={setMetric} xMode={xMode} onXModeChange={setXMode} showGlyphs={showGlyphs} onToggleGlyphs={() => setShowGlyphs(v => !v)} />
 
         <div className="chart-card">
           {isEmpty ? (
@@ -104,6 +105,7 @@ export function ComparePage() {
                     metric={metric}
                     xMode={xMode}
                     xRange={yearRange}
+                    showGlyphs={showGlyphs}
                     hoverPlayerId={hoverPlayerId}
                     setHoverPlayerId={setHoverPlayerId}
                     width={width}

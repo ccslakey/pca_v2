@@ -126,6 +126,7 @@ interface Props {
   metric: MetricId;
   xMode: XMode;
   xRange: [number, number];
+  showGlyphs: boolean;
   hoverPlayerId: string | null;
   setHoverPlayerId: (id: string | null) => void;
   width: number;
@@ -145,6 +146,7 @@ export function CareerChart({
   metric,
   xMode,
   xRange,
+  showGlyphs,
   hoverPlayerId,
   setHoverPlayerId,
   width,
@@ -361,7 +363,7 @@ export function CareerChart({
             }),
           )}
 
-          {lineData.map(({ player, pts }) =>
+          {showGlyphs && lineData.map(({ player, pts }) =>
             pts.map((s) => {
               const sx = xVal(s);
               if (sx == null) return null;

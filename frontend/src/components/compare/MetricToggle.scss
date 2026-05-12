@@ -63,3 +63,30 @@
 
   .key { display: inline-flex; align-items: center; gap: 6px; }
 }
+
+.glyph-toggle {
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--text-3);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  padding: 3px 8px;
+  cursor: pointer;
+  transition: color 120ms, border-color 120ms;
+
+  &:hover { color: var(--text-1); border-color: var(--text-3); }
+
+  &.is-active {
+    color: var(--text-1);
+    border-color: var(--text-2);
+  }
+}
+
+.glyph-legend {
+  display: inline-flex; gap: 10px; align-items: center;
+  transition: opacity 150ms;
+
+  &.is-hidden { opacity: 0.3; pointer-events: none; }
+}
