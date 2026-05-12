@@ -1,14 +1,16 @@
 import "./MetricToggle.scss";
 import { METRICS } from "../../constants";
-import type { MetricId } from "../../types";
+import type { MetricId, XMode } from "../../types";
 import { AnnotationGlyph } from "../AnnotationGlyph";
 
 interface Props {
   metric: MetricId;
   onChange: (m: MetricId) => void;
+  xMode: XMode;
+  onXModeChange: (m: XMode) => void;
 }
 
-export function MetricToggle({ metric, onChange }: Props) {
+export function MetricToggle({ metric, onChange, xMode, onXModeChange }: Props) {
   return (
     <div className="metric-row">
       <div className="metric-toggle" role="tablist">
@@ -24,6 +26,25 @@ export function MetricToggle({ metric, onChange }: Props) {
             {metric === m.id && <span className="full">· {m.full}</span>}
           </button>
         ))}
+      </div>
+
+      <div className="xmode-toggle" role="tablist" aria-label="X-axis mode">
+        <button
+          role="tab"
+          aria-selected={xMode === 'year'}
+          className={`xmode-pill ${xMode === 'year' ? 'is-active' : ''}`}
+          onClick={() => onXModeChange('year')}
+        >
+          Calendar
+        </button>
+        <button
+          role="tab"
+          aria-selected={xMode === 'age'}
+          className={`xmode-pill ${xMode === 'age' ? 'is-active' : ''}`}
+          onClick={() => onXModeChange('age')}
+        >
+          By Age
+        </button>
       </div>
 
       <div className="metric-meta">

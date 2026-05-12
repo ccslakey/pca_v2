@@ -49,8 +49,17 @@ function usePitchingSeasons(bbrefId: string | null) {
   });
 }
 
+function ageAtMidSeason(season: number, birthDate: string): number {
+  const birth  = new Date(birthDate);
+  const midSeason = new Date(Date.UTC(season, 6, 1)); // July 1
+  let age = season - birth.getUTCFullYear();
+  const birthdayThisYear = new Date(Date.UTC(season, birth.getUTCMonth(), birth.getUTCDate()));
+  if (midSeason < birthdayThisYear) age--;
+  return age;
+}
+
 /** Merge batting + pitching season arrays into ChartSeason[] (one entry per year). */
-function mergeSeasons(batting: BattingSeason[], pitching: PitchingSeason[]): ChartSeason[] {
+function mergeSeasons(batting: BattingSeason[], pitching: PitchingSeason[], birthDate: string | null): ChartSeason[] {
   const map = new Map<number, ChartSeason & { _battingPA: number; _pitchingIP: number }>();
 
   for (const s of batting) {
@@ -110,7 +119,10 @@ function mergeSeasons(batting: BattingSeason[], pitching: PitchingSeason[]): Cha
 
   return [...map.values()]
     .sort((a, b) => a.season - b.season)
-    .map(({ _battingPA: _b, _pitchingIP: _p, ...rest }) => rest);
+    .map(({ _battingPA: _b, _pitchingIP: _p, ...rest }) => ({
+      ...rest,
+      age: birthDate != null ? ageAtMidSeason(rest.season, birthDate) : null,
+    }));
 }
 
 function round1(n: number) {
@@ -174,10 +186,9 @@ export function useChartPlayer(bbrefId: string | null, colorIndex: number): {
   const hasBat = bat.length > 0;
   const hasPit = pit.length > 0;
 
-  const years =
-    p.mlb_played_first && p.mlb_played_last
-      ? `${p.mlb_played_first}–${p.mlb_played_last}`
-      : 'Active';
+  const debutYear     = p.debut     ? new Date(p.debut).getUTCFullYear()     : null;
+  const finalYear     = p.final_game ? new Date(p.final_game).getUTCFullYear() : null;
+  const years = debutYear && finalYear ? `${debutYear}–${finalYear}` : 'Active';
 
   const pos = hasBat && hasPit ? 'B/P' : hasPit ? 'P' : 'B';
 
@@ -188,10 +199,11 @@ export function useChartPlayer(bbrefId: string | null, colorIndex: number): {
     initials: initials(p.first_name, p.last_name),
     pos,
     years,
-    seasons: mergeSeasons(bat, pit),
+    seasons: mergeSeasons(bat, pit, p.birth_date),
     isBatter: hasBat,
     isPitcher: hasPit,
     awards: awards.data,
+    birthYear: p.birth_date ? new Date(p.birth_date).getUTCFullYear() : null,
   };
 
   return { data: chartPlayer, isLoading: false };

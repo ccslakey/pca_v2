@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ParentSize } from '@visx/responsive';
-import type { MetricId } from '../types';
+import type { MetricId, XMode } from '../types';
 import { useChartPlayer } from '../hooks';
 import { TopBar } from '../components/layout/TopBar';
 import { ChipBar } from '../components/compare/ChipBar';
@@ -38,6 +38,7 @@ export function ComparePage() {
     initialCompare ? [initialCompare] : []
   );
   const [metric, setMetric] = useState<MetricId>('war');
+  const [xMode, setXMode] = useState<XMode>('year');
   const [hoverPlayerId, setHoverPlayerId] = useState<string | null>(null);
 
   const players = useChartPlayers(selectedIds);
@@ -45,11 +46,13 @@ export function ComparePage() {
   const fullRange = useMemo<[number, number]>(() => {
     let lo = Infinity, hi = -Infinity;
     players.forEach(p => p.seasons.forEach(s => {
-      if (s.season < lo) lo = s.season;
-      if (s.season > hi) hi = s.season;
+      const v = xMode === 'age' ? s.age : s.season;
+      if (v == null) return;
+      if (v < lo) lo = v;
+      if (v > hi) hi = v;
     }));
-    return lo > hi ? [2000, 2024] : [lo, hi];
-  }, [players]);
+    return lo > hi ? (xMode === 'age' ? [18, 40] : [2000, 2024]) : [lo, hi];
+  }, [players, xMode]);
 
   const [yearRange, setYearRange] = useState<[number, number]>(fullRange);
 
@@ -78,7 +81,7 @@ export function ComparePage() {
         setHoverPlayerId={setHoverPlayerId}
         onRemove={removePlayer}
       />
-        <MetricToggle metric={metric} onChange={setMetric} />
+        <MetricToggle metric={metric} onChange={setMetric} xMode={xMode} onXModeChange={setXMode} />
 
         <div className="chart-card">
           {isEmpty ? (
@@ -93,7 +96,8 @@ export function ComparePage() {
                   <CareerChart
                     players={players}
                     metric={metric}
-                    yearRange={yearRange}
+                    xMode={xMode}
+                    xRange={yearRange}
                     hoverPlayerId={hoverPlayerId}
                     setHoverPlayerId={setHoverPlayerId}
                     width={width}
@@ -101,9 +105,10 @@ export function ComparePage() {
                   <BrushChart
                     players={players}
                     metric={metric}
-                    yearRange={yearRange}
+                    xMode={xMode}
+                    xRange={yearRange}
                     fullRange={fullRange}
-                    setYearRange={setYearRange}
+                    setXRange={setYearRange}
                     width={width}
                   />
                 </>

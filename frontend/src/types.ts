@@ -4,8 +4,8 @@ export interface PlayerSummary {
   bbref_id: string;
   first_name: string;
   last_name: string;
-  mlb_played_first: number | null;
-  mlb_played_last: number | null;
+  debut: string | null;
+  final_game: string | null;
   bats: string | null;
   throws: string | null;
 }
@@ -14,10 +14,8 @@ export interface PlayerDetail extends PlayerSummary {
   mlbam_id: number | null;
   fangraphs_id: number | null;
   retro_id: string | null;
-  birth_year: number | null;
+  birth_date: string | null;
   birth_country: string | null;
-  debut: string | null;
-  final_game: string | null;
 }
 
 export interface BattingSeason {
@@ -112,8 +110,8 @@ export interface SimilarPlayer {
   bbref_id: string;
   first_name: string;
   last_name: string;
-  mlb_played_first: number | null;
-  mlb_played_last: number | null;
+  debut: string | null;
+  final_game: string | null;
   career_war: number;
   is_pitcher: boolean;
   similarity: number;
@@ -153,8 +151,8 @@ export interface LeaderboardPlayer {
   bbref_id: string;
   first_name: string;
   last_name: string;
-  mlb_played_first: number | null;
-  mlb_played_last: number | null;
+  debut: string | null;
+  final_game: string | null;
   career_war: number;
   peak_war: number;
   is_pitcher: boolean;
@@ -219,4 +217,7 @@ export interface ChartPlayer {
   isPitcher: boolean;
   isBatter: boolean;
   awards: PlayerAward[];
+  birthYear: number | null;
 }
+
+export type XMode = 'year' | 'age';

@@ -1,5 +1,6 @@
-import { PlayerSearch } from './PlayerSearch';
-import { MAX_PLAYERS } from '../../constants';
+import { Link } from "react-router-dom";
+import { PlayerSearch } from "./PlayerSearch";
+import { MAX_PLAYERS } from "../../constants";
 
 interface Props {
   selectedIds: string[];
@@ -17,6 +18,9 @@ export function TopBar({ selectedIds, onSelect }: Props) {
           Baseball Reference
         </span>
       </div>
+      <Link to="/browse" className="topbar-browse-link">
+        Browse Players
+      </Link>
       <PlayerSearch
         selectedIds={selectedIds}
         onSelect={onSelect}

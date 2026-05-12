@@ -88,9 +88,9 @@ export function PlayerSearch({ selectedIds, onSelect, maxPlayers }: Props) {
           )}
           {results.map((p, i) => {
             const taken = selectedIds.includes(p.bbref_id);
-            const years = p.mlb_played_first
-              ? `${p.mlb_played_first}–${p.mlb_played_last ?? 'present'}`
-              : '';
+            const debutY = p.debut ? new Date(p.debut).getUTCFullYear() : null;
+            const finalY = p.final_game ? new Date(p.final_game).getUTCFullYear() : null;
+            const years  = debutY ? `${debutY}–${finalY ?? 'present'}` : '';
             return (
               <div
                 key={p.bbref_id}

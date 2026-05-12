@@ -52,9 +52,10 @@ function initials(p: LeaderboardPlayer) {
 }
 
 function years(p: LeaderboardPlayer) {
-  if (p.mlb_played_first && p.mlb_played_last)
-    return `${p.mlb_played_first}–${p.mlb_played_last}`;
-  return p.mlb_played_first ? `${p.mlb_played_first}–` : "—";
+  const debut = p.debut ? new Date(p.debut).getUTCFullYear() : null;
+  const final = p.final_game ? new Date(p.final_game).getUTCFullYear() : null;
+  if (debut && final) return `${debut}–${final}`;
+  return debut ? `${debut}–` : "—";
 }
 
 // ---- sub-components ----

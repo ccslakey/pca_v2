@@ -45,8 +45,8 @@ export function SimilarPlayersPanel({ similar }: Props) {
                       <div className="comp-meta">
                         {p.is_pitcher ? "P" : "B"} · {p.career_war.toFixed(1)}{" "}
                         WAR
-                        {p.mlb_played_first &&
-                          ` · ${p.mlb_played_first}–${p.mlb_played_last ?? "pres"}`}
+                        {p.debut &&
+                          ` · ${new Date(p.debut).getUTCFullYear()}–${p.final_game ? new Date(p.final_game).getUTCFullYear() : "pres"}`}
                       </div>
                     </div>
                     <div className="comp-score">{p.similarity}% sim</div>

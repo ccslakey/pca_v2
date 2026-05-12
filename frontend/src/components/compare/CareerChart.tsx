@@ -7,7 +7,7 @@ import { AxisLeft, AxisBottom } from '@visx/axis';
 import { useTooltip, TooltipWithBounds } from '@visx/tooltip';
 import { localPoint } from '@visx/event';
 import { curveCatmullRom } from 'd3-shape';
-import type { AwardKind, ChartPlayer, MetricId, PlayerAward } from '../../types';
+import type { AwardKind, ChartPlayer, MetricId, PlayerAward, XMode } from '../../types';
 import { fmtMetric, yTicks, yDomain, xTicks } from '../../utils/chart';
 import { AnnotationGlyph } from '../AnnotationGlyph';
 
@@ -54,7 +54,8 @@ function ChartGlyph({ kind, color, cx, cy }: { kind: AwardKind; color: string; c
 interface Props {
   players: ChartPlayer[];
   metric: MetricId;
-  yearRange: [number, number];
+  xMode: XMode;
+  xRange: [number, number];
   hoverPlayerId: string | null;
   setHoverPlayerId: (id: string | null) => void;
   width: number;
@@ -62,8 +63,8 @@ interface Props {
 }
 
 interface TooltipData {
-  season: number;
-  rows: { player: ChartPlayer; val: number }[];
+  xVal: number;
+  rows: { player: ChartPlayer; val: number; actualYear: number }[];
   awardRows: { player: ChartPlayer; award: PlayerAward }[];
 }
 
@@ -72,7 +73,8 @@ const MARGIN = { top: 18, right: 28, bottom: 30, left: 44 };
 export function CareerChart({
   players,
   metric,
-  yearRange,
+  xMode,
+  xRange,
   hoverPlayerId,
   setHoverPlayerId,
   width,
@@ -81,23 +83,27 @@ export function CareerChart({
   const innerW = Math.max(0, width - MARGIN.left - MARGIN.right);
   const innerH = Math.max(0, height - MARGIN.top - MARGIN.bottom);
 
+  const xVal = (s: { season: number; age: number | null }) =>
+    xMode === 'age' ? (s.age ?? null) : s.season;
+
   const allVals = useMemo(() => {
     const vals: number[] = [];
     players.forEach(p =>
       p.seasons.forEach(s => {
-        if (s.season < yearRange[0] || s.season > yearRange[1]) return;
+        const x = xVal(s);
+        if (x == null || x < xRange[0] || x > xRange[1]) return;
         const v = s[metric];
         if (v != null) vals.push(v);
       }),
     );
     return vals;
-  }, [players, metric, yearRange]);
+  }, [players, metric, xRange, xMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [yLo, yHi] = useMemo(() => yDomain(allVals, metric), [allVals, metric]);
 
   const xScale = useMemo(
-    () => scaleLinear({ domain: yearRange, range: [0, innerW] }),
-    [yearRange, innerW],
+    () => scaleLinear({ domain: xRange, range: [0, innerW] }),
+    [xRange, innerW],
   );
   const yScale = useMemo(
     () => scaleLinear({ domain: [yLo, yHi], range: [innerH, 0] }),
@@ -105,17 +111,18 @@ export function CareerChart({
   );
 
   const yt = useMemo(() => yTicks(yLo, yHi, metric), [yLo, yHi, metric]);
-  const xt = useMemo(() => xTicks(yearRange[0], yearRange[1]), [yearRange]);
+  const xt = useMemo(() => xTicks(xRange[0], xRange[1]), [xRange]);
 
   const lineData = useMemo(
     () =>
       players.map(p => {
-        const pts = p.seasons.filter(
-          s => s.season >= yearRange[0] && s.season <= yearRange[1] && s[metric] != null,
-        );
+        const pts = p.seasons.filter(s => {
+          const x = xVal(s);
+          return x != null && x >= xRange[0] && x <= xRange[1] && s[metric] != null;
+        });
         return { player: p, pts };
       }),
-    [players, metric, yearRange],
+    [players, metric, xRange, xMode], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   const { tooltipData, tooltipLeft, tooltipTop, showTooltip, hideTooltip } =
@@ -126,26 +133,26 @@ export function CareerChart({
     if (!point) return;
     const px = point.x - MARGIN.left;
     if (px < 0 || px > innerW) { hideTooltip(); return; }
-    const season = Math.round(xScale.invert(px));
-    if (season < yearRange[0] || season > yearRange[1]) { hideTooltip(); return; }
+    const hovered = Math.round(xScale.invert(px));
+    if (hovered < xRange[0] || hovered > xRange[1]) { hideTooltip(); return; }
 
     const rows = lineData
       .map(({ player, pts }) => {
-        const pt = pts.find(s => s.season === season);
-        return pt ? { player, val: pt[metric] as number } : null;
+        const pt = pts.find(s => (xMode === 'age' ? s.age : s.season) === hovered);
+        return pt ? { player, val: pt[metric] as number, actualYear: pt.season } : null;
       })
-      .filter((r): r is { player: ChartPlayer; val: number } => r != null);
+      .filter((r): r is { player: ChartPlayer; val: number; actualYear: number } => r != null);
 
     if (!rows.length) { hideTooltip(); return; }
 
-    const awardRows = players.flatMap(p =>
-      (p.awards ?? [])
-        .filter(a => a.year === season && CHART_KINDS.has(a.kind))
-        .map(a => ({ player: p, award: a })),
+    const awardRows = rows.flatMap(r =>
+      (r.player.awards ?? [])
+        .filter(a => a.year === r.actualYear && CHART_KINDS.has(a.kind))
+        .map(a => ({ player: r.player, award: a })),
     );
 
     showTooltip({
-      tooltipData: { season, rows, awardRows },
+      tooltipData: { xVal: hovered, rows, awardRows },
       tooltipLeft: point.x,
       tooltipTop: point.y,
     });
@@ -204,7 +211,7 @@ export function CareerChart({
           {tooltipData && (
             <line
               className="crosshair"
-              x1={xScale(tooltipData.season)} x2={xScale(tooltipData.season)}
+              x1={xScale(tooltipData.xVal)} x2={xScale(tooltipData.xVal)}
               y1={0} y2={innerH}
             />
           )}
@@ -216,7 +223,7 @@ export function CareerChart({
               <LinePath
                 key={player.id}
                 data={pts}
-                x={s => xScale(s.season)}
+                x={s => xScale(xVal(s) ?? 0)}
                 y={s => yScale(s[metric] as number)}
                 curve={curveCatmullRom}
                 className={`line ${dim ? 'is-dim' : ''} ${hov ? 'is-hover' : ''}`}
@@ -229,15 +236,17 @@ export function CareerChart({
 
           {lineData.map(({ player, pts }) =>
             pts.map(s => {
-              const isHoverSeason = tooltipData?.season === s.season;
+              const sx = xVal(s);
+              if (sx == null) return null;
+              const isHovered = tooltipData?.xVal === sx;
               const dim = hoverPlayerId !== null && hoverPlayerId !== player.id;
               return (
                 <circle
                   key={`${player.id}-${s.season}`}
                   className="dot"
-                  cx={xScale(s.season)}
+                  cx={xScale(sx)}
                   cy={yScale(s[metric] as number)}
-                  r={isHoverSeason ? 4.5 : 2.2}
+                  r={isHovered ? 4.5 : 2.2}
                   fill={player.color}
                   stroke="#0f1117"
                   strokeWidth={1.5}
@@ -249,6 +258,8 @@ export function CareerChart({
 
           {lineData.map(({ player, pts }) =>
             pts.map(s => {
+              const sx = xVal(s);
+              if (sx == null) return null;
               const ann = topAnnotation(player.awards, s.season);
               if (!ann || s[metric] == null) return null;
               const dim = hoverPlayerId !== null && hoverPlayerId !== player.id;
@@ -257,7 +268,7 @@ export function CareerChart({
                   <ChartGlyph
                     kind={ann.kind}
                     color={player.color}
-                    cx={xScale(s.season)}
+                    cx={xScale(sx)}
                     cy={yScale(s[metric] as number)}
                   />
                 </g>
@@ -283,7 +294,9 @@ export function CareerChart({
             backdropFilter: 'blur(6px)',
           }}
         >
-          <div className="tooltip-season">{tooltipData.season}</div>
+          <div className="tooltip-season">
+            {xMode === 'age' ? `Age ${tooltipData.xVal}` : tooltipData.xVal}
+          </div>
           {tooltipData.rows
             .sort((a, b) => (metric === 'era' ? a.val - b.val : b.val - a.val))
             .map(r => (

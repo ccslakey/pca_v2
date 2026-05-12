@@ -8,14 +8,15 @@ import type { Bounds } from '@visx/brush/lib/types';
 import type BaseBrush from '@visx/brush/lib/BaseBrush';
 import type { BrushHandleRenderProps } from '@visx/brush/lib/BrushHandle';
 import { curveCatmullRom } from 'd3-shape';
-import type { ChartPlayer, MetricId } from '../../types';
+import type { ChartPlayer, MetricId, XMode } from '../../types';
 
 interface Props {
   players: ChartPlayer[];
   metric: MetricId;
-  yearRange: [number, number];
+  xMode: XMode;
+  xRange: [number, number];
   fullRange: [number, number];
-  setYearRange: (r: [number, number]) => void;
+  setXRange: (r: [number, number]) => void;
   width: number;
 }
 
@@ -44,7 +45,7 @@ function BrushHandle({ x, y, height, isBrushActive }: BrushHandleRenderProps) {
   );
 }
 
-export function BrushChart({ players, metric, yearRange, fullRange, setYearRange, width }: Props) {
+export function BrushChart({ players, metric, xMode, xRange, fullRange, setXRange, width }: Props) {
   const innerW = Math.max(0, width - MARGIN.left - MARGIN.right);
   const innerH = Math.max(0, HEIGHT - MARGIN.top - MARGIN.bottom);
 
@@ -59,15 +60,17 @@ export function BrushChart({ players, metric, yearRange, fullRange, setYearRange
     const map = new Map<number, number>();
     players.forEach(p =>
       p.seasons.forEach(s => {
+        const key = xMode === 'age' ? s.age : s.season;
+        if (key == null) return;
         const v = s[metric];
         if (v == null) return;
-        const cur = map.get(s.season);
+        const cur = map.get(key);
         const cmp = metric === 'era' ? Math.min : Math.max;
-        map.set(s.season, cur == null ? v : cmp(cur, v));
+        map.set(key, cur == null ? v : cmp(cur, v));
       }),
     );
     return map;
-  }, [players, metric]);
+  }, [players, metric, xMode]);
 
   const yDomainVals = useMemo(() => {
     const vals = [...maxVals.values()];
@@ -85,30 +88,29 @@ export function BrushChart({ players, metric, yearRange, fullRange, setYearRange
     () =>
       [...maxVals.entries()]
         .sort((a, b) => a[0] - b[0])
-        .map(([season, val]) => ({ season, val })),
+        .map(([xKey, val]) => ({ xKey, val })),
     [maxVals],
   );
 
-  // initialBrushPosition is in pixel coordinates
   const initialBrushPosition = useMemo(() => ({
-    start: { x: xScale(yearRange[0]) },
-    end:   { x: xScale(yearRange[1]) },
-  // Recompute (remount Brush) only when fullRange or inner width changes
+    start: { x: xScale(xRange[0]) },
+    end:   { x: xScale(xRange[1]) },
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [fullRange[0], fullRange[1], innerW]);
 
   function onBrushChange(bounds: Bounds | null) {
     if (!bounds) return;
-    // bounds are already in domain (year) units
     const lo = Math.round(bounds.x0);
     const hi = Math.round(bounds.x1);
-    setYearRange([
+    setXRange([
       Math.max(fullRange[0], Math.min(lo, fullRange[1])),
       Math.max(fullRange[0], Math.min(hi, fullRange[1])),
     ]);
   }
 
-  const brushKey = `${fullRange[0]}-${fullRange[1]}-${innerW}`;
+  const brushKey = `${fullRange[0]}-${fullRange[1]}-${innerW}-${xMode}`;
+
+  const fmt = (v: number) => xMode === 'age' ? `${v}` : `${v}`;
 
   return (
     <div className="brush-wrap">
@@ -116,7 +118,7 @@ export function BrushChart({ players, metric, yearRange, fullRange, setYearRange
         <Group top={MARGIN.top} left={MARGIN.left}>
           <AreaClosed
             data={sparklineData}
-            x={d => xScale(d.season)}
+            x={d => xScale(d.xKey)}
             y={d => yScale(d.val)}
             yScale={yScale}
             curve={curveCatmullRom}
@@ -143,10 +145,10 @@ export function BrushChart({ players, metric, yearRange, fullRange, setYearRange
             renderBrushHandle={props => <BrushHandle {...props} />}
           />
 
-          <text className="brush-label" x={xScale(yearRange[0])} y={innerH + 14} textAnchor="middle">{yearRange[0]}</text>
-          <text className="brush-label" x={xScale(yearRange[1])} y={innerH + 14} textAnchor="middle">{yearRange[1]}</text>
-          <text x={-8}        y={innerH / 2} dy="0.32em" textAnchor="end"   className="brush-label" opacity={0.5}>{fullRange[0]}</text>
-          <text x={innerW + 8} y={innerH / 2} dy="0.32em" textAnchor="start" className="brush-label" opacity={0.5}>{fullRange[1]}</text>
+          <text className="brush-label" x={xScale(xRange[0])} y={innerH + 14} textAnchor="middle">{fmt(xRange[0])}</text>
+          <text className="brush-label" x={xScale(xRange[1])} y={innerH + 14} textAnchor="middle">{fmt(xRange[1])}</text>
+          <text x={-8}         y={innerH / 2} dy="0.32em" textAnchor="end"   className="brush-label" opacity={0.5}>{fmt(fullRange[0])}</text>
+          <text x={innerW + 8} y={innerH / 2} dy="0.32em" textAnchor="start" className="brush-label" opacity={0.5}>{fmt(fullRange[1])}</text>
         </Group>
       </svg>
     </div>
