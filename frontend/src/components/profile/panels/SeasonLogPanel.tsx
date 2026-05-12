@@ -23,7 +23,8 @@ export function SeasonLogPanel({ player, color, peak, tab, setTab }: Props) {
           Season log
           <span className="muted">{player.seasons.length} seasons</span>
         </div>
-        <div className="tabs">
+        {/* TODO implement? */}
+        {/*<div className="tabs">
           <button
             className={`tab ${tab === "standard" ? "is-active" : ""}`}
             onClick={() => setTab("standard")}
@@ -36,7 +37,7 @@ export function SeasonLogPanel({ player, color, peak, tab, setTab }: Props) {
           >
             Advanced
           </button>
-        </div>
+        </div>*/}
       </div>
       <div style={{ overflowX: "auto" }}>
         <table className="season-table">

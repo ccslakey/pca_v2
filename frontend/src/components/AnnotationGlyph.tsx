@@ -4,6 +4,7 @@ import {
   BaseballIcon,
   CrownIcon,
   FlagBannerIcon,
+  LightningIcon,
   MedalIcon,
   AxeIcon,
   StarIcon,
@@ -12,7 +13,6 @@ import {
 } from "@phosphor-icons/react";
 import type { AwardKind } from "../types";
 import CyYoung from "../assets/cy-young-trophy";
-import SilverSlugger from "../assets/silver-slugger";
 import GoldGlove from "../assets/gold-glove";
 
 interface Props {
@@ -33,7 +33,7 @@ export function AnnotationGlyph({ kind, color, size = 20 }: Props) {
   if (kind === "tc_p" || kind === "tc_b")
     return <CrownIcon size={size} color={color} weight="fill" />;
   if (kind === "cy") return <CyYoung color={color} size={size} />;
-  if (kind === "ss") return <SilverSlugger color={color} size={24} />;
+  if (kind === "ss") return <LightningIcon size={size} color={color} weight="fill" />;
   if (kind === "gg") return <GoldGlove color={color} size={size} />;
   if (kind === "hof")
     return <BaseballIcon size={size} color={color} weight="fill" />;

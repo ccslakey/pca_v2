@@ -93,8 +93,8 @@ export function BrushChart({ players, metric, xMode, xRange, fullRange, setXRang
   );
 
   const initialBrushPosition = useMemo(() => ({
-    start: { x: xScale(xRange[0]) },
-    end:   { x: xScale(xRange[1]) },
+    start: { x: xScale(fullRange[0]) },
+    end:   { x: xScale(fullRange[1]) },
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [fullRange[0], fullRange[1], innerW]);
 

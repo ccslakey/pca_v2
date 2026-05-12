@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useLeaderboard } from "../hooks";
 import type { LeaderboardFilters, LeaderboardPlayer } from "../types";
 import { PLAYER_COLORS, MAX_PLAYERS } from "../constants";
@@ -64,25 +64,29 @@ function AwardBadges({ p }: { p: LeaderboardPlayer }) {
   const badges: JSX.Element[] = [];
   if (p.mvp_count > 0)
     badges.push(
-      <span key="mvp" className="award-badge badge-mvp">
+      <span key="mvp" className="award-badge badge-mvp"
+        title={`${p.mvp_count}× Most Valuable Player`}>
         ★{p.mvp_count > 1 ? `×${p.mvp_count}` : ""}
       </span>,
     );
   if (p.cy_count > 0)
     badges.push(
-      <span key="cy" className="award-badge badge-cy">
+      <span key="cy" className="award-badge badge-cy"
+        title={`${p.cy_count}× Cy Young Award`}>
         CY{p.cy_count > 1 ? `×${p.cy_count}` : ""}
       </span>,
     );
   if (p.gg_count > 0)
     badges.push(
-      <span key="gg" className="award-badge badge-gg">
+      <span key="gg" className="award-badge badge-gg"
+        title={`${p.gg_count}× Gold Glove`}>
         ◇{p.gg_count > 1 ? `×${p.gg_count}` : ""}
       </span>,
     );
   if (p.asg_count > 0)
     badges.push(
-      <span key="asg" className="award-badge badge-asg">
+      <span key="asg" className="award-badge badge-asg"
+        title={`${p.asg_count}× All-Star selection`}>
         {p.asg_count}AS
       </span>,
     );
@@ -125,6 +129,7 @@ export function PlayerBrowser({
   standalone = false,
 }: PlayerBrowserProps) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const pageSizes = standalone ? STANDALONE_PAGE_SIZES : EMBEDDED_PAGE_SIZES;
 
   const [pos, setPos] = useState<"" | "P" | "B">("");
@@ -169,7 +174,12 @@ export function PlayerBrowser({
     if (onSelect) {
       onSelect(p.bbref_id);
     } else {
-      navigate(`/?compare=${p.bbref_id}`);
+      const existing = (searchParams.get('compare') ?? '').split(',').filter(Boolean);
+      if (!existing.includes(p.bbref_id)) {
+        navigate(`/?compare=${[...existing, p.bbref_id].join(',')}`);
+      } else {
+        navigate('/');
+      }
     }
   }
 

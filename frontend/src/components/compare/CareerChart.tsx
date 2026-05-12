@@ -1,50 +1,120 @@
-import { useMemo } from 'react';
-import { scaleLinear } from '@visx/scale';
-import { LinePath } from '@visx/shape';
-import { Group } from '@visx/group';
-import { GridRows } from '@visx/grid';
-import { AxisLeft, AxisBottom } from '@visx/axis';
-import { useTooltip, TooltipWithBounds } from '@visx/tooltip';
-import { localPoint } from '@visx/event';
-import { curveCatmullRom } from 'd3-shape';
-import type { AwardKind, ChartPlayer, MetricId, PlayerAward, XMode } from '../../types';
-import { fmtMetric, yTicks, yDomain, xTicks } from '../../utils/chart';
-import { AnnotationGlyph } from '../AnnotationGlyph';
+import { useMemo } from "react";
+import { scaleLinear } from "@visx/scale";
+import { LinePath } from "@visx/shape";
+import { Group } from "@visx/group";
+import { GridRows } from "@visx/grid";
+import { AxisLeft, AxisBottom } from "@visx/axis";
+import { useTooltip, TooltipWithBounds } from "@visx/tooltip";
+import { localPoint } from "@visx/event";
+import { curveCatmullRom } from "d3-shape";
+import type {
+  AwardKind,
+  ChartPlayer,
+  MetricId,
+  PlayerAward,
+  XMode,
+} from "../../types";
+import { fmtMetric, yTicks, yDomain, xTicks } from "../../utils/chart";
+import { AnnotationGlyph } from "../AnnotationGlyph";
 
-// Awards shown as circled glyphs on the chart line (must be pure SVG — no nested <svg>)
-const CHART_KINDS = new Set<AwardKind>(['mvp', 'cy', 'gg', 'asg']);
+const CHART_KINDS = new Set<AwardKind>([
+  "tc_b",
+  "tc_p",
+  "mvp",
+  "cy",
+  "ws",
+  "roty",
+  "postmvp",
+  "ss",
+  "gg",
+  "bat_title",
+  "era_title",
+  "all_mlb",
+  "asg",
+]);
 
+// Lower number = shown when two awards share the same year
 const AWARD_PRIORITY: Partial<Record<AwardKind, number>> = {
-  mvp: 0, cy: 1, gg: 2, asg: 3,
+  tc_b: 0,
+  tc_p: 0,
+  mvp: 1,
+  cy: 2,
+  ws: 3,
+  roty: 4,
+  postmvp: 5,
+  ss: 6,
+  gg: 7,
+  bat_title: 8,
+  era_title: 8,
+  all_mlb: 9,
+  asg: 11,
 };
 
 const AWARD_LABELS: Partial<Record<AwardKind, string>> = {
-  mvp: 'MVP', cy: 'Cy Young', gg: 'Gold Glove', asg: 'All-Star',
-  roty: 'Rookie of Year', ws: 'World Series', hof: 'Hall of Fame',
-  ss: 'Silver Slugger', tc_b: 'Triple Crown', tc_p: 'Triple Crown',
-  bat_title: 'Batting Title', era_title: 'ERA Title',
-  all_mlb: 'All-MLB Team', postmvp: 'Postseason MVP',
+  mvp: "MVP",
+  cy: "Cy Young",
+  gg: "Gold Glove",
+  asg: "All-Star",
+  roty: "Rookie of Year",
+  ws: "World Series",
+  hof: "Hall of Fame",
+  ss: "Silver Slugger",
+  tc_b: "Triple Crown (batting)",
+  tc_p: "Triple Crown (pitching)",
+  bat_title: "Batting Title",
+  era_title: "ERA Title",
+  all_mlb: "All-MLB Team",
+  postmvp: "Postseason MVP",
 };
 
 /** Top-priority chart annotation for a player in a given year, null if none. */
-function topAnnotation(awards: PlayerAward[], year: number): PlayerAward | null {
+function topAnnotation(
+  awards: PlayerAward[],
+  year: number,
+): PlayerAward | null {
   let best: PlayerAward | null = null;
   for (const a of awards) {
     if (a.year !== year || !CHART_KINDS.has(a.kind)) continue;
-    if (best === null || (AWARD_PRIORITY[a.kind] ?? 99) < (AWARD_PRIORITY[best.kind] ?? 99)) {
+    if (
+      best === null ||
+      (AWARD_PRIORITY[a.kind] ?? 99) < (AWARD_PRIORITY[best.kind] ?? 99)
+    ) {
       best = a;
     }
   }
   return best;
 }
 
-function ChartGlyph({ kind, color, cx, cy }: { kind: AwardKind; color: string; cx: number; cy: number }) {
+function ChartGlyph({
+  kind,
+  color,
+  cx,
+  cy,
+}: {
+  kind: AwardKind;
+  color: string;
+  cx: number;
+  cy: number;
+}) {
   const R = 11;
   const S = R * 1.25;
   return (
     <g pointerEvents="none">
-      <circle cx={cx} cy={cy} r={R} fill="var(--bg-1)" stroke={color} strokeWidth={1.5} />
-      <svg x={cx - S / 2} y={cy - S / 2} width={S} height={S} overflow="visible">
+      <circle
+        cx={cx}
+        cy={cy}
+        r={R}
+        fill="var(--bg-1)"
+        stroke={color}
+        strokeWidth={1.5}
+      />
+      <svg
+        x={cx - S / 2}
+        y={cy - S / 2}
+        width={S}
+        height={S}
+        overflow="visible"
+      >
         <AnnotationGlyph kind={kind} color={color} size={S} />
       </svg>
     </g>
@@ -84,12 +154,12 @@ export function CareerChart({
   const innerH = Math.max(0, height - MARGIN.top - MARGIN.bottom);
 
   const xVal = (s: { season: number; age: number | null }) =>
-    xMode === 'age' ? (s.age ?? null) : s.season;
+    xMode === "age" ? (s.age ?? null) : s.season;
 
   const allVals = useMemo(() => {
     const vals: number[] = [];
-    players.forEach(p =>
-      p.seasons.forEach(s => {
+    players.forEach((p) =>
+      p.seasons.forEach((s) => {
         const x = xVal(s);
         if (x == null || x < xRange[0] || x > xRange[1]) return;
         const v = s[metric];
@@ -115,10 +185,12 @@ export function CareerChart({
 
   const lineData = useMemo(
     () =>
-      players.map(p => {
-        const pts = p.seasons.filter(s => {
+      players.map((p) => {
+        const pts = p.seasons.filter((s) => {
           const x = xVal(s);
-          return x != null && x >= xRange[0] && x <= xRange[1] && s[metric] != null;
+          return (
+            x != null && x >= xRange[0] && x <= xRange[1] && s[metric] != null
+          );
         });
         return { player: p, pts };
       }),
@@ -132,23 +204,39 @@ export function CareerChart({
     const point = localPoint(e);
     if (!point) return;
     const px = point.x - MARGIN.left;
-    if (px < 0 || px > innerW) { hideTooltip(); return; }
+    if (px < 0 || px > innerW) {
+      hideTooltip();
+      return;
+    }
     const hovered = Math.round(xScale.invert(px));
-    if (hovered < xRange[0] || hovered > xRange[1]) { hideTooltip(); return; }
+    if (hovered < xRange[0] || hovered > xRange[1]) {
+      hideTooltip();
+      return;
+    }
 
     const rows = lineData
       .map(({ player, pts }) => {
-        const pt = pts.find(s => (xMode === 'age' ? s.age : s.season) === hovered);
-        return pt ? { player, val: pt[metric] as number, actualYear: pt.season } : null;
+        const pt = pts.find(
+          (s) => (xMode === "age" ? s.age : s.season) === hovered,
+        );
+        return pt
+          ? { player, val: pt[metric] as number, actualYear: pt.season }
+          : null;
       })
-      .filter((r): r is { player: ChartPlayer; val: number; actualYear: number } => r != null);
+      .filter(
+        (r): r is { player: ChartPlayer; val: number; actualYear: number } =>
+          r != null,
+      );
 
-    if (!rows.length) { hideTooltip(); return; }
+    if (!rows.length) {
+      hideTooltip();
+      return;
+    }
 
-    const awardRows = rows.flatMap(r =>
+    const awardRows = rows.flatMap((r) =>
       (r.player.awards ?? [])
-        .filter(a => a.year === r.actualYear && CHART_KINDS.has(a.kind))
-        .map(a => ({ player: r.player, award: a })),
+        .filter((a) => a.year === r.actualYear && CHART_KINDS.has(a.kind))
+        .map((a) => ({ player: r.player, award: a })),
     );
 
     showTooltip({
@@ -159,7 +247,7 @@ export function CareerChart({
   }
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div style={{ position: "relative" }}>
       <svg className="chart" viewBox={`0 0 ${width} ${height}`}>
         {/* Transparent overlay to capture mouse events across the full chart area */}
         <rect
@@ -181,19 +269,28 @@ export function CareerChart({
             strokeDasharray="2,4"
           />
 
-          {metric === 'war' && yLo < 0 && (
+          {metric === "war" && yLo < 0 && (
             <line
               className="chart-zero"
-              x1={0} x2={innerW}
-              y1={yScale(0)} y2={yScale(0)}
+              x1={0}
+              x2={innerW}
+              y1={yScale(0)}
+              y2={yScale(0)}
             />
           )}
 
           <AxisLeft
             scale={yScale}
             tickValues={yt}
-            tickFormat={v => fmtMetric(metric, v as number)}
-            tickLabelProps={{ fill: 'var(--text-3)', fontSize: 10.5, fontFamily: 'var(--font-mono)', textAnchor: 'end', dx: -4, dy: '0.32em' }}
+            tickFormat={(v) => fmtMetric(metric, v as number)}
+            tickLabelProps={{
+              fill: "var(--text-3)",
+              fontSize: 10.5,
+              fontFamily: "var(--font-mono)",
+              textAnchor: "end",
+              dx: -4,
+              dy: "0.32em",
+            }}
             hideAxisLine
             hideTicks
           />
@@ -202,8 +299,14 @@ export function CareerChart({
             scale={xScale}
             top={innerH}
             tickValues={xt}
-            tickFormat={v => String(v)}
-            tickLabelProps={{ fill: 'var(--text-3)', fontSize: 10.5, fontFamily: 'var(--font-mono)', textAnchor: 'middle', dy: '1em' }}
+            tickFormat={(v) => String(v)}
+            tickLabelProps={{
+              fill: "var(--text-3)",
+              fontSize: 10.5,
+              fontFamily: "var(--font-mono)",
+              textAnchor: "middle",
+              dy: "1em",
+            }}
             stroke="var(--line)"
             tickStroke="transparent"
           />
@@ -211,8 +314,10 @@ export function CareerChart({
           {tooltipData && (
             <line
               className="crosshair"
-              x1={xScale(tooltipData.xVal)} x2={xScale(tooltipData.xVal)}
-              y1={0} y2={innerH}
+              x1={xScale(tooltipData.xVal)}
+              x2={xScale(tooltipData.xVal)}
+              y1={0}
+              y2={innerH}
             />
           )}
 
@@ -223,10 +328,10 @@ export function CareerChart({
               <LinePath
                 key={player.id}
                 data={pts}
-                x={s => xScale(xVal(s) ?? 0)}
-                y={s => yScale(s[metric] as number)}
+                x={(s) => xScale(xVal(s) ?? 0)}
+                y={(s) => yScale(s[metric] as number)}
                 curve={curveCatmullRom}
-                className={`line ${dim ? 'is-dim' : ''} ${hov ? 'is-hover' : ''}`}
+                className={`line ${dim ? "is-dim" : ""} ${hov ? "is-hover" : ""}`}
                 stroke={player.color}
                 onMouseEnter={() => setHoverPlayerId(player.id)}
                 onMouseLeave={() => setHoverPlayerId(null)}
@@ -235,7 +340,7 @@ export function CareerChart({
           })}
 
           {lineData.map(({ player, pts }) =>
-            pts.map(s => {
+            pts.map((s) => {
               const sx = xVal(s);
               if (sx == null) return null;
               const isHovered = tooltipData?.xVal === sx;
@@ -257,7 +362,7 @@ export function CareerChart({
           )}
 
           {lineData.map(({ player, pts }) =>
-            pts.map(s => {
+            pts.map((s) => {
               const sx = xVal(s);
               if (sx == null) return null;
               const ann = topAnnotation(player.awards, s.season);
@@ -283,38 +388,61 @@ export function CareerChart({
           left={tooltipLeft}
           top={tooltipTop}
           style={{
-            position: 'absolute',
-            pointerEvents: 'none',
-            background: 'rgba(20,23,33,0.96)',
-            border: '1px solid var(--line)',
+            position: "absolute",
+            pointerEvents: "none",
+            background: "rgba(20,23,33,0.96)",
+            border: "1px solid var(--line)",
             borderRadius: 10,
-            padding: '10px 12px',
+            padding: "10px 12px",
             minWidth: 180,
             fontSize: 12,
-            backdropFilter: 'blur(6px)',
+            backdropFilter: "blur(6px)",
           }}
         >
           <div className="tooltip-season">
-            {xMode === 'age' ? `Age ${tooltipData.xVal}` : tooltipData.xVal}
+            {xMode === "age" ? `Age ${tooltipData.xVal}` : tooltipData.xVal}
           </div>
           {tooltipData.rows
-            .sort((a, b) => (metric === 'era' ? a.val - b.val : b.val - a.val))
-            .map(r => (
+            .sort((a, b) => (metric === "era" ? a.val - b.val : b.val - a.val))
+            .map((r) => (
               <div key={r.player.id} className="tooltip-row">
                 <span className="l">
-                  <span className="swatch" style={{ background: r.player.color }} />
+                  <span
+                    className="swatch"
+                    style={{ background: r.player.color }}
+                  />
                   {r.player.name}
                 </span>
                 <span className="v">{fmtMetric(metric, r.val)}</span>
               </div>
             ))}
           {tooltipData.awardRows.length > 0 && (
-            <div style={{ borderTop: '1px solid var(--line)', marginTop: 6, paddingTop: 6, display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <div
+              style={{
+                borderTop: "1px solid var(--line)",
+                marginTop: 6,
+                paddingTop: 6,
+                display: "flex",
+                flexDirection: "column",
+                gap: 3,
+              }}
+            >
               {tooltipData.awardRows.map(({ player, award }) => (
-                <div key={award.id} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <AnnotationGlyph kind={award.kind} color={player.color} size={11} />
-                  <span style={{ color: player.color, fontSize: 11 }}>{player.name}</span>
-                  <span style={{ color: 'var(--text-2)', fontSize: 11 }}>{AWARD_LABELS[award.kind]}</span>
+                <div
+                  key={award.id}
+                  style={{ display: "flex", alignItems: "center", gap: 5 }}
+                >
+                  <AnnotationGlyph
+                    kind={award.kind}
+                    color={player.color}
+                    size={11}
+                  />
+                  <span style={{ color: player.color, fontSize: 11 }}>
+                    {player.name}
+                  </span>
+                  <span style={{ color: "var(--text-2)", fontSize: 11 }}>
+                    {AWARD_LABELS[award.kind]}
+                  </span>
                 </div>
               ))}
             </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ParentSize } from '@visx/responsive';
 import type { MetricId, XMode } from '../types';
 import { useChartPlayer } from '../hooks';
@@ -33,13 +33,19 @@ function useChartPlayers(selectedIds: string[]) {
 
 export function ComparePage() {
   const [searchParams] = useSearchParams();
-  const initialCompare = searchParams.get('compare');
-  const [selectedIds, setSelectedIds] = useState<string[]>(
-    initialCompare ? [initialCompare] : []
-  );
+  const navigate = useNavigate();
+  const [selectedIds, setSelectedIds] = useState<string[]>(() => {
+    const raw = searchParams.get('compare');
+    return raw ? raw.split(',').filter(Boolean) : [];
+  });
   const [metric, setMetric] = useState<MetricId>('war');
   const [xMode, setXMode] = useState<XMode>('year');
   const [hoverPlayerId, setHoverPlayerId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const url = selectedIds.length ? `/?compare=${selectedIds.join(',')}` : '/';
+    navigate(url, { replace: true });
+  }, [selectedIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const players = useChartPlayers(selectedIds);
 
