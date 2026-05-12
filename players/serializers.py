@@ -1,4 +1,5 @@
 from rest_framework import serializers
+
 from .models import Player
 
 
@@ -8,9 +9,13 @@ class PlayerListSerializer(serializers.ModelSerializer[Player]):
     class Meta:
         model = Player
         fields = [
-            'bbref_id', 'first_name', 'last_name',
-            'mlb_played_first', 'mlb_played_last',
-            'bats', 'throws',
+            "bbref_id",
+            "first_name",
+            "last_name",
+            "debut",
+            "final_game",
+            "bats",
+            "throws",
         ]
 
 
@@ -19,4 +24,4 @@ class PlayerDetailSerializer(serializers.ModelSerializer[Player]):
 
     class Meta:
         model = Player
-        fields = '__all__'
+        fields = "__all__"

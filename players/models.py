@@ -19,20 +19,17 @@ class Player(models.Model):
     first_name = models.CharField(max_length=100)
     last_name  = models.CharField(max_length=100)
 
-    birth_year    = models.SmallIntegerField(null=True)
+    birth_date    = models.DateField(null=True)
     birth_country = models.CharField(max_length=100, null=True)
     bats          = models.CharField(max_length=1, null=True)   # R, L, B
     throws        = models.CharField(max_length=1, null=True)   # R, L
     debut         = models.DateField(null=True)
     final_game    = models.DateField(null=True)
 
-    mlb_played_first = models.SmallIntegerField(null=True)
-    mlb_played_last  = models.SmallIntegerField(null=True)
-
     class Meta:
         indexes = [
             models.Index(fields=['last_name', 'first_name']),
-            models.Index(fields=['mlb_played_first', 'mlb_played_last']),
+            models.Index(fields=['debut', 'final_game']),
         ]
 
     def __str__(self):

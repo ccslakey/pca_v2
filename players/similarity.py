@@ -174,7 +174,7 @@ def _hydrate(
     players_map = {
         p.bbref_id: p
         for p in Player.objects.filter(bbref_id__in=top_ids).only(
-            "bbref_id", "first_name", "last_name", "mlb_played_first", "mlb_played_last"
+            "bbref_id", "first_name", "last_name", "debut", "final_game"
         )
     }
     results: list[dict] = []
@@ -188,8 +188,8 @@ def _hydrate(
             "bbref_id":        p.bbref_id,
             "first_name":      p.first_name,
             "last_name":       p.last_name,
-            "mlb_played_first": p.mlb_played_first,
-            "mlb_played_last":  p.mlb_played_last,
+            "debut":      p.debut.isoformat() if p.debut else None,
+            "final_game": p.final_game.isoformat() if p.final_game else None,
             "career_war":      round(career_war, 1),
             "is_pitcher":      pid in pitcher_ids,
             "similarity":      similarity,

@@ -13,8 +13,8 @@ def make_player(bbref_id: str, first: str = 'Test', last: str = 'Player', **kwar
         bbref_id=bbref_id,
         first_name=first,
         last_name=last,
-        mlb_played_first=kwargs.get('first_year', 2000),
-        mlb_played_last=kwargs.get('last_year', 2010),
+        debut=kwargs.get('debut', None),
+        final_game=kwargs.get('final_game', None),
         bats=kwargs.get('bats', 'R'),
         throws=kwargs.get('throws', 'R'),
     )

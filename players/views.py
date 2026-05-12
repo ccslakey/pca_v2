@@ -59,7 +59,7 @@ def _build_leaderboard_rows() -> list[dict[str, Any]]:
         p["bbref_id"]: p
         for p in Player.objects.values(
             "bbref_id", "first_name", "last_name",
-            "mlb_played_first", "mlb_played_last",
+            "debut", "final_game",
         )
     }
 
@@ -88,8 +88,8 @@ def _build_leaderboard_rows() -> list[dict[str, Any]]:
             "bbref_id":         pid,
             "first_name":       p["first_name"],
             "last_name":        p["last_name"],
-            "mlb_played_first": p["mlb_played_first"],
-            "mlb_played_last":  p["mlb_played_last"],
+            "debut":      p["debut"].isoformat() if p["debut"] else None,
+            "final_game": p["final_game"].isoformat() if p["final_game"] else None,
             "career_war":       career_war,
             "peak_war":         peak_war,
             "is_pitcher":       is_pitcher,
@@ -204,9 +204,11 @@ class PlayerViewSet(viewsets.ReadOnlyModelViewSet[Player]):
                 continue
             if pos_filter == "B" and row["is_pitcher"]:
                 continue
-            if era_start_val and (row["mlb_played_last"] or 0) < era_start_val:
+            debut_year = int(row["debut"][:4]) if row["debut"] else 0
+            final_year = int(row["final_game"][:4]) if row["final_game"] else 9999
+            if era_start_val and final_year < era_start_val:
                 continue
-            if era_end_val and (row["mlb_played_first"] or 9999) > era_end_val:
+            if era_end_val and debut_year > era_end_val:
                 continue
             filtered.append(row)
 
