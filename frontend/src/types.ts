@@ -147,6 +147,44 @@ export interface PaginatedResponse<T> {
   results: T[];
 }
 
+// ---- Leaderboard ----
+
+export interface LeaderboardPlayer {
+  bbref_id: string;
+  first_name: string;
+  last_name: string;
+  mlb_played_first: number | null;
+  mlb_played_last: number | null;
+  career_war: number;
+  peak_war: number;
+  is_pitcher: boolean;
+  career_hr: number | null;
+  career_era: number | null;
+  mvp_count: number;
+  cy_count: number;
+  gg_count: number;
+  asg_count: number;
+}
+
+export interface LeaderboardResponse {
+  count: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+  results: LeaderboardPlayer[];
+}
+
+export interface LeaderboardFilters {
+  pos?: 'P' | 'B' | '';
+  min_war?: number;
+  era_start?: number;
+  era_end?: number;
+  sort?: string;
+  order?: 'asc' | 'desc';
+  page?: number;
+  page_size?: number;
+}
+
 // ---- Chart domain types ----
 
 export type MetricId = 'war' | 'hr' | 'avg' | 'ops' | 'era' | 'so';
@@ -180,4 +218,5 @@ export interface ChartPlayer {
   seasons: ChartSeason[];
   isPitcher: boolean;
   isBatter: boolean;
+  awards: PlayerAward[];
 }

@@ -1,0 +1,101 @@
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(1200px 600px at 80% -10%, rgba(56,99,200,0.08), transparent 60%),
+    radial-gradient(900px 500px at 0% 110%,  rgba(168,85,247,0.05), transparent 70%),
+    var(--bg-1);
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--line-soft);
+  background: rgba(15,17,23,0.7);
+  backdrop-filter: blur(8px);
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: -0.01em; }
+
+.brand-mark {
+  width: 26px; height: 26px;
+  border-radius: 7px;
+  background: linear-gradient(135deg, oklch(0.72 0.14 240), oklch(0.65 0.18 285));
+  position: relative;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 4px 14px rgba(99,102,241,0.35);
+
+  &::after {
+    content: "";
+    position: absolute; inset: 5px;
+    border-radius: 4px;
+    border: 1.5px solid rgba(255,255,255,0.85);
+    border-top-color: transparent;
+    border-right-color: transparent;
+    transform: rotate(-45deg);
+  }
+}
+
+.brand-name {
+  font-size: 14px;
+  .sub { color: var(--text-2); font-weight: 400; margin-left: 6px; }
+}
+
+.topbar-spacer { flex: 1; }
+
+.topbar-meta {
+  display: flex; gap: 6px; align-items: center;
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg-2);
+
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); box-shadow: 0 0 10px rgba(74,222,128,0.7); }
+}
+
+.main { padding: 18px 24px 32px; display: flex; flex-direction: column; gap: 16px; }
+
+/* ---- Profile page shell ---- */
+.profile {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(1200px 600px at 80% -10%, rgba(56, 99, 200, 0.08), transparent 60%),
+    radial-gradient(900px 500px at 0% 110%, rgba(168, 85, 247, 0.05), transparent 70%),
+    var(--bg-1);
+}
+
+.profile-back {
+  display: inline-flex; align-items: center; gap: 6px;
+  color: var(--text-2);
+  font-size: 12px;
+  text-decoration: none;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 5px 12px 5px 8px;
+  transition: background 80ms, color 80ms;
+
+  &:hover { background: var(--bg-3); color: var(--text-0); }
+}
+
+.profile-main { padding: 18px 24px 40px; display: flex; flex-direction: column; gap: 20px; }
+
+.col-2 {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+}
+
+.footer-note { text-align: center; color: var(--text-3); font-size: 11px; font-family: var(--font-mono); padding: 6px 0 0; }

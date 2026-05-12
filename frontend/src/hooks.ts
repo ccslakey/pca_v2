@@ -1,8 +1,17 @@
 import { useQuery } from '@tanstack/react-query';
-import { fetchBattingSeasons, fetchPitchingSeasons, fetchPlayer, fetchPlayerAwards, fetchPitchZone, fetchSimilarPlayers, searchPlayers } from './api';
-import type { ZoneOutcome, ZoneRole } from './types';
+import { fetchBattingSeasons, fetchLeaderboard, fetchPitchingSeasons, fetchPlayer, fetchPlayerAwards, fetchPitchZone, fetchSimilarPlayers, searchPlayers } from './api';
+import type { ZoneOutcome, ZoneRole, LeaderboardFilters } from './types';
 import type { BattingSeason, ChartPlayer, ChartSeason, PitchingSeason } from './types';
 import { PLAYER_COLORS } from './constants';
+
+export function useLeaderboard(filters: LeaderboardFilters) {
+  return useQuery({
+    queryKey: ['leaderboard', filters],
+    queryFn: () => fetchLeaderboard(filters),
+    staleTime: 1000 * 60 * 5,
+    placeholderData: (prev) => prev,
+  });
+}
 
 export function usePlayerSearch(q: string) {
   return useQuery({
@@ -151,10 +160,11 @@ export function useChartPlayer(bbrefId: string | null, colorIndex: number): {
   const detail   = usePlayerDetail(bbrefId);
   const batting  = useBattingSeasons(bbrefId);
   const pitching = usePitchingSeasons(bbrefId);
+  const awards   = usePlayerAwards(bbrefId);
 
-  const isLoading = detail.isLoading || batting.isLoading || pitching.isLoading;
+  const isLoading = detail.isLoading || batting.isLoading || pitching.isLoading || awards.isLoading;
 
-  if (!detail.data || !batting.data || !pitching.data) {
+  if (!detail.data || !batting.data || !pitching.data || !awards.data) {
     return { data: undefined, isLoading };
   }
 
@@ -181,6 +191,7 @@ export function useChartPlayer(bbrefId: string | null, colorIndex: number): {
     seasons: mergeSeasons(bat, pit),
     isBatter: hasBat,
     isPitcher: hasPit,
+    awards: awards.data,
   };
 
   return { data: chartPlayer, isLoading: false };

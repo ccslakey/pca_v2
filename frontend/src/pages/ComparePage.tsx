@@ -3,12 +3,13 @@ import { useSearchParams } from 'react-router-dom';
 import { ParentSize } from '@visx/responsive';
 import type { MetricId } from '../types';
 import { useChartPlayer } from '../hooks';
-import { TopBar } from '../components/TopBar';
-import { ChipBar } from '../components/ChipBar';
-import { MetricToggle } from '../components/MetricToggle';
-import { CareerChart } from '../components/CareerChart';
-import { BrushChart } from '../components/BrushChart';
-import { PlayerCard } from '../components/PlayerCard';
+import { TopBar } from '../components/layout/TopBar';
+import { ChipBar } from '../components/compare/ChipBar';
+import { MetricToggle } from '../components/compare/MetricToggle';
+import { CareerChart } from '../components/compare/CareerChart';
+import { BrushChart } from '../components/compare/BrushChart';
+import { PlayerCard } from '../components/compare/PlayerCard';
+import { PlayerBrowser } from '../components/PlayerBrowser';
 
 function useChartPlayers(selectedIds: string[]) {
   const p0 = useChartPlayer(selectedIds[0] ?? null, 0);
@@ -82,8 +83,8 @@ export function ComparePage() {
         <div className="chart-card">
           {isEmpty ? (
             <div className="chart-empty">
-              <div className="chart-empty-title">Search for players above to compare career arcs</div>
-              <div className="chart-empty-sub">Up to 10 players · WAR, HR, AVG, OPS, ERA, SO</div>
+              <div className="chart-empty-title">Add players to compare career arcs</div>
+              <div className="chart-empty-sub">Search above or browse the leaderboard below · Up to 10 players</div>
             </div>
           ) : (
             <ParentSize>
@@ -126,6 +127,8 @@ export function ComparePage() {
             ))}
           </div>
         )}
+
+        <PlayerBrowser selectedIds={selectedIds} onSelect={addPlayer} />
 
         <p className="footer-note">Data: Baseball Reference · All WAR values are bWAR · Career Arc Visualizer</p>
       </div>

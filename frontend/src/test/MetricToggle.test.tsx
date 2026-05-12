@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MetricToggle } from '../components/MetricToggle';
+import { MetricToggle } from '../components/compare/MetricToggle';
 import { METRICS } from '../constants';
 
 describe('MetricToggle', () => {

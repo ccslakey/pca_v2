@@ -1,0 +1,11 @@
+.brush-wrap { margin-top: 14px; border-top: 1px solid var(--line-soft); padding-top: 12px; }
+.brush-svg { display: block; width: 100%; }
+
+.brush-window {
+  fill: oklch(0.72 0.14 240 / 0.10); stroke: oklch(0.72 0.14 240 / 0.55); stroke-width: 1; cursor: grab;
+  &:active { cursor: grabbing; }
+}
+
+.brush-handle { fill: oklch(0.72 0.14 240 / 0.85); cursor: ew-resize; }
+.brush-mask { fill: rgba(0,0,0,0.45); }
+.brush-label { font-family: var(--font-mono); font-size: 11px; fill: var(--text-1); }

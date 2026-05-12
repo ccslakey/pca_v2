@@ -1,3 +1,4 @@
+import '../components/profile/panel.scss';
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useChartPlayer, useSimilarPlayers, usePlayerAwards } from '../hooks';
@@ -5,14 +6,14 @@ import { METRICS } from '../constants';
 import type { MetricId } from '../types';
 import { peakSeason, careerWar, sumMetric } from '../utils/chart';
 import { playerColor, colorTint } from '../utils/color';
-import { HeroSection }         from '../components/profile/HeroSection';
-import { StatGrid }            from '../components/profile/StatGrid';
-import { CareerArcPanel }      from '../components/profile/CareerArcPanel';
-import { SparklinePanel }      from '../components/profile/SparklinePanel';
-import { SeasonLogPanel }      from '../components/profile/SeasonLogPanel';
-import { SimilarPlayersPanel } from '../components/profile/SimilarPlayersPanel';
-import { AwardsPanel }         from '../components/profile/AwardsPanel';
-import { PitchZone }           from '../components/PitchZone';
+import { HeroSection }         from '../components/profile/panels/HeroSection';
+import { StatGrid }            from '../components/profile/panels/StatGrid';
+import { CareerArcPanel }      from '../components/profile/panels/CareerArcPanel';
+import { SparklinePanel }      from '../components/profile/panels/SparklinePanel';
+import { SeasonLogPanel }      from '../components/profile/panels/SeasonLogPanel';
+import { SimilarPlayersPanel } from '../components/profile/panels/SimilarPlayersPanel';
+import { AwardsPanel }         from '../components/profile/panels/AwardsPanel';
+import { PitchZone }           from '../components/profile/charts/PitchZone';
 
 export function ProfilePage() {
   const { bbrefId } = useParams<{ bbrefId: string }>();

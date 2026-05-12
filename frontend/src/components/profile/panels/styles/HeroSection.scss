@@ -1,0 +1,101 @@
+.hero {
+  position: relative;
+  display: grid;
+  grid-template-columns: 220px 1fr auto;
+  gap: 28px;
+  align-items: center;
+  padding: 28px 32px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+
+  &::before {
+    content: "";
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(560px 220px at 8% 0%, var(--team-glow, rgba(96,165,250,0.18)), transparent 70%),
+      linear-gradient(90deg, var(--team-tint, rgba(96,165,250,0.06)) 0%, transparent 50%);
+    pointer-events: none;
+  }
+}
+
+.hero-left, .hero-mid, .hero-right { position: relative; z-index: 1; }
+
+.hero-headshot {
+  width: 220px; height: 220px;
+  border-radius: 24px;
+  display: grid; place-items: center;
+  font-family: var(--font-mono);
+  font-size: 96px;
+  font-weight: 700;
+  color: #0a0c12;
+  letter-spacing: -0.03em;
+  position: relative;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+
+  &::after {
+    content: "";
+    position: absolute; inset: 0;
+    border-radius: 24px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.18), transparent 40%, rgba(0,0,0,0.25));
+    pointer-events: none;
+  }
+}
+
+.hero-jersey {
+  position: absolute; top: 12px; right: 14px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(10,12,18,0.55);
+}
+
+.hero-eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 4px 10px;
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-1);
+  margin-bottom: 12px;
+
+  .swatch { width: 8px; height: 8px; border-radius: 50%; }
+}
+
+.hero-name {
+  font-size: 48px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  margin: 0 0 10px;
+}
+
+.hero-meta {
+  display: flex; flex-wrap: wrap; gap: 14px;
+  color: var(--text-2);
+  font-size: 13px;
+
+  span { display: inline-flex; align-items: center; gap: 6px; }
+  .sep { color: var(--text-3); }
+  .label { color: var(--text-3); font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+}
+
+.hero-actions { display: flex; gap: 8px; align-items: center; }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: var(--text-0);
+  font-size: 12.5px;
+  font-weight: 500;
+  transition: background 80ms;
+  text-decoration: none;
+
+  &:hover { background: var(--bg-1); }
+}

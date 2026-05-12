@@ -1,0 +1,67 @@
+.season-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  font-family: var(--font-mono);
+
+  th {
+    text-align: right;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-3);
+    font-weight: 500;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--line);
+
+    &:first-child { text-align: left; }
+    &.year-col { text-align: left; }
+  }
+
+  td {
+    padding: 7px 8px;
+    border-bottom: 1px solid var(--line-soft);
+    text-align: right;
+    color: var(--text-1);
+
+    &:first-child { text-align: left; }
+  }
+
+  tr {
+    &:hover td { background: rgba(255,255,255,0.02); }
+
+    &.is-peak {
+      td { color: var(--text-0); }
+      td:first-child { color: var(--team-color, var(--accent)); font-weight: 600; }
+    }
+  }
+
+  .micro-bar {
+    display: inline-block;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--team-color);
+    vertical-align: middle;
+    margin-right: 8px;
+    opacity: 0.85;
+  }
+}
+
+.tabs {
+  display: inline-flex;
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.tab {
+  background: transparent; border: none;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  color: var(--text-2);
+
+  &.is-active { background: var(--bg-1); color: var(--text-0); }
+}

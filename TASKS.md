@@ -6,12 +6,7 @@ Portfolio improvement backlog — ordered by priority.
 
 - [ ] GitHub Actions CI — lint + `pytest` + frontend build on push
 - [ ] Code quality
-  - [ ] Extract `similar` view logic to `players/similarity.py`
-  - [ ] Remove unused `rank` variable in similarity loop
-  - [ ] Remove dead `color` prop from `PitchZone` (or wire to strike zone stroke)
-  - [ ] Split `ProfilePage.tsx` (448 lines) into panel components
-  - [ ] Split `globals.css` (651 lines) by concern
-  - [ ] Redo `AnnotationGlyph` — add variants for ws, ss, hof, roty, tc, postmvp, bat_title, era_title, all_mlb
+- [ ] Redo `AnnotationGlyph` — add variants for ws, ss, hof, roty, tc, postmvp, bat_title, era_title, all_mlb
 
 ## Backlog
 
@@ -19,7 +14,6 @@ Portfolio improvement backlog — ordered by priority.
 - [ ] Docker — `Dockerfile` + `docker-compose.yml` for local parity and deploy readiness
 - [ ] Live deployment — Railway or Fly.io; blocked on Docker + env vars
 - [ ] Cache `similar/` aggregation queries with Redis — currently uses Django's `LocMemCache` (1 h TTL, per-process); only worth upgrading if running multiple Gunicorn workers; deploy with a single worker to avoid cross-process staleness and defer Redis (~$10/mo) until traffic justifies it; also add explicit cache invalidation at end of ingest scripts
-- [ ] Remove or replace fake monthly heatmap data — real source is `pybaseball.get_splits` but costs 1 BRef req/player/year (see `pipeline/explore_monthly_splits.py`); shelved
 
 ## Done
 

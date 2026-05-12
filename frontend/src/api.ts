@@ -9,6 +9,8 @@ import type {
   ZoneRole,
   ZoneOutcome,
   ZoneResponse,
+  LeaderboardResponse,
+  LeaderboardFilters,
 } from './types';
 
 const BASE = '/api';
@@ -42,6 +44,19 @@ export function fetchSimilarPlayers(bbrefId: string): Promise<SimilarPlayersResp
 
 export function fetchPlayerAwards(bbrefId: string): Promise<PlayerAward[]> {
   return get<PlayerAward[]>(`/players/${bbrefId}/awards/`);
+}
+
+export function fetchLeaderboard(filters: LeaderboardFilters = {}): Promise<LeaderboardResponse> {
+  const params = new URLSearchParams();
+  if (filters.pos)       params.set('pos', filters.pos);
+  if (filters.min_war)   params.set('min_war', String(filters.min_war));
+  if (filters.era_start) params.set('era_start', String(filters.era_start));
+  if (filters.era_end)   params.set('era_end', String(filters.era_end));
+  if (filters.sort)      params.set('sort', filters.sort);
+  if (filters.order)     params.set('order', filters.order);
+  if (filters.page)      params.set('page', String(filters.page));
+  if (filters.page_size) params.set('page_size', String(filters.page_size));
+  return get<LeaderboardResponse>(`/players/leaderboard/?${params}`);
 }
 
 export function fetchPitchZone(
