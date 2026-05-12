@@ -8,6 +8,7 @@ export interface PlayerSummary {
   final_game: string | null;
   bats: string | null;
   throws: string | null;
+  primary_position: string | null;
 }
 
 export interface PlayerDetail extends PlayerSummary {
@@ -93,6 +94,52 @@ export interface PitchingSeason {
   war: number | null;
 }
 
+export interface FieldingPositionToken {
+  rank: number;
+  position: string;
+  is_primary_marker: boolean;
+  is_minor_marker: boolean;
+  is_career_major_marker: boolean;
+  is_career_minor_marker: boolean;
+  reported_games: number | null;
+}
+
+export interface FieldingSeason {
+  id: number;
+  player: string;
+  year: number;
+  stint: number;
+  team: string;
+  league: string | null;
+  age: number | null;
+  games: number | null;
+  games_started: number | null;
+  complete_games: number | null;
+  innings_outs: number | null;
+  chances: number | null;
+  putouts: number | null;
+  assists: number | null;
+  errors: number | null;
+  double_plays: number | null;
+  fielding_pct: number | null;
+  rtot: number | null;
+  rtot_per_year: number | null;
+  rdrs: number | null;
+  rdrs_per_year: number | null;
+  range_factor_per_nine: number | null;
+  league_range_factor_per_nine: number | null;
+  range_factor_per_game: number | null;
+  league_range_factor_per_game: number | null;
+  passed_balls: number | null;
+  wild_pitches: number | null;
+  stolen_bases: number | null;
+  caught_stealing: number | null;
+  caught_stealing_pct: number | null;
+  pickoffs: number | null;
+  positions_raw: string | null;
+  position_tokens: FieldingPositionToken[];
+}
+
 export type AwardKind =
   | 'mvp' | 'cy' | 'roty' | 'gg' | 'ss'
   | 'tc_b' | 'tc_p' | 'hof' | 'postmvp'
@@ -153,6 +200,7 @@ export interface LeaderboardPlayer {
   last_name: string;
   debut: string | null;
   final_game: string | null;
+  primary_position: string | null;
   career_war: number;
   peak_war: number;
   is_pitcher: boolean;
@@ -173,7 +221,7 @@ export interface LeaderboardResponse {
 }
 
 export interface LeaderboardFilters {
-  pos?: 'P' | 'B' | '';
+  pos?: string;
   min_war?: number;
   era_start?: number;
   era_end?: number;

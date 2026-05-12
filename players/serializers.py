@@ -16,6 +16,7 @@ class PlayerListSerializer(serializers.ModelSerializer[Player]):
             "final_game",
             "bats",
             "throws",
+            "primary_position",
         ]
 
 

@@ -25,6 +25,7 @@ class Player(models.Model):
     throws        = models.CharField(max_length=1, null=True)   # R, L
     debut         = models.DateField(null=True)
     final_game    = models.DateField(null=True)
+    primary_position = models.CharField(max_length=3, null=True, db_index=True)
 
     class Meta:
         indexes = [

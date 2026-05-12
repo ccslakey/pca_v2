@@ -1,5 +1,12 @@
 from rest_framework import serializers
-from .models import BattingSeason, PitchingSeason, PlayerAward, StatcastZoneBucket
+from .models import (
+    BattingSeason,
+    FieldingPositionToken,
+    FieldingSeason,
+    PitchingSeason,
+    PlayerAward,
+    StatcastZoneBucket,
+)
 
 
 class BattingSeasonSerializer(serializers.ModelSerializer[BattingSeason]):
@@ -11,6 +18,28 @@ class BattingSeasonSerializer(serializers.ModelSerializer[BattingSeason]):
 class PitchingSeasonSerializer(serializers.ModelSerializer[PitchingSeason]):
     class Meta:
         model = PitchingSeason
+        fields = '__all__'
+
+
+class FieldingPositionTokenSerializer(serializers.ModelSerializer[FieldingPositionToken]):
+    class Meta:
+        model = FieldingPositionToken
+        fields = [
+            'rank',
+            'position',
+            'is_primary_marker',
+            'is_minor_marker',
+            'is_career_major_marker',
+            'is_career_minor_marker',
+            'reported_games',
+        ]
+
+
+class FieldingSeasonSerializer(serializers.ModelSerializer[FieldingSeason]):
+    position_tokens = FieldingPositionTokenSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = FieldingSeason
         fields = '__all__'
 
 

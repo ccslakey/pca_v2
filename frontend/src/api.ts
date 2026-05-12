@@ -3,6 +3,7 @@ import type {
   PlayerSummary,
   PlayerDetail,
   BattingSeason,
+  FieldingSeason,
   PitchingSeason,
   SimilarPlayersResponse,
   PlayerAward,
@@ -36,6 +37,10 @@ export function fetchBattingSeasons(bbrefId: string): Promise<BattingSeason[]> {
 
 export function fetchPitchingSeasons(bbrefId: string): Promise<PitchingSeason[]> {
   return get<PitchingSeason[]>(`/players/${bbrefId}/pitching/`);
+}
+
+export function fetchFieldingSeasons(bbrefId: string): Promise<FieldingSeason[]> {
+  return get<FieldingSeason[]>(`/players/${bbrefId}/fielding/`);
 }
 
 export function fetchSimilarPlayers(bbrefId: string): Promise<SimilarPlayersResponse> {

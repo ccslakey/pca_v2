@@ -14,6 +14,7 @@ from rest_framework.serializers import BaseSerializer
 from stats.models import BattingSeason, PitchingSeason, PlayerAward
 from stats.serializers import (
     BattingSeasonSerializer,
+    FieldingSeasonSerializer,
     PitchingSeasonSerializer,
     PlayerAwardSerializer,
     StatcastZoneBucketSerializer,
@@ -26,7 +27,7 @@ from .similarity import similar_players
 if TYPE_CHECKING:
     from django.db.models import QuerySet
 
-_LEADERBOARD_CACHE_KEY = "leaderboard:v1"
+_LEADERBOARD_CACHE_KEY = "leaderboard:v2"
 _LEADERBOARD_CACHE_TTL = 3600  # 1 hour
 
 
@@ -60,6 +61,7 @@ def _build_leaderboard_rows() -> list[dict[str, Any]]:
         for p in Player.objects.values(
             "bbref_id", "first_name", "last_name",
             "debut", "final_game",
+            "primary_position",
         )
     }
 
@@ -90,6 +92,7 @@ def _build_leaderboard_rows() -> list[dict[str, Any]]:
             "last_name":        p["last_name"],
             "debut":      p["debut"].isoformat() if p["debut"] else None,
             "final_game": p["final_game"].isoformat() if p["final_game"] else None,
+            "primary_position":  p["primary_position"],
             "career_war":       career_war,
             "peak_war":         peak_war,
             "is_pitcher":       is_pitcher,
@@ -118,7 +121,7 @@ class PlayerViewSet(viewsets.ReadOnlyModelViewSet[Player]):
     )
     filter_backends = [filters.SearchFilter, DjangoFilterBackend]
     search_fields = ["first_name", "last_name", "bbref_id"]
-    filterset_fields = ["bats", "throws", "birth_country"]
+    filterset_fields = ["bats", "throws", "birth_country", "primary_position"]
 
     def get_serializer_class(self) -> type[BaseSerializer[Player]]:
         if self.action == "list":
@@ -136,6 +139,17 @@ class PlayerViewSet(viewsets.ReadOnlyModelViewSet[Player]):
         player: Player = self.get_object()
         qs = player.pitching_seasons.all().order_by("year", "stint")
         return Response(PitchingSeasonSerializer(qs, many=True).data)
+
+    @action(detail=True, url_path="fielding")
+    def fielding(self, request: Request, pk: str | None = None) -> Response:
+        player: Player = self.get_object()
+        qs = (
+            player.fielding_seasons
+            .prefetch_related("position_tokens")
+            .all()
+            .order_by("year", "stint")
+        )
+        return Response(FieldingSeasonSerializer(qs, many=True).data)
 
     @action(detail=True, url_path="awards")
     def awards(self, request: Request, pk: str | None = None) -> Response:
@@ -203,6 +217,8 @@ class PlayerViewSet(viewsets.ReadOnlyModelViewSet[Player]):
             if pos_filter == "P" and not row["is_pitcher"]:
                 continue
             if pos_filter == "B" and row["is_pitcher"]:
+                continue
+            if pos_filter not in {"", "P", "B"} and row["primary_position"] != pos_filter:
                 continue
             debut_year = int(row["debut"][:4]) if row["debut"] else 0
             final_year = int(row["final_game"][:4]) if row["final_game"] else 9999

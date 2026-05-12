@@ -22,7 +22,14 @@ import requests
 from django.test import TestCase
 
 from players.models import Player
-from stats.models import BattingSeason, PitchingSeason, IngestionLog
+from stats.models import (
+    BattingSeason,
+    FieldingPositionToken,
+    FieldingSeason,
+    PitchingSeason,
+    IngestionLog,
+)
+from stats.positions import parse_bref_positions
 from pipeline.ingest_bref_history import (
     ip_to_outs,
     to_int,
@@ -33,10 +40,12 @@ from pipeline.ingest_bref_history import (
     upsert_player,
     fetch_with_retry,
     ingest_batting_page,
+    ingest_fielding_page,
     ingest_pitching_page,
     already_ingested,
     log_success,
     log_error,
+    main,
 )
 
 
@@ -81,6 +90,28 @@ def _pitching_html(rows: list[dict], in_comment: bool = False) -> bytes:
 
     table = (
         f'<table id="players_standard_pitching">'
+        f'<tbody>{"".join(tr_parts)}</tbody>'
+        f'</table>'
+    )
+    body = f'<!--{table}-->' if in_comment else table
+    return f'<html><body>{body}</body></html>'.encode()
+
+
+def _fielding_html(rows: list[dict], in_comment: bool = False) -> bytes:
+    """Build minimal BRef-style fielding table HTML bytes."""
+    tr_parts: list[str] = []
+    for r in rows:
+        cells = [
+            f'<th data-stat="name_display" data-append-csv="{r["bbref_id"]}">'
+            f'{r.get("name", "Test Fielder")}</th>',
+            f'<td data-stat="team_name_abbr">{r.get("team", "TST")}</td>',
+        ]
+        for stat, val in r.get('stats', {}).items():
+            cells.append(f'<td data-stat="{stat}">{val}</td>')
+        tr_parts.append(f'<tr>{"".join(cells)}</tr>')
+
+    table = (
+        f'<table id="players_standard_fielding">'
         f'<tbody>{"".join(tr_parts)}</tbody>'
         f'</table>'
     )
@@ -182,6 +213,34 @@ class TestParseName(unittest.TestCase):
         first, last = parse_name('Satchel')
         self.assertEqual(first, 'Satchel')
         self.assertEqual(last, '')
+
+
+class TestParseBrefPositions(unittest.TestCase):
+    def test_decodes_numeric_positions_and_markers(self) -> None:
+        tokens = parse_bref_positions('*8/79')
+        self.assertEqual([t.position for t in tokens], ['CF', 'LF', 'RF'])
+        self.assertTrue(tokens[0].is_primary_marker)
+        self.assertTrue(tokens[1].is_minor_marker)
+        self.assertTrue(tokens[2].is_minor_marker)
+
+    def test_decodes_dh_and_h(self) -> None:
+        tokens = parse_bref_positions('*3/DHH')
+        self.assertEqual([t.position for t in tokens], ['1B', 'DH', 'H'])
+
+    def test_decodes_career_markers(self) -> None:
+        tokens = parse_bref_positions('+6-4H')
+        self.assertEqual(tokens[0].position, 'SS')
+        self.assertTrue(tokens[0].is_career_major_marker)
+        self.assertEqual(tokens[1].position, '2B')
+        self.assertTrue(tokens[1].is_career_minor_marker)
+
+    def test_adjacent_digits_after_h_are_positions_not_games(self) -> None:
+        tokens = parse_bref_positions('/H71349')
+        self.assertEqual(
+            [t.position for t in tokens],
+            ['H', 'LF', 'P', '1B', '2B', 'RF'],
+        )
+        self.assertTrue(all(t.reported_games is None for t in tokens))
 
 
 class TestLeagueUrls(unittest.TestCase):
@@ -628,6 +687,161 @@ class TestIngestPitchingPage(TestCase):
                 )
                 season = PitchingSeason.objects.get(player_id=bbref_id, year=2000)
                 self.assertEqual(season.ip_outs, expected_outs)
+
+
+class TestIngestFieldingPage(TestCase):
+    @patch('pipeline.ingest_bref_history.fetch_with_retry')
+    def test_creates_fielding_season_with_standard_fields(self, mock_fetch: MagicMock) -> None:
+        html = _fielding_html([{
+            'bbref_id': 'troutmi01', 'name': 'Mike Trout', 'team': 'LAA',
+            'stats': {
+                'age': '27', 'f_games': '134', 'f_games_started': '132',
+                'f_inn': '1166.2', 'f_chances': '300', 'f_putouts': '292',
+                'f_assists': '5', 'f_errors': '3', 'f_fielding_perc': '.990',
+                'f_rdrs': '8', 'f_range_factor_per_nine': '2.29',
+                'pos': '*8/79', 'award_summary': 'AS',
+            },
+        }])
+        mock_fetch.return_value = _mock_response(html)
+
+        rows = ingest_fielding_page(
+            MagicMock(), 2019, 'MLB', 'http://example.com',
+            EMPTY_CHADWICK, dry_run=False, verbose=False,
+        )
+
+        self.assertEqual(rows, 1)
+        season = FieldingSeason.objects.get(player_id='troutmi01', year=2019)
+        self.assertEqual(season.age, 27)
+        self.assertEqual(season.games, 134)
+        self.assertEqual(season.games_started, 132)
+        self.assertEqual(season.innings_outs, 3500)
+        self.assertEqual(season.chances, 300)
+        self.assertAlmostEqual(season.fielding_pct, .990, places=3)
+        self.assertEqual(season.positions_raw, '*8/79')
+        self.assertFalse(hasattr(season, 'award_summary'))
+
+    @patch('pipeline.ingest_bref_history.fetch_with_retry')
+    def test_creates_decoded_position_tokens(self, mock_fetch: MagicMock) -> None:
+        html = _fielding_html([{
+            'bbref_id': 'troutmi01', 'name': 'Mike Trout', 'team': 'LAA',
+            'stats': {'f_games': '134', 'pos': '*8/79'},
+        }])
+        mock_fetch.return_value = _mock_response(html)
+
+        ingest_fielding_page(
+            MagicMock(), 2019, 'MLB', 'http://example.com',
+            EMPTY_CHADWICK, dry_run=False, verbose=False,
+        )
+
+        tokens = list(
+            FieldingPositionToken.objects
+            .filter(fielding_season__player_id='troutmi01')
+            .order_by('rank')
+            .values_list('position', 'is_primary_marker', 'is_minor_marker')
+        )
+        self.assertEqual(tokens, [('CF', True, False), ('LF', False, True), ('RF', False, True)])
+
+    @patch('pipeline.ingest_bref_history.fetch_with_retry')
+    def test_filters_multi_team_total_rows(self, mock_fetch: MagicMock) -> None:
+        html = _fielding_html([
+            {'bbref_id': 'tradedfi01', 'team': 'NYY', 'stats': {'f_games': '50', 'pos': '6'}},
+            {'bbref_id': 'tradedfi01', 'team': 'BOS', 'stats': {'f_games': '30', 'pos': '4'}},
+            {'bbref_id': 'tradedfi01', 'team': '2TM', 'stats': {'f_games': '80', 'pos': '64'}},
+        ])
+        mock_fetch.return_value = _mock_response(html)
+
+        rows = ingest_fielding_page(
+            MagicMock(), 2000, 'MLB', 'http://example.com',
+            EMPTY_CHADWICK, dry_run=False, verbose=False,
+        )
+
+        self.assertEqual(rows, 2)
+        self.assertFalse(
+            FieldingSeason.objects.filter(player_id='tradedfi01', team='2TM').exists()
+        )
+
+    @patch('pipeline.ingest_bref_history.fetch_with_retry')
+    def test_dry_run_does_not_write_to_db(self, mock_fetch: MagicMock) -> None:
+        html = _fielding_html([{
+            'bbref_id': 'troutmi01', 'name': 'Mike Trout', 'team': 'LAA',
+            'stats': {'f_games': '134', 'pos': '8'},
+        }])
+        mock_fetch.return_value = _mock_response(html)
+
+        rows = ingest_fielding_page(
+            MagicMock(), 2019, 'MLB', 'http://example.com',
+            EMPTY_CHADWICK, dry_run=True, verbose=False,
+        )
+
+        self.assertEqual(rows, 1)
+        self.assertFalse(FieldingSeason.objects.filter(player_id='troutmi01').exists())
+
+
+class TestMainPrimaryPositionRecompute(unittest.TestCase):
+    @patch('pipeline.ingest_bref_history.call_command')
+    @patch('pipeline.ingest_bref_history.build_chadwick_index', return_value={})
+    @patch('pipeline.ingest_bref_history.ingest_fielding_page', return_value=0)
+    @patch('pipeline.ingest_bref_history.log_success')
+    @patch('pipeline.ingest_bref_history.already_ingested', return_value=False)
+    @patch('sys.argv', ['ingest_bref_history.py', '--fielding-only', '--start-year', '2020', '--end-year', '2020'])
+    def test_fielding_ingest_recomputes_primary_positions(
+        self,
+        mock_already_ingested: MagicMock,
+        mock_log_success: MagicMock,
+        mock_ingest: MagicMock,
+        mock_chadwick: MagicMock,
+        mock_call_command: MagicMock,
+    ) -> None:
+        main()
+        mock_call_command.assert_called_once_with('compute_primary_positions')
+
+    @patch('pipeline.ingest_bref_history.call_command')
+    @patch('pipeline.ingest_bref_history.build_chadwick_index', return_value={})
+    @patch('pipeline.ingest_bref_history.ingest_fielding_page', return_value=0)
+    @patch('pipeline.ingest_bref_history.log_success')
+    @patch('pipeline.ingest_bref_history.already_ingested', return_value=False)
+    @patch('sys.argv', [
+        'ingest_bref_history.py',
+        '--fielding-only',
+        '--start-year',
+        '2020',
+        '--end-year',
+        '2020',
+        '--skip-primary-position-recompute',
+    ])
+    def test_skip_flag_suppresses_primary_position_recompute(
+        self,
+        mock_already_ingested: MagicMock,
+        mock_log_success: MagicMock,
+        mock_ingest: MagicMock,
+        mock_chadwick: MagicMock,
+        mock_call_command: MagicMock,
+    ) -> None:
+        main()
+        mock_call_command.assert_not_called()
+
+    @patch('pipeline.ingest_bref_history.call_command')
+    @patch('pipeline.ingest_bref_history.build_chadwick_index', return_value={})
+    @patch('pipeline.ingest_bref_history.ingest_fielding_page', return_value=0)
+    @patch('pipeline.ingest_bref_history.already_ingested', return_value=False)
+    @patch('sys.argv', [
+        'ingest_bref_history.py',
+        '--fielding-only',
+        '--start-year',
+        '2020',
+        '--end-year',
+        '2020',
+        '--dry-run',
+    ])
+    def test_dry_run_suppresses_primary_position_recompute(
+        self,
+        mock_already_ingested: MagicMock,
+        mock_ingest: MagicMock,
+        mock_chadwick: MagicMock,
+        mock_call_command: MagicMock,
+    ) -> None:
+        main()
+        mock_call_command.assert_not_called()
 
 
 if __name__ == '__main__':

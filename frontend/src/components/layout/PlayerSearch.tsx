@@ -103,7 +103,9 @@ export function PlayerSearch({ selectedIds, onSelect, maxPlayers }: Props) {
                 </div>
                 <div className="search-result-info">
                   <div className="search-result-name">{p.first_name} {p.last_name}</div>
-                  <div className="search-result-meta">{p.bbref_id}{years ? ` · ${years}` : ''}</div>
+                  <div className="search-result-meta">
+                    {p.bbref_id}{p.primary_position ? ` · ${p.primary_position}` : ''}{years ? ` · ${years}` : ''}
+                  </div>
                 </div>
                 {taken && (
                   <span style={{ color: 'var(--text-3)', fontSize: 11, fontFamily: 'var(--font-mono)' }}>

@@ -1,7 +1,7 @@
 """
 pipeline/ingest_bref_history.py
 
-Scrapes Baseball Reference standard batting and pitching pages for every
+Scrapes Baseball Reference standard batting, pitching, and fielding pages for every
 season in MLB history (1871–present) and loads into Django models.
 
 URL strategy:
@@ -23,6 +23,7 @@ Usage:
   python pipeline/ingest_bref_history.py --start-year 1950 --end-year 2024
   python pipeline/ingest_bref_history.py --batting-only
   python pipeline/ingest_bref_history.py --pitching-only
+  python pipeline/ingest_bref_history.py --fielding-only
   python pipeline/ingest_bref_history.py --dry-run
   python pipeline/ingest_bref_history.py --force   # re-ingest already-logged years
 """
@@ -54,8 +55,17 @@ pybaseball.cache.enable()
 
 from pybaseball.datasources.bref import BRefSession
 
+from django.core.management import call_command
+
 from players.models import Player
-from stats.models import BattingSeason, IngestionLog, PitchingSeason
+from stats.models import (
+    BattingSeason,
+    FieldingPositionToken,
+    FieldingSeason,
+    IngestionLog,
+    PitchingSeason,
+)
+from stats.positions import parse_bref_positions
 
 # ---------------------------------------------------------------------------
 # League → year range mapping
@@ -120,7 +130,7 @@ def league_urls(
 ) -> Generator[tuple[int, str, str], None, None]:
     """
     Yields (year, league_code, url) tuples for every page that needs
-    to be scraped. stat_type is 'batting' or 'pitching'.
+    to be scraped. stat_type is 'batting', 'pitching', or 'fielding'.
     """
     for year in range(start_year, end_year + 1):
         if year >= 1901:
@@ -187,6 +197,10 @@ def ip_to_outs(ip_str: Any) -> int | None:
         return full * 3 + extra
     except (ValueError, IndexError):
         return None
+
+
+def innings_to_outs(inn_str: Any) -> int | None:
+    return ip_to_outs(inn_str)
 
 
 def to_int(val: Any) -> int | None:
@@ -357,6 +371,36 @@ PITCHING_COL_MAP: ColMap = {
     "p_war": ("war", to_float),
 }
 
+FIELDING_COL_ALIASES: dict[str, tuple[tuple[str, Callable[[Any], Any]], ...]] = {
+    "age": (("age", to_int),),
+    "games": (("f_games", to_int), ("f_g", to_int)),
+    "games_started": (("f_games_started", to_int), ("f_gs", to_int)),
+    "complete_games": (("f_complete_games", to_int), ("f_cg", to_int)),
+    "innings_outs": (("f_inn", innings_to_outs), ("f_innings", innings_to_outs)),
+    "chances": (("f_chances", to_int), ("f_ch", to_int)),
+    "putouts": (("f_putouts", to_int), ("f_po", to_int)),
+    "assists": (("f_assists", to_int), ("f_a", to_int)),
+    "errors": (("f_errors", to_int), ("f_e", to_int)),
+    "double_plays": (("f_double_plays", to_int), ("f_dp", to_int)),
+    "fielding_pct": (("f_fielding_perc", to_float), ("f_fielding_pct", to_float)),
+    "rtot": (("f_rtot", to_int),),
+    "rtot_per_year": (("f_rtot_per_year", to_int), ("f_rtot_yr", to_int)),
+    "rdrs": (("f_rdrs", to_int),),
+    "rdrs_per_year": (("f_rdrs_per_year", to_int), ("f_rdrs_yr", to_int)),
+    "range_factor_per_nine": (("f_range_factor_per_nine", to_float), ("f_rf9", to_float)),
+    "league_range_factor_per_nine": (("f_lg_range_factor_per_nine", to_float), ("f_lg_rf9", to_float)),
+    "range_factor_per_game": (("f_range_factor_per_game", to_float), ("f_rfg", to_float)),
+    "league_range_factor_per_game": (("f_lg_range_factor_per_game", to_float), ("f_lg_rfg", to_float)),
+    "passed_balls": (("f_passed_balls", to_int), ("f_pb", to_int)),
+    "wild_pitches": (("f_wild_pitches", to_int), ("f_wp", to_int)),
+    "stolen_bases": (("f_stolen_bases", to_int), ("f_sb", to_int)),
+    "caught_stealing": (("f_caught_stealing", to_int), ("f_cs", to_int)),
+    "caught_stealing_pct": (("f_caught_stealing_perc", to_float), ("f_cs_perc", to_float)),
+    "pickoffs": (("f_pickoffs", to_int), ("f_pickoff", to_int), ("f_pk", to_int)),
+}
+
+FIELDING_POSITION_COLS = ("pos", "positions", "position")
+
 
 # ---------------------------------------------------------------------------
 # Ingest functions
@@ -491,6 +535,109 @@ def ingest_pitching_page(
     return len(records)
 
 
+def _mapped_fielding_value(row: Any, model_field: str) -> Any:
+    for bref_col, converter in FIELDING_COL_ALIASES[model_field]:
+        if bref_col in row:
+            return converter(row[bref_col])
+    return None
+
+
+def _positions_raw(row: Any) -> str | None:
+    for bref_col in FIELDING_POSITION_COLS:
+        value = row.get(bref_col)
+        if value:
+            return str(value).strip()
+    return None
+
+
+def _sync_position_tokens(season: FieldingSeason) -> None:
+    FieldingPositionToken.objects.filter(fielding_season=season).delete()
+    tokens = [
+        FieldingPositionToken(
+            fielding_season=season,
+            rank=token.rank,
+            position=token.position,
+            is_primary_marker=token.is_primary_marker,
+            is_minor_marker=token.is_minor_marker,
+            is_career_major_marker=token.is_career_major_marker,
+            is_career_minor_marker=token.is_career_minor_marker,
+            reported_games=token.reported_games,
+        )
+        for token in parse_bref_positions(season.positions_raw)
+    ]
+    if tokens:
+        FieldingPositionToken.objects.bulk_create(tokens)
+
+
+def ingest_fielding_page(
+    session: BRefSession,
+    year: int,
+    league: str,
+    url: str,
+    chadwick_index: dict[str, dict[str, int | str | None]],
+    dry_run: bool,
+    verbose: bool,
+) -> int:
+    df = extract_table(
+        fetch_with_retry(session, url).content, "players_standard_fielding"
+    )
+    if df.empty:
+        return 0
+
+    if "team_name_abbr" in df.columns:
+        df = df[~df["team_name_abbr"].isin(MULTI_TEAM_MARKERS)]
+
+    rows_written = 0
+    stint_tracker: dict[str, int] = {}
+
+    for _, row in df.iterrows():
+        bbref_id: str = row.get("bbref_id", "").strip()
+        if not bbref_id:
+            continue
+
+        team = row.get("team_name_abbr", "").strip()
+        player = upsert_player(
+            bbref_id, row.get("name_display", ""), chadwick_index, dry_run
+        )
+        if player is None:
+            continue
+
+        stint = stint_tracker.get(bbref_id, 0) + 1
+        stint_tracker[bbref_id] = stint
+
+        defaults: dict[str, Any] = {
+            "year": year,
+            "stint": stint,
+            "team": team,
+            "league": row.get("lg_ID", row.get("league_ID", league)) or league,
+            "positions_raw": _positions_raw(row),
+        }
+        for model_field in FIELDING_COL_ALIASES:
+            value = _mapped_fielding_value(row, model_field)
+            if value is not None:
+                defaults[model_field] = value
+
+        if dry_run:
+            rows_written += 1
+            continue
+
+        season, _ = FieldingSeason.objects.update_or_create(
+            player_id=player.bbref_id,
+            year=year,
+            stint=stint,
+            team=team,
+            defaults=defaults,
+        )
+        _sync_position_tokens(season)
+        rows_written += 1
+
+    if verbose:
+        print(
+            f"    {rows_written} fielding rows {'(dry run)' if dry_run else 'written'}"
+        )
+    return rows_written
+
+
 # ---------------------------------------------------------------------------
 # Ingestion log helpers
 # ---------------------------------------------------------------------------
@@ -517,12 +664,18 @@ def log_error(source_key: str, exc: Exception) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Ingest BRef batting/pitching history into Django."
+        description="Ingest BRef batting/pitching/fielding history into Django."
     )
     parser.add_argument("--start-year", type=int, default=1871)
     parser.add_argument("--end-year", type=int, default=2026)
     parser.add_argument("--batting-only", action="store_true")
     parser.add_argument("--pitching-only", action="store_true")
+    parser.add_argument("--fielding-only", action="store_true")
+    parser.add_argument(
+        "--skip-primary-position-recompute",
+        action="store_true",
+        help="Do not recompute Player.primary_position after fielding ingest",
+    )
     parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -536,8 +689,9 @@ def main() -> None:
     parser.add_argument("--verbose", action="store_true", default=True)
     args = parser.parse_args()
 
-    do_batting = not args.pitching_only
-    do_pitching = not args.batting_only
+    do_batting = not args.pitching_only and not args.fielding_only
+    do_pitching = not args.batting_only and not args.fielding_only
+    do_fielding = args.fielding_only or (not args.batting_only and not args.pitching_only)
 
     session = BRefSession()
     chadwick_index = build_chadwick_index()
@@ -559,6 +713,8 @@ def main() -> None:
         stat_types.append(("batting", ingest_batting_page))
     if do_pitching:
         stat_types.append(("pitching", ingest_pitching_page))
+    if do_fielding:
+        stat_types.append(("fielding", ingest_fielding_page))
 
     total_rows = 0
 
@@ -594,6 +750,10 @@ def main() -> None:
                 print(f"    ERROR: {exc}")
                 if not args.dry_run:
                     log_error(source_key, exc)
+
+    if do_fielding and not args.dry_run and not args.skip_primary_position_recompute:
+        print("\nRecomputing primary positions from fielding data...")
+        call_command("compute_primary_positions")
 
     print(f"\nDone. Total rows processed: {total_rows:,}")
 

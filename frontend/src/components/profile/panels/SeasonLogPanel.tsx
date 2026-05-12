@@ -15,7 +15,7 @@ interface Props {
   setTab: (t: "standard" | "advanced") => void;
 }
 
-export function SeasonLogPanel({ player, color, peak, tab, setTab }: Props) {
+export function SeasonLogPanel({ player, color, peak, tab: _tab, setTab: _setTab }: Props) {
   return (
     <div className="panel">
       <div className="panel-header">

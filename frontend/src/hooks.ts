@@ -190,7 +190,7 @@ export function useChartPlayer(bbrefId: string | null, colorIndex: number): {
   const finalYear     = p.final_game ? new Date(p.final_game).getUTCFullYear() : null;
   const years = debutYear && finalYear ? `${debutYear}–${finalYear}` : 'Active';
 
-  const pos = hasBat && hasPit ? 'B/P' : hasPit ? 'P' : 'B';
+  const pos = p.primary_position ?? (hasBat && hasPit ? 'B/P' : hasPit ? 'P' : 'B');
 
   const chartPlayer: ChartPlayer = {
     id: p.bbref_id,

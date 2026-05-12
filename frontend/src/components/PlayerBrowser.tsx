@@ -23,9 +23,18 @@ const WAR_PRESETS = [
   { label: "60+", value: 60 },
 ];
 
-const POS_OPTIONS: { label: string; value: "" | "P" | "B" }[] = [
+const POS_OPTIONS: { label: string; value: string }[] = [
   { label: "All", value: "" },
   { label: "P", value: "P" },
+  { label: "C", value: "C" },
+  { label: "1B", value: "1B" },
+  { label: "2B", value: "2B" },
+  { label: "3B", value: "3B" },
+  { label: "SS", value: "SS" },
+  { label: "LF", value: "LF" },
+  { label: "CF", value: "CF" },
+  { label: "RF", value: "RF" },
+  { label: "DH", value: "DH" },
   { label: "B", value: "B" },
 ];
 
@@ -132,7 +141,7 @@ export function PlayerBrowser({
   const [searchParams] = useSearchParams();
   const pageSizes = standalone ? STANDALONE_PAGE_SIZES : EMBEDDED_PAGE_SIZES;
 
-  const [pos, setPos] = useState<"" | "P" | "B">("");
+  const [pos, setPos] = useState("");
   const [eraIdx, setEraIdx] = useState(0);
   const [minWar, setMinWar] = useState(0);
   const [sort, setSort] = useState("career_war");
@@ -315,7 +324,7 @@ export function PlayerBrowser({
                     </div>
                   </td>
                   <td className="col-pos">
-                    <span className="pos-tag">{p.is_pitcher ? "P" : "B"}</span>
+                    <span className="pos-tag">{p.primary_position ?? (p.is_pitcher ? "P" : "B")}</span>
                   </td>
                   <td className="col-years">{years(p)}</td>
                   <td className="col-num">{p.career_war.toFixed(1)}</td>

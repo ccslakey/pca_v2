@@ -1,11 +1,19 @@
 from __future__ import annotations
 
 from django.core.cache import cache
+from django.core.management import call_command
 from django.urls import reverse
 from rest_framework.test import APITestCase
 
 from players.models import Player
-from stats.models import BattingSeason, PitchingSeason, PlayerAward, StatcastZoneBucket
+from stats.models import (
+    BattingSeason,
+    FieldingPositionToken,
+    FieldingSeason,
+    PitchingSeason,
+    PlayerAward,
+    StatcastZoneBucket,
+)
 
 
 def make_player(bbref_id: str, first: str = 'Test', last: str = 'Player', **kwargs) -> Player:
@@ -17,6 +25,7 @@ def make_player(bbref_id: str, first: str = 'Test', last: str = 'Player', **kwar
         final_game=kwargs.get('final_game', None),
         bats=kwargs.get('bats', 'R'),
         throws=kwargs.get('throws', 'R'),
+        primary_position=kwargs.get('primary_position', None),
     )
 
 
@@ -73,6 +82,7 @@ class TestPlayerList(APITestCase):
         result = r.data['results'][0]
         self.assertIn('bbref_id', result)
         self.assertIn('first_name', result)
+        self.assertIn('primary_position', result)
         self.assertNotIn('birth_year', result)
 
     def test_filter_by_bats(self):
@@ -96,6 +106,7 @@ class TestPlayerDetail(APITestCase):
         r = self.client.get(self.url)
         self.assertIn('bats', r.data)
         self.assertIn('throws', r.data)
+        self.assertIn('primary_position', r.data)
 
     def test_404_for_unknown(self):
         r = self.client.get(reverse('player-detail', kwargs={'pk': 'nobody00'}))
@@ -153,6 +164,57 @@ class TestPitchingAction(APITestCase):
         batter = make_player('batterXX01')
         add_batting(batter, 2005, war=5.0)
         r = self.client.get(reverse('player-pitching', kwargs={'pk': 'batterXX01'}))
+        self.assertEqual(r.data, [])
+
+
+class TestFieldingAction(APITestCase):
+    def setUp(self):
+        self.player = make_player('troutmi01', 'Mike', 'Trout', primary_position='CF')
+        self.season = FieldingSeason.objects.create(
+            player=self.player,
+            year=2019,
+            stint=1,
+            team='LAA',
+            league='AL',
+            age=27,
+            games=134,
+            games_started=132,
+            innings_outs=3500,
+            chances=300,
+            putouts=292,
+            assists=5,
+            errors=3,
+            fielding_pct=.990,
+            positions_raw='*8/79',
+        )
+        FieldingPositionToken.objects.create(
+            fielding_season=self.season,
+            rank=1,
+            position='CF',
+            is_primary_marker=True,
+        )
+        FieldingPositionToken.objects.create(
+            fielding_season=self.season,
+            rank=2,
+            position='LF',
+            is_minor_marker=True,
+        )
+
+    def test_returns_200(self):
+        r = self.client.get(reverse('player-fielding', kwargs={'pk': 'troutmi01'}))
+        self.assertEqual(r.status_code, 200)
+
+    def test_includes_standard_fielding_fields_and_tokens(self):
+        r = self.client.get(reverse('player-fielding', kwargs={'pk': 'troutmi01'}))
+        row = r.data[0]
+        self.assertEqual(row['positions_raw'], '*8/79')
+        self.assertIn('fielding_pct', row)
+        self.assertEqual(row['position_tokens'][0]['position'], 'CF')
+
+    def test_empty_for_player_with_no_fielding(self):
+        make_player('nobody00', 'No', 'Fielding')
+        r = self.client.get(reverse('player-fielding', kwargs={'pk': 'nobody00'}))
+        self.assertEqual(r.status_code, 200)
         self.assertEqual(r.data, [])
 
 
@@ -350,3 +412,52 @@ class TestPitchZoneAction(APITestCase):
     def test_404_for_unknown_player(self):
         r = self.client.get(reverse('player-pitch-zone', kwargs={'pk': 'ghost000'}))
         self.assertEqual(r.status_code, 404)
+
+
+class TestLeaderboardPositions(APITestCase):
+    def setUp(self):
+        cache.clear()
+        self.shortstop = make_player('shortst01', 'Short', 'Stop', primary_position='SS')
+        add_batting(self.shortstop, 2000, war=5.0)
+        self.center = make_player('center01', 'Center', 'Field', primary_position='CF')
+        add_batting(self.center, 2000, war=4.0)
+        self.pitcher = make_player('pitchr01', 'Pure', 'Pitcher', primary_position='P')
+        add_pitching(self.pitcher, 2000, war=6.0)
+
+    def test_leaderboard_includes_primary_position(self):
+        r = self.client.get(reverse('player-leaderboard'))
+        self.assertEqual(r.status_code, 200)
+        row = next(p for p in r.data['results'] if p['bbref_id'] == 'shortst01')
+        self.assertEqual(row['primary_position'], 'SS')
+
+    def test_exact_position_filter(self):
+        r = self.client.get(reverse('player-leaderboard'), {'pos': 'SS'})
+        ids = {p['bbref_id'] for p in r.data['results']}
+        self.assertEqual(ids, {'shortst01'})
+
+    def test_pitcher_and_batter_filters_remain_compatible(self):
+        p = self.client.get(reverse('player-leaderboard'), {'pos': 'P'})
+        self.assertEqual({row['bbref_id'] for row in p.data['results']}, {'pitchr01'})
+        b = self.client.get(reverse('player-leaderboard'), {'pos': 'B'})
+        b_ids = {row['bbref_id'] for row in b.data['results']}
+        self.assertIn('shortst01', b_ids)
+        self.assertNotIn('pitchr01', b_ids)
+
+
+class TestComputePrimaryPositions(APITestCase):
+    def test_uses_decoded_fielding_games(self):
+        player = make_player('multi01', 'Multi', 'Position')
+        cf = FieldingSeason.objects.create(player=player, year=2000, stint=1, team='LAA', games=100)
+        ss = FieldingSeason.objects.create(player=player, year=2001, stint=1, team='LAA', games=140)
+        FieldingPositionToken.objects.create(fielding_season=cf, rank=1, position='CF')
+        FieldingPositionToken.objects.create(fielding_season=ss, rank=1, position='SS')
+        call_command('compute_primary_positions')
+        player.refresh_from_db()
+        self.assertEqual(player.primary_position, 'SS')
+
+    def test_pitcher_fallback(self):
+        player = make_player('pitchonly01', 'Pitch', 'Only')
+        add_pitching(player, 2000, war=3.0)
+        call_command('compute_primary_positions')
+        player.refresh_from_db()
+        self.assertEqual(player.primary_position, 'P')
