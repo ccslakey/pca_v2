@@ -17,16 +17,23 @@ class Command(BaseCommand):
         seasons = (
             FieldingSeason.objects
             .prefetch_related("position_tokens")
-            .only("player_id", "games")
+            .only("player_id")
         )
         for season in seasons:
-            primary_token = next(
-                (token for token in season.position_tokens.all() if token.position != "H"),
-                None,
-            )
-            if primary_token is None:
+            tokens = [
+                t for t in season.position_tokens.order_by("rank").all()
+                if t.position != "H"
+            ]
+            if not tokens:
                 continue
-            position_games[season.player_id][primary_token.position] += season.games or 0
+            # Prefer BBref's * primary marker; fall back to first non-minor token
+            primary_token = (
+                next((t for t in tokens if t.is_primary_marker), None)
+                or next((t for t in tokens if not t.is_minor_marker), None)
+                or tokens[0]
+            )
+            # Count seasons (games field is not populated in the ingest)
+            position_games[season.player_id][primary_token.position] += 1
 
         pitcher_ids = set(PitchingSeason.objects.values_list("player_id", flat=True).distinct())
         updates: list[Player] = []

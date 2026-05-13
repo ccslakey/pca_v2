@@ -12,8 +12,23 @@ from .models import Player
 
 _CACHE_TTL   = 3600
 _MIN_WAR     = 1.0
-BAT_WEIGHTS  = [2.0, 1.0, 1.5, 0.8]        # war, peak, ops+, hr_rate
-PIT_WEIGHTS  = [2.0, 1.0, 1.5, 1.0, 0.8]   # war, peak, era+, k9, sp_pct
+BAT_WEIGHTS  = [2.0, 1.0, 1.5, 0.8, 0.8, 0.8]  # war, peak, ops+, hr_rate, pos_value, pos_kind
+PIT_WEIGHTS  = [2.0, 1.0, 1.5, 1.0, 0.8, 0.6]  # war, peak, era+, k9, sp_pct, saves_rate
+
+# Two-axis embedding of the defensive spectrum.
+# pos_value: 0.0 (DH, no defense) → 1.0 (C, hardest to play)
+# pos_kind:  -1.0 (corner/power) → +1.0 (up-the-middle/defense)
+POS_EMBEDDING: dict[str, tuple[float, float]] = {
+    "C":  (1.0,  1.0),
+    "SS": (0.8,  0.5),
+    "2B": (0.7,  0.5),
+    "CF": (0.7,  0.5),
+    "3B": (0.6,  0.0),
+    "RF": (0.4, -0.5),
+    "LF": (0.4, -0.5),
+    "1B": (0.2, -1.0),
+    "DH": (0.0, -1.0),
+}
 
 
 # ---------------------------------------------------------------------------
@@ -62,6 +77,7 @@ def _load_pit_agg() -> tuple[dict, dict, dict]:
             career_so=Sum("strikeouts"),
             career_g=Sum("games"),
             career_gs=Sum("games_started"),
+            career_saves=Sum("saves"),
         )
     }
     era_num: dict[str, float] = {}
@@ -87,6 +103,7 @@ def _batter_vec(
     bat_totals: dict,
     ops_num: dict[str, float],
     ops_den: dict[str, int],
+    positions: dict[str, str | None],
 ) -> list[float]:
     t        = bat_totals.get(pid, {})
     war      = t.get("career_war") or 0.0
@@ -96,7 +113,8 @@ def _batter_vec(
     n, d     = ops_num.get(pid, 0.0), ops_den.get(pid, 0)
     ops_plus = n / d if d > 0 else 100.0   # 100 = league avg
     hr_rate  = hr / pa * 600 if pa > 0 else 0.0
-    return [war, peak, ops_plus, hr_rate]
+    pos_val, pos_kind = POS_EMBEDDING.get(positions.get(pid) or "", (0.35, 0.0))
+    return [war, peak, ops_plus, hr_rate, pos_val, pos_kind]
 
 
 def _pitcher_vec(
@@ -105,18 +123,21 @@ def _pitcher_vec(
     era_num: dict[str, float],
     era_den: dict[str, int],
 ) -> list[float]:
-    t        = pit_totals.get(pid, {})
-    war      = t.get("career_war") or 0.0
-    peak     = t.get("peak_war")   or 0.0
-    ip       = t.get("career_ip")  or 0
-    so       = t.get("career_so")  or 0
-    g        = t.get("career_g")   or 1
-    gs       = t.get("career_gs")  or 0
-    n, d     = era_num.get(pid, 0.0), era_den.get(pid, 0)
-    era_plus = n / d if d > 0 else 100.0   # 100 = league avg, higher = better
-    k9       = so / (ip / 27) if ip > 0 else 6.0
-    sp_pct   = gs / g if g > 0 else 0.0    # 0 = pure RP, 1 = pure SP
-    return [war, peak, era_plus, k9, sp_pct]
+    t          = pit_totals.get(pid, {})
+    war        = t.get("career_war")   or 0.0
+    peak       = t.get("peak_war")     or 0.0
+    ip         = t.get("career_ip")    or 0
+    so         = t.get("career_so")    or 0
+    g          = t.get("career_g")     or 1
+    gs         = t.get("career_gs")    or 0
+    saves      = t.get("career_saves") or 0
+    n, d       = era_num.get(pid, 0.0), era_den.get(pid, 0)
+    era_plus   = n / d if d > 0 else 100.0
+    k9         = so / (ip / 27) if ip > 0 else 6.0
+    sp_pct     = gs / g if g > 0 else 0.0
+    relief_app = max(g - gs, 1)
+    saves_rate = saves / relief_app if gs < g else 0.0  # 0 for pure starters
+    return [war, peak, era_plus, k9, sp_pct, saves_rate]
 
 
 # ---------------------------------------------------------------------------
@@ -211,8 +232,15 @@ def similar_players(player: Player) -> dict:
     batter_ids  = set(bat_totals.keys())
     pid         = player.bbref_id
 
+    # Load primary_position for all batter pool members in one query
+    bat_pool_ids = {p for p, t in bat_totals.items() if (t.get("career_war") or 0) >= _MIN_WAR}
+    positions: dict[str, str | None] = {
+        p.bbref_id: p.primary_position
+        for p in Player.objects.filter(bbref_id__in=bat_pool_ids).only("bbref_id", "primary_position")
+    }
+
     def batter_vec(p: str) -> list[float]:
-        return _batter_vec(p, bat_totals, ops_num, ops_den)
+        return _batter_vec(p, bat_totals, ops_num, ops_den, positions)
 
     def pitcher_vec(p: str) -> list[float]:
         return _pitcher_vec(p, pit_totals, era_num, era_den)

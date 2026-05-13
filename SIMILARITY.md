@@ -18,10 +18,16 @@ A player who batted and pitched (Ohtani, Ruth) gets compared in both pools and t
 Pool eligibility: a player is in the pool only if they have **career WAR ≥ 1.0** at that role.
 
 ### 2. Feature vector per player
-- **Batters (4 features):** career WAR, peak single-season WAR, career OPS+ (PA-weighted), HR rate per 600 PA
-- **Pitchers (5 features):** career WAR, peak WAR, career ERA+ (IP-weighted), K/9, starter % (`GS/G` — 0 = pure reliever, 1 = pure starter)
+- **Batters (6 features):** career WAR, peak single-season WAR, career OPS+ (PA-weighted), HR rate per 600 PA, position defensive value, position kind
+- **Pitchers (6 features):** career WAR, peak WAR, career ERA+ (IP-weighted), K/9, starter % (`GS/G` — 0 = pure reliever, 1 = pure starter), saves rate (saves per relief appearance)
 
-Why these: WAR captures total value, peak WAR captures dominance shape, OPS+ / ERA+ are era-adjusted so 1908 Cy Young is comparable to 2018 Verlander, and the role/style stats (HR rate, K/9, SP%) keep sluggers from matching with slap hitters and starters from matching with closers.
+Why these: WAR captures total value, peak WAR captures dominance shape, OPS+ / ERA+ are era-adjusted so 1908 Cy Young is comparable to 2018 Verlander, and the role/style stats keep sluggers from matching with slap hitters and starters from matching with closers.
+
+**Position embedding (batters):** Two-axis encoding of where a player sits on the defensive spectrum. `pos_value` (0–1) measures defensive difficulty: C=1.0, SS=0.8, 2B/CF=0.7, 3B=0.6, RF/LF=0.4, 1B=0.2, DH=0.0. `pos_kind` (−1 to +1) captures corner vs. up-the-middle: C/SS/2B/CF = +0.5→+1.0; 3B = 0; RF/LF/1B/DH = −0.5→−1.0. These two axes prevent catchers from matching with corner outfielders and first basemen from matching with shortstops. Weight 0.8 each — meaningful but subordinate to WAR and OPS+.
+
+**Closer vs. setup embedding (pitchers):** `saves_rate` (saves ÷ relief appearances) distinguishes closers from setup and middle relievers without hard thresholds. Rivera/Hoffman score high; middle relievers score near zero; pure starters are set to 0. Weight 0.6 — lighter than WAR or ERA+ but enough to cluster Rivera with Wagner/Papelbon rather than setup men.
+
+**Primary position data note:** `primary_position` is derived from Baseball Reference fielding data using BBref's `*` primary-season marker. It reflects the position a player appeared at most often as their designated primary role by season count. Known edge cases: multi-position players and DH-heavy late careers may not match the position the player is commonly identified with.
 
 ### 3. Z-score each feature across the pool
 Standard deviation of each feature is computed across the whole pool. Differences are then divided by stdev so all features sit on the same scale — career WAR (~0–160) and SP% (0–1) get treated comparably.
@@ -34,8 +40,8 @@ Weights bias what "similar" means:
 
 | Role | Weights |
 |---|---|
-| **Batters** | WAR 2.0 · Peak 1.0 · OPS+ 1.5 · HR rate 0.8 |
-| **Pitchers** | WAR 2.0 · Peak 1.0 · ERA+ 1.5 · K/9 1.0 · SP% 0.8 |
+| **Batters** | WAR 2.0 · Peak 1.0 · OPS+ 1.5 · HR rate 0.8 · pos_value 0.8 · pos_kind 0.8 |
+| **Pitchers** | WAR 2.0 · Peak 1.0 · ERA+ 1.5 · K/9 1.0 · SP% 0.8 · saves_rate 0.6 |
 
 Career WAR dominates, era-adjusted rate stats second, role/peak less.
 
@@ -62,21 +68,14 @@ These are the known limitations of the current engine. Each is a candidate for t
 ### Career-stage matching ("similar through age N")
 The biggest gap. BBref's similarity tool shows comps both at career-total level *and* "through age N." Hugely useful — "who was Mike Trout most like at age 24?" is the canonical prospect-comp question. We only do career totals. Implementation would swap career totals in `_load_*_agg()` for seasonal totals up to a given age.
 
-### Position adjustment
-We compare CF to LF as if they're the same role, and 1B to SS as if they're the same role. `primary_position` now exists (shipped with the FieldingSeason work) but isn't yet a feature in the similarity engine. Two options:
-- Add as a feature with a moderate weight
-- Filter pools to same primary position before ranking
-
-BBref's original method has explicit positional point penalties (C and 1B are ~240 points apart on a 1000-point scale).
-
 ### Defense and baserunning
 WAR encodes both implicitly, but we don't have them as explicit features. A player who racked up WAR via slugging and a player who racked up the same WAR via glove + speed look identical to the engine.
 
 ### No era cohort weighting
 Era-adjusted via OPS+ / ERA+, but the engine can't answer "modern era only" — Cy Young can match Pedro Martinez fine. Would need either a filter parameter or a soft penalty on debut-year distance.
 
-### Pitcher style is thin
-SP% distinguishes starters from relievers but not workload shape (innings-eater vs. closer vs. setup), pitch arsenal, or velocity profile. K/9 carries most of the "stuff" signal, which is coarse.
+### Pitcher style is partial
+SP% + saves_rate now distinguish starters, closers, and mid-relievers, but not workload shape within starters (innings-eater vs. spot starter), pitch arsenal, or velocity profile. K/9 carries most of the "stuff" signal, which is coarse.
 
 ### Similarity is not stored
 Recomputed on every cache miss. Cache is one hour; after that, the first request rebuilds the aggregates over the whole DB. Could persist to a `similarity` table keyed by (target_id, role) for instant reads, but the current latency is acceptable for the demo.
