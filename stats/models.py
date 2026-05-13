@@ -280,3 +280,29 @@ class IngestionLog(models.Model):
 
     def __str__(self):
         return f"{self.source} ({self.status}) @ {self.completed_at:%Y-%m-%d %H:%M}"
+
+
+class JamesScore(models.Model):
+    """
+    Precomputed Bill James Hall of Fame scores per player.
+    Refresh with `python manage.py compute_james_scores`.
+
+    Three scores per role:
+      - black_ink: weighted points for league-leading finishes
+      - gray_ink:  1 point per top-10 finish across many categories
+      - hof_monitor: composite predictor (100 = likely HOF, 130+ = lock)
+    """
+    player = models.OneToOneField(Player, on_delete=models.CASCADE, related_name='james_score')
+
+    black_ink_bat   = models.SmallIntegerField(default=0)
+    gray_ink_bat    = models.SmallIntegerField(default=0)
+    hof_monitor_bat = models.SmallIntegerField(default=0)
+
+    black_ink_pit   = models.SmallIntegerField(default=0)
+    gray_ink_pit    = models.SmallIntegerField(default=0)
+    hof_monitor_pit = models.SmallIntegerField(default=0)
+
+    last_computed = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.player_id} HOFM bat={self.hof_monitor_bat} pit={self.hof_monitor_pit}"
