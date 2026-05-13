@@ -160,6 +160,8 @@ export interface SimilarPlayer {
   debut: string | null;
   final_game: string | null;
   career_war: number;
+  primary_position: string | null;
+  throws: string | null;
   is_pitcher: boolean;
   similarity: number;
 }
@@ -201,6 +203,7 @@ export interface LeaderboardPlayer {
   debut: string | null;
   final_game: string | null;
   primary_position: string | null;
+  throws: string | null;
   career_war: number;
   peak_war: number;
   is_pitcher: boolean;
@@ -233,7 +236,7 @@ export interface LeaderboardFilters {
 
 // ---- Chart domain types ----
 
-export type MetricId = 'war' | 'hr' | 'avg' | 'ops' | 'era' | 'so';
+export type MetricId = 'war' | 'hr' | 'avg' | 'ops' | 'ops_plus' | 'era' | 'era_plus' | 'so';
 
 export interface Metric {
   id: MetricId;
@@ -249,7 +252,9 @@ export interface ChartSeason {
   hr: number | null;
   avg: number | null;
   ops: number | null;
+  ops_plus: number | null;
   era: number | null;
+  era_plus: number | null;
   so: number | null;
 }
 

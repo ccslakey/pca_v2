@@ -195,7 +195,8 @@ def _hydrate(
     players_map = {
         p.bbref_id: p
         for p in Player.objects.filter(bbref_id__in=top_ids).only(
-            "bbref_id", "first_name", "last_name", "debut", "final_game"
+            "bbref_id", "first_name", "last_name", "debut", "final_game",
+            "primary_position", "throws",
         )
     }
     results: list[dict] = []
@@ -206,14 +207,16 @@ def _hydrate(
         career_war = (bat_totals.get(pid, {}).get("career_war") or 0.0) + \
                      (pit_totals.get(pid, {}).get("career_war") or 0.0)
         results.append({
-            "bbref_id":        p.bbref_id,
-            "first_name":      p.first_name,
-            "last_name":       p.last_name,
-            "debut":      p.debut.isoformat() if p.debut else None,
-            "final_game": p.final_game.isoformat() if p.final_game else None,
-            "career_war":      round(career_war, 1),
-            "is_pitcher":      pid in pitcher_ids,
-            "similarity":      similarity,
+            "bbref_id":         p.bbref_id,
+            "first_name":       p.first_name,
+            "last_name":        p.last_name,
+            "debut":            p.debut.isoformat() if p.debut else None,
+            "final_game":       p.final_game.isoformat() if p.final_game else None,
+            "career_war":       round(career_war, 1),
+            "primary_position": p.primary_position,
+            "throws":           p.throws,
+            "is_pitcher":       pid in pitcher_ids,
+            "similarity":       similarity,
         })
         if len(results) == 4:
             break

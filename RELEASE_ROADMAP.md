@@ -16,7 +16,7 @@ A live URL is the single thing that separates "weekend project" from "operates a
   Render or Railway for the app + Neon or Supabase for Postgres. Containerize backend + frontend, basic CI/CD, environment config / secrets.
 - [ ] **HOF Monitor + Black Ink + Gray Ink**
   One signature analytical feature on the profile page next to career WAR. James scores are the highest credibility per hour of work — pure SQL aggregations, intellectually credible, read as serious sabermetrics.
-- [ ] **Era-adjusted toggle on the compare chart**
+- [x] **Era-adjusted toggle on the compare chart**
   OPS+ and ERA+ are already in the DB — just surface them as a toggle. The "Babe Ruth's .342 BA vs. Tony Gwynn's .338" question is the first thing a baseball person will think; not having an answer is a tell.
 - [ ] **README cleanup**
   Current README still says comparison charts are "in progress" and doesn't mention the leaderboard, similarity, awards, or any of the analytical work. Should match what the live app actually does — link to it, screenshot it, name the analytical features.

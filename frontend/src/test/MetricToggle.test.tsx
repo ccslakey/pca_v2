@@ -7,6 +7,8 @@ import { METRICS } from '../constants';
 const defaultProps = {
   xMode: 'year' as const,
   onXModeChange: () => {},
+  showGlyphs: true,
+  onToggleGlyphs: () => {},
 };
 
 describe('MetricToggle', () => {

@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useLeaderboard } from "../hooks";
 import type { LeaderboardFilters, LeaderboardPlayer } from "../types";
 import { PLAYER_COLORS, MAX_PLAYERS } from "../constants";
+import { posLabel } from "../utils/format";
 import "./PlayerBrowser.scss";
 
 // ---- constants ----
@@ -324,7 +325,7 @@ export function PlayerBrowser({
                     </div>
                   </td>
                   <td className="col-pos">
-                    <span className="pos-tag">{p.primary_position ?? (p.is_pitcher ? "P" : "B")}</span>
+                    <span className="pos-tag">{posLabel(p.primary_position, p.throws, p.is_pitcher)}</span>
                   </td>
                   <td className="col-years">{years(p)}</td>
                   <td className="col-num">{p.career_war.toFixed(1)}</td>

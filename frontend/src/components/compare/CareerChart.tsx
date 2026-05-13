@@ -271,13 +271,23 @@ export function CareerChart({
             strokeDasharray="2,4"
           />
 
-          {metric === "war" && yLo < 0 && (
+          {(metric === "war" && yLo < 0) && (
             <line
               className="chart-zero"
               x1={0}
               x2={innerW}
               y1={yScale(0)}
               y2={yScale(0)}
+            />
+          )}
+
+          {(metric === "ops_plus" || metric === "era_plus") && (
+            <line
+              className="chart-zero"
+              x1={0}
+              x2={innerW}
+              y1={yScale(100)}
+              y2={yScale(100)}
             />
           )}
 

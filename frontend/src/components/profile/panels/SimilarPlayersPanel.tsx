@@ -1,7 +1,7 @@
 import "./styles/SimilarPlayersPanel.scss";
 import { Link } from "react-router-dom";
 import { playerColor } from "../../../utils/color";
-import { initials } from "../../../utils/format";
+import { initials, posLabel } from "../../../utils/format";
 import type { SimilarPlayersResponse } from "../../../types";
 
 interface Props {
@@ -43,7 +43,7 @@ export function SimilarPlayersPanel({ similar }: Props) {
                         {p.first_name} {p.last_name}
                       </div>
                       <div className="comp-meta">
-                        {p.is_pitcher ? "P" : "B"} · {p.career_war.toFixed(1)}{" "}
+                        {posLabel(p.primary_position, p.throws, p.is_pitcher)} · {p.career_war.toFixed(1)}{" "}
                         WAR
                         {p.debut &&
                           ` · ${new Date(p.debut).getUTCFullYear()}–${p.final_game ? new Date(p.final_game).getUTCFullYear() : "pres"}`}

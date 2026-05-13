@@ -1,12 +1,14 @@
 import type { Metric } from './types';
 
 export const METRICS: Metric[] = [
-  { id: 'war', label: 'WAR', full: 'Wins Above Replacement' },
-  { id: 'hr',  label: 'HR',  full: 'Home Runs' },
-  { id: 'avg', label: 'AVG', full: 'Batting Average' },
-  { id: 'ops', label: 'OPS', full: 'On-base + Slugging' },
-  { id: 'era', label: 'ERA', full: 'Earned Run Average' },
-  { id: 'so',  label: 'SO',  full: 'Strikeouts' },
+  { id: 'war',      label: 'WAR',  full: 'Wins Above Replacement' },
+  { id: 'hr',       label: 'HR',   full: 'Home Runs' },
+  { id: 'avg',      label: 'AVG',  full: 'Batting Average' },
+  { id: 'ops',      label: 'OPS',  full: 'On-base + Slugging' },
+  { id: 'ops_plus', label: 'OPS+', full: 'Era-adjusted OPS (100 = avg)' },
+  { id: 'era',      label: 'ERA',  full: 'Earned Run Average' },
+  { id: 'era_plus', label: 'ERA+', full: 'Era-adjusted ERA (100 = avg, higher = better)' },
+  { id: 'so',       label: 'SO',   full: 'Strikeouts' },
 ];
 
 /** 10 vibrant, perceptually distinct colors at consistent oklch chroma — matches design palette. */

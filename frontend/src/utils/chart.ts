@@ -11,6 +11,10 @@ export function fmtMetric(metric: MetricId, v: number | null): string {
   return Math.round(v).toString();
 }
 
+export function isLowerBetter(metric: MetricId): boolean {
+  return metric === 'era';
+}
+
 // ---- Y-axis tick generation ----
 
 export function yTicks(lo: number, hi: number, metric: MetricId): number[] {
@@ -19,6 +23,7 @@ export function yTicks(lo: number, hi: number, metric: MetricId): number[] {
   if (metric === 'avg' || metric === 'ops') step = span > 0.2 ? 0.05 : 0.02;
   else if (metric === 'era') step = 1;
   else if (metric === 'war') step = 2;
+  else if (metric === 'ops_plus' || metric === 'era_plus') step = span > 100 ? 50 : 25;
   else step = Math.pow(10, Math.floor(Math.log10(span / 5)));
   const ticks: number[] = [];
   const start = Math.ceil(lo / step) * step;
@@ -38,6 +43,9 @@ export function yDomain(vals: number[], metric: MetricId): [number, number] {
   } else if (metric === 'avg' || metric === 'ops') {
     lo = Math.max(0, lo - 0.02);
     hi = hi + 0.02;
+  } else if (metric === 'ops_plus' || metric === 'era_plus') {
+    lo = lo - 15;
+    hi = hi + 15;
   } else {
     lo = Math.min(0, lo);
     hi = hi + (hi - lo) * 0.1;
@@ -69,7 +77,7 @@ export function peakSeason(
     .filter(s => s[key] != null)
     .map(s => ({ season: s.season, val: s[key] as number }));
   if (!pts.length) return null;
-  pts.sort(metric === 'era' ? (a, b) => a.val - b.val : (a, b) => b.val - a.val);
+  pts.sort(isLowerBetter(metric) ? (a, b) => a.val - b.val : (a, b) => b.val - a.val);
   return pts[0];
 }
 
@@ -79,9 +87,9 @@ export function careerWar(seasons: { war: number | null }[]): number {
 
 export function sumMetric(seasons: ChartSeason[], metric: MetricId): number | null {
   if (['war', 'hr', 'so'].includes(metric)) {
-    return seasons.reduce((s, x) => s + (x[metric] ?? 0), 0);
+    return seasons.reduce((s, x) => s + ((x[metric as keyof ChartSeason] as number) ?? 0), 0);
   }
-  const vals = seasons.map(s => s[metric]).filter((v): v is number => v != null);
+  const vals = seasons.map(s => s[metric as keyof ChartSeason]).filter((v): v is number => v != null);
   if (!vals.length) return null;
   return vals.reduce((a, b) => a + b, 0) / vals.length;
 }

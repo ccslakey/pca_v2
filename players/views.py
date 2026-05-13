@@ -61,7 +61,7 @@ def _build_leaderboard_rows() -> list[dict[str, Any]]:
         for p in Player.objects.values(
             "bbref_id", "first_name", "last_name",
             "debut", "final_game",
-            "primary_position",
+            "primary_position", "throws",
         )
     }
 
@@ -93,6 +93,7 @@ def _build_leaderboard_rows() -> list[dict[str, Any]]:
             "debut":      p["debut"].isoformat() if p["debut"] else None,
             "final_game": p["final_game"].isoformat() if p["final_game"] else None,
             "primary_position":  p["primary_position"],
+            "throws":            p["throws"],
             "career_war":       career_war,
             "peak_war":         peak_war,
             "is_pitcher":       is_pitcher,

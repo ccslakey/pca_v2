@@ -3,7 +3,7 @@ import { fmtMetric, peakSeason, careerWar, yDomain, xTicks } from '../utils/char
 import type { ChartSeason } from '../types';
 
 function season(year: number, vals: Partial<ChartSeason> = {}): ChartSeason {
-  return { season: year, age: null, war: null, hr: null, avg: null, ops: null, era: null, so: null, ...vals };
+  return { season: year, age: null, war: null, hr: null, avg: null, ops: null, ops_plus: null, era: null, era_plus: null, so: null, ...vals };
 }
 
 describe('fmtMetric', () => {

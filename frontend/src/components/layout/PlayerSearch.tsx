@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { usePlayerSearch } from '../../hooks';
 import type { PlayerSummary } from '../../types';
 import { playerColor } from '../../utils/color';
+import { posLabel } from '../../utils/format';
 
 interface Props {
   selectedIds: string[];
@@ -104,7 +105,7 @@ export function PlayerSearch({ selectedIds, onSelect, maxPlayers }: Props) {
                 <div className="search-result-info">
                   <div className="search-result-name">{p.first_name} {p.last_name}</div>
                   <div className="search-result-meta">
-                    {p.bbref_id}{p.primary_position ? ` · ${p.primary_position}` : ''}{years ? ` · ${years}` : ''}
+                    {p.bbref_id}{p.primary_position ? ` · ${posLabel(p.primary_position, p.throws, p.primary_position === 'P')}` : ''}{years ? ` · ${years}` : ''}
                   </div>
                 </div>
                 {taken && (
