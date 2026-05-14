@@ -131,8 +131,9 @@ CSRF_TRUSTED_ORIGINS = [
 # --- Production security (only when DEBUG is off) ---
 
 if not DEBUG:
+    # Railway terminates TLS at the edge and forwards plain HTTP internally,
+    # so SECURE_SSL_REDIRECT must be off — the redirect happens at the proxy.
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-    SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_HSTS_SECONDS = 31536000
