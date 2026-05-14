@@ -1,0 +1,8 @@
+[build]
+builder = "dockerfile"
+
+[deploy]
+healthcheckPath = "/api/meta/"
+healthcheckTimeout = 300
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 10

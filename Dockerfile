@@ -31,9 +31,10 @@ RUN DJANGO_DEBUG=False python manage.py collectstatic --noinput
 
 EXPOSE 8000
 
-# WEB_CONCURRENCY can be overridden in Railway dashboard (default 2 workers)
-CMD gunicorn pca_backend.wsgi:application \
+# Migrate then start — runs on every deploy so schema stays in sync
+CMD sh -c "python manage.py migrate --noinput && \
+    gunicorn pca_backend.wsgi:application \
     --bind 0.0.0.0:${PORT:-8000} \
     --workers ${WEB_CONCURRENCY:-2} \
     --threads 2 \
-    --timeout 60
+    --timeout 60"
