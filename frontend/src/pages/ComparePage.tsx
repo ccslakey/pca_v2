@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ParentSize } from '@visx/responsive';
 import type { MetricId, XMode } from '../types';
-import { useChartPlayer } from '../hooks';
+import { useChartPlayer, useMeta } from '../hooks';
 import { TopBar } from '../components/layout/TopBar';
 import { ChipBar } from '../components/compare/ChipBar';
 import { MetricToggle } from '../components/compare/MetricToggle';
@@ -49,6 +49,7 @@ export function ComparePage() {
   }, [selectedIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const players = useChartPlayers(selectedIds);
+  const { data: meta } = useMeta();
 
   const fullRange = useMemo<[number, number]>(() => {
     let lo = Infinity, hi = -Infinity;
@@ -143,7 +144,10 @@ export function ComparePage() {
 
         <PlayerBrowser selectedIds={selectedIds} onSelect={addPlayer} />
 
-        <p className="footer-note">Data: Baseball Reference · All WAR values are bWAR · Career Arc Visualizer</p>
+        <p className="footer-note">
+          Data: Baseball Reference · All WAR values are bWAR
+          {meta?.last_updated ? ` · Updated ${meta.last_updated}` : ''}
+        </p>
       </div>
     </div>
   );

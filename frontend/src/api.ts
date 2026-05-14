@@ -64,6 +64,10 @@ export function fetchLeaderboard(filters: LeaderboardFilters = {}): Promise<Lead
   return get<LeaderboardResponse>(`/players/leaderboard/?${params}`);
 }
 
+export function fetchMeta(): Promise<{ last_updated: string | null }> {
+  return get<{ last_updated: string | null }>('/meta/');
+}
+
 export function fetchPitchZone(
   bbrefId: string,
   role: ZoneRole,

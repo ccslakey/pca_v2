@@ -11,12 +11,22 @@ export interface PlayerSummary {
   primary_position: string | null;
 }
 
+export interface JamesScore {
+  black_ink_bat: number;
+  gray_ink_bat: number;
+  hof_monitor_bat: number;
+  black_ink_pit: number;
+  gray_ink_pit: number;
+  hof_monitor_pit: number;
+}
+
 export interface PlayerDetail extends PlayerSummary {
   mlbam_id: number | null;
   fangraphs_id: number | null;
   retro_id: string | null;
   birth_date: string | null;
   birth_country: string | null;
+  james_score: JamesScore | null;
 }
 
 export interface BattingSeason {

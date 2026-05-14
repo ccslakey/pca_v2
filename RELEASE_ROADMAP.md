@@ -14,13 +14,13 @@ A live URL is the single thing that separates "weekend project" from "operates a
 
 - [ ] **Production deployment**
   Render or Railway for the app + Neon or Supabase for Postgres. Containerize backend + frontend, basic CI/CD, environment config / secrets.
-- [ ] **HOF Monitor + Black Ink + Gray Ink**
+- [x] **HOF Monitor + Black Ink + Gray Ink**
   One signature analytical feature on the profile page next to career WAR. James scores are the highest credibility per hour of work — pure SQL aggregations, intellectually credible, read as serious sabermetrics.
 - [x] **Era-adjusted toggle on the compare chart**
   OPS+ and ERA+ are already in the DB — just surface them as a toggle. The "Babe Ruth's .342 BA vs. Tony Gwynn's .338" question is the first thing a baseball person will think; not having an answer is a tell.
-- [ ] **README cleanup**
+- [x] **README cleanup**
   Current README still says comparison charts are "in progress" and doesn't mention the leaderboard, similarity, awards, or any of the analytical work. Should match what the live app actually does — link to it, screenshot it, name the analytical features.
-- [ ] **Scheduled jobs MVP (or staleness disclosure)**
+- [x] **Scheduled jobs MVP (or staleness disclosure)**
   If you deploy and data is from May 2026 forever, that's worse than not deploying. Either wire up a weekly GitHub Actions cron (see [`SCHEDULED_JOBS.md`](SCHEDULED_JOBS.md)) or surface a "last updated" date in the UI so the staleness is honest.
 
 Realistic scope: ~1–2 weeks.

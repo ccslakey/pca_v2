@@ -1,0 +1,68 @@
+.james-role-label {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding-bottom: 6px;
+}
+
+.james-role-label--pit {
+  margin-top: 14px;
+}
+
+.james-grid {
+  display: flex;
+  gap: 8px;
+}
+
+.james-block {
+  flex: 1;
+  background: var(--bg-3);
+  border-radius: 8px;
+  padding: 10px 12px;
+  min-width: 0;
+}
+
+.james-label {
+  font-size: 10px;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+
+.james-value {
+  font-size: 22px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--text-1);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.james-badge {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  padding: 2px 6px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.james-badge--likely {
+  background: rgba(255, 200, 50, 0.15);
+  color: #c9a430;
+}
+
+.james-badge--lock {
+  background: rgba(50, 200, 100, 0.15);
+  color: #3bc97a;
+}
+
+.james-legend {
+  font-size: 10px;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  margin-top: 10px;
+}

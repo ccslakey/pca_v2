@@ -1,9 +1,17 @@
 import { useQuery } from '@tanstack/react-query';
-import { fetchBattingSeasons, fetchLeaderboard, fetchPitchingSeasons, fetchPlayer, fetchPlayerAwards, fetchPitchZone, fetchSimilarPlayers, searchPlayers } from './api';
+import { fetchBattingSeasons, fetchLeaderboard, fetchMeta, fetchPitchingSeasons, fetchPlayer, fetchPlayerAwards, fetchPitchZone, fetchSimilarPlayers, searchPlayers } from './api';
 import type { ZoneOutcome, ZoneRole, LeaderboardFilters } from './types';
 import type { BattingSeason, ChartPlayer, ChartSeason, PitchingSeason } from './types';
 import { PLAYER_COLORS } from './constants';
 import { posLabel } from './utils/format';
+
+export function useMeta() {
+  return useQuery({
+    queryKey: ['meta'],
+    queryFn: fetchMeta,
+    staleTime: 1000 * 60 * 60, // 1 hour
+  });
+}
 
 export function useLeaderboard(filters: LeaderboardFilters) {
   return useQuery({

@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from .models import Player
+from stats.models import JamesScore
 
 
 class PlayerListSerializer(serializers.ModelSerializer[Player]):
@@ -20,8 +21,19 @@ class PlayerListSerializer(serializers.ModelSerializer[Player]):
         ]
 
 
+class JamesScoreSerializer(serializers.ModelSerializer[JamesScore]):
+    class Meta:
+        model = JamesScore
+        fields = [
+            "black_ink_bat", "gray_ink_bat", "hof_monitor_bat",
+            "black_ink_pit", "gray_ink_pit", "hof_monitor_pit",
+        ]
+
+
 class PlayerDetailSerializer(serializers.ModelSerializer[Player]):
     """Full player profile including all bio fields."""
+
+    james_score = JamesScoreSerializer(read_only=True)
 
     class Meta:
         model = Player

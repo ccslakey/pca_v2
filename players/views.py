@@ -117,7 +117,7 @@ def _get_leaderboard_rows() -> list[dict[str, Any]]:
 
 
 class PlayerViewSet(viewsets.ReadOnlyModelViewSet[Player]):
-    queryset: QuerySet[Player] = Player.objects.all().order_by(
+    queryset: QuerySet[Player] = Player.objects.select_related("james_score").order_by(
         "last_name", "first_name"
     )
     filter_backends = [filters.SearchFilter, DjangoFilterBackend]

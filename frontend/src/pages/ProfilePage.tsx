@@ -1,7 +1,7 @@
 import '../components/profile/panel.scss';
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useChartPlayer, useSimilarPlayers, usePlayerAwards } from '../hooks';
+import { useChartPlayer, useSimilarPlayers, usePlayerAwards, usePlayerDetail, useMeta } from '../hooks';
 import { METRICS } from '../constants';
 import type { MetricId } from '../types';
 import { peakSeason, careerWar, sumMetric } from '../utils/chart';
@@ -13,6 +13,7 @@ import { SparklinePanel }      from '../components/profile/panels/SparklinePanel
 import { SeasonLogPanel }      from '../components/profile/panels/SeasonLogPanel';
 import { SimilarPlayersPanel } from '../components/profile/panels/SimilarPlayersPanel';
 import { AwardsPanel }         from '../components/profile/panels/AwardsPanel';
+import { JamesScoresPanel }    from '../components/profile/panels/JamesScoresPanel';
 import { PitchZone }           from '../components/profile/charts/PitchZone';
 
 export function ProfilePage() {
@@ -23,6 +24,8 @@ export function ProfilePage() {
   const { data: player,          isLoading } = useChartPlayer(bbrefId ?? null, 0);
   const { data: similar }                    = useSimilarPlayers(bbrefId ?? null);
   const { data: awards = [] }                = usePlayerAwards(bbrefId ?? null);
+  const { data: detail }                     = usePlayerDetail(bbrefId ?? null);
+  const { data: meta }                       = useMeta();
 
   if (isLoading || !player) {
     return (
@@ -115,12 +118,21 @@ export function ProfilePage() {
               </div>
             )}
 
+            {detail?.james_score && (
+              <JamesScoresPanel
+                james={detail.james_score}
+                isBatter={player.isBatter}
+                isPitcher={player.isPitcher}
+              />
+            )}
+
             <AwardsPanel awards={awards} color={color} />
           </div>
         </div>
 
         <p className="footer-note">
-          Data: Baseball Reference · All WAR values are bWAR · {player.id}
+          Data: Baseball Reference · All WAR values are bWAR
+          {meta?.last_updated ? ` · Updated ${meta.last_updated}` : ''}
         </p>
       </div>
     </div>

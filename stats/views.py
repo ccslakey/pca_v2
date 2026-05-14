@@ -2,9 +2,25 @@ from __future__ import annotations
 
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, filters
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
 
-from .models import BattingSeason, PitchingSeason
+from .models import BattingSeason, IngestionLog, PitchingSeason
 from .serializers import BattingSeasonSerializer, PitchingSeasonSerializer
+
+
+@api_view(["GET"])
+def meta(request):
+    last = (
+        IngestionLog.objects
+        .filter(status="success")
+        .order_by("-completed_at")
+        .values_list("completed_at", flat=True)
+        .first()
+    )
+    return Response({
+        "last_updated": last.date().isoformat() if last else None,
+    })
 
 
 class BattingSeasonViewSet(viewsets.ReadOnlyModelViewSet[BattingSeason]):

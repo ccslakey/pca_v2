@@ -252,8 +252,8 @@ def _hof_monitor_batter(
     elif h >= 3000:  pts += 30
     elif h >= 2500:  pts += 10
 
-    # --- 200-hit seasons (cap at 4 = 12 pts) ---
-    pts += 3 * min(4, sum(1 for s in seasons if s["h"] >= 200))
+    # --- 200-hit seasons (cap at 3 = 9 pts) ---
+    pts += 3 * min(3, sum(1 for s in seasons if s["h"] >= 200))
 
     # --- Doubles, triples ---
     if career["doubles"] >= 600: pts += 50
@@ -278,16 +278,16 @@ def _hof_monitor_batter(
     elif rbi >= 1500: pts += 40
     elif rbi >= 1250: pts += 20
 
-    # --- 100 RBI seasons (cap at 8) ---
-    pts += min(8, sum(1 for s in seasons if s["rbi"] >= 100))
+    # --- 100 RBI seasons (cap at 5) ---
+    pts += min(5, sum(1 for s in seasons if s["rbi"] >= 100))
 
     # --- Runs ---
     r = career["r"]
     if r >= 1750:    pts += 20
     elif r >= 1500:  pts += 10
 
-    # --- 100 R seasons (cap at 8) ---
-    pts += min(8, sum(1 for s in seasons if s["r"] >= 100))
+    # --- 100 R seasons (cap at 5) ---
+    pts += min(5, sum(1 for s in seasons if s["r"] >= 100))
 
     # --- Stolen bases ---
     sb = career["sb"]
@@ -296,9 +296,9 @@ def _hof_monitor_batter(
 
     # --- Awards ---
     pts += 8 * awards.get("mvp", 0)
-    pts += min(20, 3 * awards.get("asg", 0))           # cap All-Star at 20
-    pts += 2 * awards.get("gg", 0)                      # uncapped Gold Gloves
-    pts += 6 * awards.get("bat_title", 0)               # batting titles
+    pts += min(16, 2 * awards.get("asg", 0))           # 2 pts each, cap at 16
+    pts += min(16, 2 * awards.get("gg", 0))             # 2 pts each, cap at 16
+    pts += 3 * awards.get("bat_title", 0)               # batting titles (overlap with BA bonus)
     pts += 6 if awards.get("ws", 0) > 0 else 0          # WS championship: flat 6
 
     # --- Position bonus (defensive difficulty) ---
@@ -306,8 +306,6 @@ def _hof_monitor_batter(
         pts += 60
     elif primary_position in {"2B", "SS", "3B"}:
         pts += 30
-    elif primary_position == "CF":
-        pts += 15
 
     return pts
 
@@ -330,8 +328,8 @@ def _hof_monitor_pitcher(
     elif w >= 250:  pts += 40
     elif w >= 200:  pts += 25
 
-    # --- ERA (career, requires real workload) ---
-    if career["ip_outs"] >= 1500 * 3:  # ≥1500 IP
+    # --- ERA (career, requires real workload — relievers qualify at 1000 IP) ---
+    if career["ip_outs"] >= 1000 * 3:
         era = (career["er"] * 9.0 / (career["ip_outs"] / 3.0)) if career["ip_outs"] else None
         if era is not None:
             if era <= 2.50:    pts += 60
@@ -345,11 +343,12 @@ def _hof_monitor_pitcher(
     elif so >= 2500:  pts += 30
     elif so >= 2000:  pts += 10
 
-    # --- Saves (closers) ---
+    # --- Saves (closers) — tuned so historic closers (Rivera, Hoffman) score competitively ---
     sv = career["sv"]
-    if sv >= 600:    pts += 40
-    elif sv >= 400:  pts += 25
-    elif sv >= 300:  pts += 10
+    if sv >= 600:    pts += 75
+    elif sv >= 500:  pts += 50
+    elif sv >= 400:  pts += 30
+    elif sv >= 300:  pts += 15
 
     # --- 20-win seasons ---
     pts += 4 * sum(1 for s in seasons if s["w"] >= 20)
