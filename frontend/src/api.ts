@@ -3,6 +3,7 @@ import type {
   PlayerSummary,
   PlayerDetail,
   BattingSeason,
+  FeaturedResponse,
   FieldingSeason,
   PitchingSeason,
   SimilarPlayersResponse,
@@ -66,6 +67,10 @@ export function fetchLeaderboard(filters: LeaderboardFilters = {}): Promise<Lead
 
 export function fetchMeta(): Promise<{ last_updated: string | null }> {
   return get<{ last_updated: string | null }>('/meta/');
+}
+
+export function fetchFeatured(): Promise<FeaturedResponse> {
+  return get<FeaturedResponse>('/players/featured/');
 }
 
 export function fetchPitchZone(

@@ -20,6 +20,7 @@ from stats.serializers import (
     StatcastZoneBucketSerializer,
 )
 
+from .featured import FEATURED_COMPARISONS
 from .models import Player
 from .serializers import PlayerDetailSerializer, PlayerListSerializer
 from .similarity import similar_players
@@ -29,6 +30,36 @@ if TYPE_CHECKING:
 
 _LEADERBOARD_CACHE_KEY = "leaderboard:v2"
 _LEADERBOARD_CACHE_TTL = 3600  # 1 hour
+
+_FEATURED_CACHE_KEY = "featured:v1"
+_FEATURED_CACHE_TTL = 3600  # 1 hour
+
+
+def _build_featured_trios() -> list[dict[str, Any]]:
+    """Resolve curated bbref_ids → name/id bundles in one query."""
+    all_ids = {pid for c in FEATURED_COMPARISONS for pid in c["player_ids"]}
+    by_id = {
+        p["bbref_id"]: p
+        for p in Player.objects.filter(bbref_id__in=all_ids).values(
+            "bbref_id", "first_name", "last_name"
+        )
+    }
+    return [
+        {
+            "slug":    c["slug"],
+            "label":   c["label"],
+            "players": [by_id[pid] for pid in c["player_ids"] if pid in by_id],
+        }
+        for c in FEATURED_COMPARISONS
+    ]
+
+
+def _get_featured_trios() -> list[dict[str, Any]]:
+    trios = cache.get(_FEATURED_CACHE_KEY)
+    if trios is None:
+        trios = _build_featured_trios()
+        cache.set(_FEATURED_CACHE_KEY, trios, _FEATURED_CACHE_TTL)
+    return trios
 
 
 def _build_leaderboard_rows() -> list[dict[str, Any]]:
@@ -179,6 +210,11 @@ class PlayerViewSet(viewsets.ReadOnlyModelViewSet[Player]):
     @action(detail=True, url_path="similar")
     def similar(self, request: Request, pk: str | None = None) -> Response:
         return Response(similar_players(self.get_object()))
+
+    @action(detail=False, url_path="featured")
+    def featured(self, request: Request) -> Response:
+        """Curated comparison groups for the Compare page landing state."""
+        return Response({"trios": _get_featured_trios()})
 
     @action(detail=False, url_path="leaderboard")
     def leaderboard(self, request: Request) -> Response:

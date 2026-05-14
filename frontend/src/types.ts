@@ -181,6 +181,22 @@ export interface SimilarPlayersResponse {
   pitchers: SimilarPlayer[];
 }
 
+export interface FeaturedTrioPlayer {
+  bbref_id: string;
+  first_name: string;
+  last_name: string;
+}
+
+export interface FeaturedTrio {
+  slug: string;
+  label: string;
+  players: FeaturedTrioPlayer[];
+}
+
+export interface FeaturedResponse {
+  trios: FeaturedTrio[];
+}
+
 export type ZoneRole    = 'B' | 'P';
 export type ZoneOutcome = 'contact' | 'hits' | 'whiffs';
 

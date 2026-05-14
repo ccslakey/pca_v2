@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ParentSize } from '@visx/responsive';
 import type { ChartPlayer, MetricId, XMode } from '../types';
-import { useChartPlayer, useMeta } from '../hooks';
+import { useChartPlayer, useFeatured, useMeta } from '../hooks';
 import { TopBar } from '../components/layout/TopBar';
 import { ChipBar } from '../components/compare/ChipBar';
 import { MetricToggle } from '../components/compare/MetricToggle';
@@ -64,7 +64,21 @@ export function ComparePage() {
     () => slots.filter(s => s.player).map(s => s.player as ChartPlayer),
     [slots],
   );
-  const { data: meta } = useMeta();
+  const { data: meta }     = useMeta();
+  const { data: featured } = useFeatured();
+
+  // First-load: if URL has no ?compare=, auto-select a random featured trio.
+  // hasInitialized guards against re-rolling when the user clears all players.
+  const [hasInitialized, setHasInitialized] = useState(false);
+  useEffect(() => {
+    if (hasInitialized) return;
+    if (selectedIds.length > 0) { setHasInitialized(true); return; }
+    if (featured?.trios.length) {
+      const trio = featured.trios[Math.floor(Math.random() * featured.trios.length)];
+      setSelectedIds(trio.players.map(p => p.bbref_id));
+      setHasInitialized(true);
+    }
+  }, [featured, hasInitialized, selectedIds.length]);
 
   const fullRange = useMemo<[number, number]>(() => {
     let lo = Infinity, hi = -Infinity;
