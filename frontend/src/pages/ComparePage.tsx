@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ParentSize } from '@visx/responsive';
-import type { MetricId, XMode } from '../types';
+import type { ChartPlayer, MetricId, XMode } from '../types';
 import { useChartPlayer, useMeta } from '../hooks';
 import { TopBar } from '../components/layout/TopBar';
 import { ChipBar } from '../components/compare/ChipBar';
@@ -9,9 +9,17 @@ import { MetricToggle } from '../components/compare/MetricToggle';
 import { CareerChart } from '../components/compare/CareerChart';
 import { BrushChart } from '../components/compare/BrushChart';
 import { PlayerCard } from '../components/compare/PlayerCard';
+import { PlayerCardSkeleton } from '../components/compare/PlayerCardSkeleton';
+import { ChartSkeleton } from '../components/compare/ChartSkeleton';
 import { PlayerBrowser } from '../components/PlayerBrowser';
 
-function useChartPlayers(selectedIds: string[]) {
+interface PlayerSlot {
+  id: string;
+  player: ChartPlayer | undefined;
+  isLoading: boolean;
+}
+
+function useChartPlayers(selectedIds: string[]): PlayerSlot[] {
   const p0 = useChartPlayer(selectedIds[0] ?? null, 0);
   const p1 = useChartPlayer(selectedIds[1] ?? null, 1);
   const p2 = useChartPlayer(selectedIds[2] ?? null, 2);
@@ -23,12 +31,15 @@ function useChartPlayers(selectedIds: string[]) {
   const p8 = useChartPlayer(selectedIds[8] ?? null, 8);
   const p9 = useChartPlayer(selectedIds[9] ?? null, 9);
 
-  return useMemo(() => {
-    return [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9]
-      .slice(0, selectedIds.length)
-      .map(r => r.data)
-      .filter((p): p is NonNullable<typeof p> => p != null);
-  }, [selectedIds.length, p0.data, p1.data, p2.data, p3.data, p4.data, p5.data, p6.data, p7.data, p8.data, p9.data]); // eslint-disable-line react-hooks/exhaustive-deps
+  const all = [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9];
+
+  return useMemo(() => selectedIds.map((id, i) => ({
+    id,
+    player: all[i]?.data,
+    isLoading: all[i]?.isLoading ?? false,
+  })),
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [selectedIds.join(','), p0.data, p1.data, p2.data, p3.data, p4.data, p5.data, p6.data, p7.data, p8.data, p9.data, p0.isLoading, p1.isLoading, p2.isLoading, p3.isLoading, p4.isLoading, p5.isLoading, p6.isLoading, p7.isLoading, p8.isLoading, p9.isLoading]);
 }
 
 export function ComparePage() {
@@ -48,7 +59,11 @@ export function ComparePage() {
     navigate(url, { replace: true });
   }, [selectedIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const players = useChartPlayers(selectedIds);
+  const slots = useChartPlayers(selectedIds);
+  const players = useMemo(
+    () => slots.filter(s => s.player).map(s => s.player as ChartPlayer),
+    [slots],
+  );
   const { data: meta } = useMeta();
 
   const fullRange = useMemo<[number, number]>(() => {
@@ -76,7 +91,8 @@ export function ComparePage() {
     setSelectedIds(prev => prev.filter(x => x !== id));
   }
 
-  const isEmpty = players.length === 0;
+  const isEmpty       = selectedIds.length === 0;
+  const isInitialLoad = selectedIds.length > 0 && players.length === 0;
 
   return (
     <div className="app">
@@ -97,6 +113,8 @@ export function ComparePage() {
               <div className="chart-empty-title">Add players to compare career arcs</div>
               <div className="chart-empty-sub">Search above or browse the leaderboard below · Up to 10 players</div>
             </div>
+          ) : isInitialLoad ? (
+            <ChartSkeleton />
           ) : (
             <ParentSize>
               {({ width }) => (
@@ -126,19 +144,23 @@ export function ComparePage() {
           )}
         </div>
 
-        {players.length > 0 && (
+        {slots.length > 0 && (
           <div className="cards-row">
-            {players.map(p => (
-              <PlayerCard
-                key={p.id}
-                player={p}
-                metric={metric}
-                isHovered={hoverPlayerId === p.id}
-                onHoverEnter={() => setHoverPlayerId(p.id)}
-                onHoverLeave={() => setHoverPlayerId(null)}
-                onRemove={() => removePlayer(p.id)}
-              />
-            ))}
+            {slots.map(({ id, player }) =>
+              player ? (
+                <PlayerCard
+                  key={id}
+                  player={player}
+                  metric={metric}
+                  isHovered={hoverPlayerId === id}
+                  onHoverEnter={() => setHoverPlayerId(id)}
+                  onHoverLeave={() => setHoverPlayerId(null)}
+                  onRemove={() => removePlayer(id)}
+                />
+              ) : (
+                <PlayerCardSkeleton key={id} />
+              ),
+            )}
           </div>
         )}
 
