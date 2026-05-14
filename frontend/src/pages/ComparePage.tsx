@@ -11,6 +11,7 @@ import { BrushChart } from '../components/compare/BrushChart';
 import { PlayerCard } from '../components/compare/PlayerCard';
 import { PlayerCardSkeleton } from '../components/compare/PlayerCardSkeleton';
 import { ChartSkeleton } from '../components/compare/ChartSkeleton';
+import { FeaturedGallery } from '../components/compare/FeaturedGallery';
 import { PlayerBrowser } from '../components/PlayerBrowser';
 
 interface PlayerSlot {
@@ -177,6 +178,8 @@ export function ComparePage() {
             )}
           </div>
         )}
+
+        <FeaturedGallery onSelect={setSelectedIds} />
 
         <PlayerBrowser selectedIds={selectedIds} onSelect={addPlayer} />
 

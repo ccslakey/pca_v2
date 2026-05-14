@@ -1,0 +1,134 @@
+.featured-gallery {
+  margin-top: 8px;
+}
+
+.featured-gallery-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.featured-gallery-title {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  margin: 0;
+
+  .muted {
+    color: var(--text-3);
+    font-weight: 400;
+    margin-left: 8px;
+    font-size: 12px;
+  }
+}
+
+.featured-gallery-hint {
+  font-size: 11px;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.featured-scroll-wrap {
+  position: relative;
+
+  // Right-edge fade — signals "more content over there"
+  &::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 14px; // sit above the scrollbar
+    width: 60px;
+    background: linear-gradient(to right, transparent, var(--bg-1));
+    pointer-events: none;
+    z-index: 1;
+  }
+}
+
+.featured-scroll {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  padding: 4px 4px 8px;
+
+  // Visible-but-quiet scrollbar — extra scroll affordance
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+
+  &::-webkit-scrollbar { height: 6px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb {
+    background: var(--line);
+    border-radius: 3px;
+    &:hover { background: var(--text-3); }
+  }
+}
+
+.featured-card {
+  flex: 0 0 260px;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  color: inherit;
+  transition: border-color 120ms, transform 120ms, background 120ms;
+
+  &:hover {
+    border-color: rgba(255, 255, 255, 0.18);
+    background: var(--bg-3);
+    transform: translateY(-1px);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+.featured-card-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-0);
+  letter-spacing: -0.005em;
+  line-height: 1.3;
+}
+
+.featured-card-avatars {
+  display: flex;
+  gap: 4px;
+}
+
+.featured-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: #0a0c12;
+  flex: none;
+}
+
+.featured-card-names {
+  font-size: 11px;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
