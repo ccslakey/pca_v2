@@ -18,7 +18,7 @@ ALLOWED_HOSTS = [
     h.strip()
     for h in os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
     if h.strip()
-]
+] + ['healthcheck.railway.app']
 
 # --- Apps ---
 
