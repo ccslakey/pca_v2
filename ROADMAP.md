@@ -16,7 +16,7 @@ These are the items that block Threshold 2 (a release post on r/sabermetrics, Ta
 - [✅] **Missing-data honesty** — Statcast pitch zones only exist for 2015+. Currently older players show empty panels. Should say "no Statcast data before 2015" explicitly. Same treatment for any other coverage gap.
 - [ ] **Aging curve overlay** — overlay positional WAR-by-age curve on the career arc chart. Anyone evaluating a player thinks about aging implicitly; surfacing it makes the tool feel professional. Pairs with the existing age/calendar toggle.
 - [ ] **Percentile rankings** — "Career WAR ranks 12th all-time among CF" next to each headline stat. By-position percentiles became possible once `primary_position` shipped.
-- [ ] **Performance pass** — page-load timing, prefetch on hover for leaderboard rows, no skeleton flicker, no jank when switching metrics. This audience is impatient; a slow tool gets closed before depth lands.
+- [✅] **Performance pass** — page-load timing, prefetch on hover for leaderboard rows, no skeleton flicker, no jank when switching metrics. This audience is impatient; a slow tool gets closed before depth lands.
 - [ ] **GitHub Actions CI** — lint + `pytest` + frontend build on push. Required before anyone else touches the repo and before deploying becomes risky.
 - [ ] **Scheduled data jobs** — see [`SCHEDULED_JOBS.md`](SCHEDULED_JOBS.md). Weekly stats refresh + season-start + post-season awards + similarity recompute. Three requirements: failure alerting, staleness detection (already wired into `/api/meta/`), dependency ordering (similarity after stats).
 
