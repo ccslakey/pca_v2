@@ -1,18 +1,19 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ParentSize } from '@visx/responsive';
 import type { ChartPlayer, MetricId, XMode } from '../types';
 import { useChartPlayer, useFeatured, useMeta } from '../hooks';
 import { TopBar } from '../components/layout/TopBar';
 import { ChipBar } from '../components/compare/ChipBar';
 import { MetricToggle } from '../components/compare/MetricToggle';
-import { CareerChart } from '../components/compare/CareerChart';
-import { BrushChart } from '../components/compare/BrushChart';
 import { PlayerCard } from '../components/compare/PlayerCard';
 import { PlayerCardSkeleton } from '../components/compare/PlayerCardSkeleton';
 import { ChartSkeleton } from '../components/compare/ChartSkeleton';
 import { FeaturedGallery } from '../components/compare/FeaturedGallery';
 import { PlayerBrowser } from '../components/PlayerBrowser';
+
+const ChartArea = lazy(() =>
+  import('../components/compare/ChartArea').then(m => ({ default: m.ChartArea })),
+);
 
 interface PlayerSlot {
   id: string;
@@ -131,31 +132,19 @@ export function ComparePage() {
           ) : isInitialLoad ? (
             <ChartSkeleton />
           ) : (
-            <ParentSize>
-              {({ width }) => (
-                <>
-                  <CareerChart
-                    players={players}
-                    metric={metric}
-                    xMode={xMode}
-                    xRange={yearRange}
-                    showGlyphs={showGlyphs}
-                    hoverPlayerId={hoverPlayerId}
-                    setHoverPlayerId={setHoverPlayerId}
-                    width={width}
-                  />
-                  <BrushChart
-                    players={players}
-                    metric={metric}
-                    xMode={xMode}
-                    xRange={yearRange}
-                    fullRange={fullRange}
-                    setXRange={setYearRange}
-                    width={width}
-                  />
-                </>
-              )}
-            </ParentSize>
+            <Suspense fallback={<ChartSkeleton />}>
+              <ChartArea
+                players={players}
+                metric={metric}
+                xMode={xMode}
+                xRange={yearRange}
+                fullRange={fullRange}
+                showGlyphs={showGlyphs}
+                hoverPlayerId={hoverPlayerId}
+                setHoverPlayerId={setHoverPlayerId}
+                setXRange={setYearRange}
+              />
+            </Suspense>
           )}
         </div>
 
