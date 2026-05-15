@@ -7,7 +7,7 @@ from django.urls import include, path
 _INDEX = Path(__file__).resolve().parent.parent / 'frontend' / 'dist' / 'index.html'
 
 
-def spa_index(request):
+def spa_index(request, **kwargs):
     """Serve the React SPA for any non-API, non-admin path (client-side routing)."""
     if _INDEX.exists():
         return FileResponse(open(_INDEX, 'rb'), content_type='text/html')
