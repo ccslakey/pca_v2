@@ -1,6 +1,7 @@
 import './FeaturedGallery.scss';
 import { useFeatured } from '../../hooks';
 import { playerColor } from '../../utils/color';
+import { Skeleton } from '../Skeleton';
 import type { FeaturedTrio } from '../../types';
 
 interface Props {
@@ -34,28 +35,48 @@ function TrioCard({ trio, onSelect }: { trio: FeaturedTrio; onSelect: () => void
   );
 }
 
+function TrioCardSkeleton() {
+  return (
+    <div className="featured-card" aria-hidden="true">
+      <Skeleton width="80%" height={13} />
+      <div className="featured-card-avatars">
+        <Skeleton variant="circle" width={26} height={26} />
+        <Skeleton variant="circle" width={26} height={26} />
+        <Skeleton variant="circle" width={26} height={26} />
+      </div>
+      <Skeleton width="60%" height={11} />
+    </div>
+  );
+}
+
 export function FeaturedGallery({ onSelect }: Props) {
   const { data } = useFeatured();
-  if (!data?.trios.length) return null;
+  const trios = data?.trios ?? [];
 
+  // Header chrome renders eagerly (h2 is the LCP element — paint it before the
+  // API resolves). Cards render as skeletons until data arrives.
   return (
     <div className="featured-gallery">
       <div className="featured-gallery-header">
         <h2 className="featured-gallery-title">
           Featured matchups
-          <span className="muted">{data.trios.length} curated comparisons</span>
+          {trios.length > 0 && (
+            <span className="muted">{trios.length} curated comparisons</span>
+          )}
         </h2>
         <span className="featured-gallery-hint">scroll →</span>
       </div>
       <div className="featured-scroll-wrap">
         <div className="featured-scroll">
-          {data.trios.map(t => (
-            <TrioCard
-              key={t.slug}
-              trio={t}
-              onSelect={() => onSelect(t.players.map(p => p.bbref_id))}
-            />
-          ))}
+          {trios.length > 0
+            ? trios.map(t => (
+                <TrioCard
+                  key={t.slug}
+                  trio={t}
+                  onSelect={() => onSelect(t.players.map(p => p.bbref_id))}
+                />
+              ))
+            : Array.from({ length: 6 }).map((_, i) => <TrioCardSkeleton key={i} />)}
         </div>
       </div>
     </div>

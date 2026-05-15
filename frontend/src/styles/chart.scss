@@ -6,6 +6,9 @@
   padding: 18px 20px 12px;
   position: relative;
   overflow: hidden;
+  // Reserve full chart height (skeleton: 360 line + 8 gap + 48 brush) so
+  // empty/loading/loaded transitions do not shift the page below.
+  min-height: 446px;
 
   &::before {
     content: "";
@@ -76,7 +79,7 @@ svg.chart { display: block; width: 100%; user-select: none; }
 
 /* ---- Chart empty state ---- */
 .chart-empty {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; height: 260px; gap: 8px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; height: 416px; gap: 8px;
 
   &-title { font-size: 14px; font-weight: 500; color: var(--text-2); }
   &-sub { font-size: 12px; color: var(--text-3); font-family: var(--font-mono); }

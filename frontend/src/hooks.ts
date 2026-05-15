@@ -2,7 +2,6 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchBattingSeasons, fetchFeatured, fetchLeaderboard, fetchMeta, fetchPitchingSeasons, fetchPlayer, fetchPlayerAwards, fetchPitchZone, fetchSimilarPlayers, searchPlayers } from './api';
 import type { ZoneOutcome, ZoneRole, LeaderboardFilters } from './types';
 import type { BattingSeason, ChartPlayer, ChartSeason, PitchingSeason } from './types';
-import { PLAYER_COLORS } from './constants';
 import { posLabel } from './utils/format';
 
 export function useMeta() {
@@ -220,7 +219,7 @@ export function useChartPlayer(bbrefId: string | null, colorIndex: number): {
   const chartPlayer: ChartPlayer = {
     id: p.bbref_id,
     name: `${p.first_name} ${p.last_name}`,
-    color: PLAYER_COLORS[colorIndex % PLAYER_COLORS.length],
+    color: `var(--chart-${(colorIndex % 10) + 1})`,
     initials: initials(p.first_name, p.last_name),
     pos,
     years,

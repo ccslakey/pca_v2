@@ -6,10 +6,43 @@
     <title>Career Arc Visualizer</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Non-blocking font load: media="print" tricks the browser into fetching
+         without blocking render; onload swaps to "all" so styles apply.
+         Combined with display=swap so text paints in fallback font instantly. -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
       rel="stylesheet"
+      media="print"
+      onload="this.media='all'"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Inter+Tight:wght@400;500;600;700&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600;700&family=Cormorant+Garamond:wght@400;500;600;700&family=Italiana&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Serif:wght@400;500;600;700&family=Playfair+Display:wght@400;500;700&family=Lora:wght@400;500;600;700&family=Caprasimo&display=swap"
     />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Inter+Tight:wght@400;500;600;700&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600;700&family=Cormorant+Garamond:wght@400;500;600;700&family=Italiana&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Serif:wght@400;500;600;700&family=Playfair+Display:wght@400;500;700&family=Lora:wght@400;500;600;700&family=Caprasimo&display=swap"
+      />
+    </noscript>
+    <!-- FOUC prevention: apply bg/text before React mounts -->
+    <script>
+      (function () {
+        var DARK_ID = 'fangraphs-dark';
+        var LIGHT_ID = 'fangraphs-light';
+        var BG = {
+          'statcast-dark': '#06070a', 'ember-dark': '#0e0a07', 'ivy-dark': '#03150b', 'fangraphs-dark': '#0a0a0a',
+          'cooperstown-light': '#f5ead3', 'chalk-light': '#ffffff', 'sandlot-light': '#fbf2dd', 'fangraphs-light': '#ffffff',
+        };
+        var TEXT = {
+          'statcast-dark': '#f4f6fb', 'ember-dark': '#f7eee0', 'ivy-dark': '#f6f1e1', 'fangraphs-dark': '#fafafa',
+          'cooperstown-light': '#2a1b08', 'chalk-light': '#0d1117', 'sandlot-light': '#2a1a0a', 'fangraphs-light': '#111111',
+        };
+        var stored = localStorage.getItem('pca-theme-id');
+        var id = (stored && BG[stored]) ? stored : (window.matchMedia('(prefers-color-scheme: dark)').matches ? DARK_ID : LIGHT_ID);
+        var bg = BG[id]; var text = TEXT[id];
+        document.documentElement.style.setProperty('--bg-0', bg);
+        document.documentElement.style.setProperty('--text-0', text);
+        document.documentElement.style.backgroundColor = bg;
+        document.documentElement.style.color = text;
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

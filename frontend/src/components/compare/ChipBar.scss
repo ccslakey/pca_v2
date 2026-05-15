@@ -1,35 +1,79 @@
-.chip-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; min-height: 32px; }
-.chip-bar-label { color: var(--text-3); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; margin-right: 4px; font-family: var(--font-mono); }
+.chip-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    min-height: 32px;
+}
+.chip-bar-label {
+    color: var(--text-3);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-right: 4px;
+    font-family: var(--font-mono);
+}
 
 .chip {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 5px 6px 5px 10px;
-  background: var(--bg-2);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  font-size: 12.5px;
-  color: var(--text-0);
-  transition: background 80ms, border-color 80ms;
-  cursor: default;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 6px 5px 10px;
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    font-size: 12.5px;
+    color: var(--text-0);
+    transition:
+        background 80ms,
+        border-color 80ms;
+    cursor: default;
 
-  &:hover { background: var(--bg-3); }
+    &:hover {
+        background: var(--bg-3);
+    }
 }
 
-.chip-swatch { width: 8px; height: 8px; border-radius: 50%; flex: none; }
-.chip-name { font-weight: 500; letter-spacing: -0.01em; }
-.chip-meta { color: var(--text-3); font-family: var(--font-mono); font-size: 11px; }
+.chip-swatch {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex: none;
+    border: 1px solid var(--line);
+    box-sizing: content-box;
+}
+.chip-name {
+    font-weight: 500;
+    letter-spacing: -0.01em;
+}
+.chip-meta {
+    color: var(--text-3);
+    font-family: var(--font-mono);
+    font-size: 11px;
+}
 
 .chip-x {
-  display: grid; place-items: center;
-  width: 18px; height: 18px;
-  border-radius: 50%;
-  border: none;
-  background: transparent;
-  color: var(--text-3);
-  margin-left: 2px;
-  transition: background 80ms, color 80ms;
+    display: grid;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: var(--text-3);
+    margin-left: 2px;
+    transition:
+        background 80ms,
+        color 80ms;
 
-  &:hover { background: var(--bg-3); color: var(--text-0); }
+    &:hover {
+        background: var(--bg-3);
+        color: var(--text-0);
+    }
 }
 
-.chip-add { border-style: dashed; color: var(--text-2); cursor: pointer; }
+.chip-add {
+    border-style: dashed;
+    color: var(--text-2);
+    cursor: pointer;
+}

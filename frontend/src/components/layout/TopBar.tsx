@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { PlayerSearch } from "./PlayerSearch";
+import { ThemePicker } from "./ThemePicker";
 import { MAX_PLAYERS } from "../../constants";
 
 interface Props {
@@ -26,6 +27,7 @@ export function TopBar({ selectedIds, onSelect }: Props) {
         onSelect={onSelect}
         maxPlayers={MAX_PLAYERS}
       />
+      <ThemePicker />
     </header>
   );
 }

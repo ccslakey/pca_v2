@@ -159,25 +159,25 @@ export function ComparePage() {
           )}
         </div>
 
-        {slots.length > 0 && (
-          <div className="cards-row">
-            {slots.map(({ id, player }) =>
-              player ? (
-                <PlayerCard
-                  key={id}
-                  player={player}
-                  metric={metric}
-                  isHovered={hoverPlayerId === id}
-                  onHoverEnter={() => setHoverPlayerId(id)}
-                  onHoverLeave={() => setHoverPlayerId(null)}
-                  onRemove={() => removePlayer(id)}
-                />
-              ) : (
-                <PlayerCardSkeleton key={id} />
-              ),
-            )}
-          </div>
-        )}
+        {/* Always rendered (with reserved min-height when empty) so the auto-picked
+            featured trio swap does not push FeaturedGallery / PlayerBrowser down. */}
+        <div className="cards-row" style={{ minHeight: 96 }}>
+          {slots.map(({ id, player }) =>
+            player ? (
+              <PlayerCard
+                key={id}
+                player={player}
+                metric={metric}
+                isHovered={hoverPlayerId === id}
+                onHoverEnter={() => setHoverPlayerId(id)}
+                onHoverLeave={() => setHoverPlayerId(null)}
+                onRemove={() => removePlayer(id)}
+              />
+            ) : (
+              <PlayerCardSkeleton key={id} />
+            ),
+          )}
+        </div>
 
         <FeaturedGallery onSelect={setSelectedIds} />
 

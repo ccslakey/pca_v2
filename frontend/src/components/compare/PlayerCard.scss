@@ -8,6 +8,8 @@
   display: flex; flex-direction: column; gap: 8px;
   position: relative; overflow: hidden;
   transition: border-color 120ms, transform 120ms;
+  // Pin height so skeleton ↔ loaded swap does not shift the page below.
+  min-height: 96px;
 
   &:hover { transform: translateY(-1px); }
   &.is-hover { border-color: rgba(255,255,255,0.18); }

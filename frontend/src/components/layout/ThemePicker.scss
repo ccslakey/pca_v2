@@ -1,0 +1,140 @@
+.theme-picker {
+    position: relative;
+}
+
+.tp-trigger {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px 5px 6px;
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    color: var(--text-1);
+    font-family: var(--font-sans);
+    font-size: 12px;
+    white-space: nowrap;
+    transition:
+        border-color 0.15s,
+        background 0.15s;
+
+    &:hover {
+        border-color: var(--accent);
+        color: var(--text-0);
+    }
+}
+
+.tp-trigger-swatches {
+    display: flex;
+    gap: 2px;
+    .tp-trigger-swatch {
+        display: block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        border: 1px solid var(--line);
+        box-sizing: content-box;
+    }
+}
+
+.tp-trigger-label {
+    font-weight: 500;
+}
+
+.tp-caret {
+    opacity: 0.5;
+}
+
+.tp-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    width: 220px;
+    background: var(--bg-1);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-1);
+    z-index: 200;
+    padding: 6px 0;
+    overflow: hidden;
+}
+
+.tp-menu-section {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px 4px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-3);
+}
+
+.tp-mode-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+
+    &[data-mode="dark"] {
+        background: var(--text-2);
+    }
+    &[data-mode="light"] {
+        background: var(--text-2);
+        border: 1px solid var(--line);
+    }
+}
+
+.tp-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    cursor: pointer;
+    transition: background 0.1s;
+
+    &:hover {
+        background: var(--bg-2);
+    }
+    &.is-active {
+        background: var(--bg-2);
+    }
+}
+
+.tp-swatches {
+    display: flex;
+    width: 36px;
+    height: 24px;
+    border-radius: 3px;
+    overflow: hidden;
+    flex-shrink: 0;
+
+    > div {
+        flex: 1;
+    }
+}
+
+.tp-option-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.tp-option-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-0);
+    line-height: 1.2;
+}
+
+.tp-option-tagline {
+    font-size: 10px;
+    color: var(--text-3);
+    margin-top: 1px;
+}
+
+.tp-check {
+    flex-shrink: 0;
+    color: var(--accent);
+}

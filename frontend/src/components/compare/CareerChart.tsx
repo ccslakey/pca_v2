@@ -104,8 +104,7 @@ function ChartGlyph({
         cx={cx}
         cy={cy}
         r={R}
-        fill="var(--bg-1)"
-        stroke={color}
+        style={{ fill: 'var(--bg-1)', stroke: color }}
         strokeWidth={1.5}
       />
       <svg
@@ -344,7 +343,7 @@ export function CareerChart({
                 y={(s) => yScale(s[metric] as number)}
                 curve={curveCatmullRom}
                 className={`line ${dim ? "is-dim" : ""} ${hov ? "is-hover" : ""}`}
-                stroke={player.color}
+                style={{ stroke: player.color }}
                 onMouseEnter={() => setHoverPlayerId(player.id)}
                 onMouseLeave={() => setHoverPlayerId(null)}
               />
@@ -364,8 +363,7 @@ export function CareerChart({
                   cx={xScale(sx)}
                   cy={yScale(s[metric] as number)}
                   r={isHovered ? 4.5 : 2.2}
-                  fill={player.color}
-                  stroke="#0f1117"
+                  style={{ fill: player.color, stroke: 'var(--bg-1)' }}
                   strokeWidth={1.5}
                   opacity={dim ? 0.2 : 1}
                 />
