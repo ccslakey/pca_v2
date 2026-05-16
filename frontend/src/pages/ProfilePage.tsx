@@ -1,6 +1,6 @@
 import "../components/profile/panel.scss";
 import { useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import {
   useChartPlayer,
   useSimilarPlayers,
