@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import type { ChartPlayer, MetricId } from '../../types';
 import { METRICS } from '../../constants';
 import { peakSeason, careerWar, fmtMetric } from '../../utils/chart';
+import { fmtPercentile } from '../../utils/format';
 
 interface Props {
   player: ChartPlayer;
@@ -53,6 +54,11 @@ export function PlayerCard({ player, metric, isHovered, onHoverEnter, onHoverLea
         <div className="stat">
           <div className="stat-label">Career WAR</div>
           <div className="stat-value">{war.toFixed(1)}</div>
+          {player.warPercentile && (
+            <div className="stat-sub" title={player.warPercentile.rank != null ? `#${player.warPercentile.rank} of ${player.warPercentile.n} ${player.warPercentile.position} by career WAR` : undefined}>
+              {fmtPercentile(player.warPercentile.topPct)} {player.warPercentile.position}
+            </div>
+          )}
         </div>
         {peak && (
           <div className="stat">

@@ -20,6 +20,13 @@ export interface JamesScore {
   hof_monitor_pit: number;
 }
 
+export interface WarPercentile {
+  top_pct: number;
+  position: string;
+  rank: number;
+  n: number;
+}
+
 export interface PlayerDetail extends PlayerSummary {
   mlbam_id: number | null;
   fangraphs_id: number | null;
@@ -27,6 +34,7 @@ export interface PlayerDetail extends PlayerSummary {
   birth_date: string | null;
   birth_country: string | null;
   james_score: JamesScore | null;
+  war_percentile: WarPercentile | null;
 }
 
 export interface BattingSeason {
@@ -297,6 +305,7 @@ export interface ChartPlayer {
   isBatter: boolean;
   awards: PlayerAward[];
   birthYear: number | null;
+  warPercentile: { topPct: number; position: string; rank: number; n: number } | null;
 }
 
 export type XMode = 'year' | 'age';

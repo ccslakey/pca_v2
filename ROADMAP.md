@@ -15,9 +15,9 @@ These are the items that block Threshold 2 (a release post on r/sabermetrics, Ta
 - [✅] **Methodology page** — single most important addition. Document similarity weights ([`SIMILARITY.md`](SIMILARITY.md) is the seed), era cutoffs, qualification thresholds, where numbers diverge from bWAR/fWAR. Audience won't mind your version of WAR — they'll mind not knowing it's your version. Link from the footer.
 - [✅] **Missing-data honesty** — Statcast pitch zones only exist for 2015+. Currently older players show empty panels. Should say "no Statcast data before 2015" explicitly. Same treatment for any other coverage gap.
 - [ ] **Aging curve overlay** — overlay positional WAR-by-age curve on the career arc chart. Anyone evaluating a player thinks about aging implicitly; surfacing it makes the tool feel professional. Pairs with the existing age/calendar toggle.
-- [ ] **Percentile rankings** — "Career WAR ranks 12th all-time among CF" next to each headline stat. By-position percentiles became possible once `primary_position` shipped.
+- [✅] **Percentile rankings** — "top X% among SS" next to career WAR on the profile stat grid and compare player cards. Hover shows exact rank ("# 3 of 312 SS"). 1-hour cached pool per position; `<0.1%` floor formatting for all-timers.
 - [✅] **Performance pass** — page-load timing, prefetch on hover for leaderboard rows, no skeleton flicker, no jank when switching metrics. This audience is impatient; a slow tool gets closed before depth lands.
-- [ ] **GitHub Actions CI** — lint + `pytest` + frontend build on push. Required before anyone else touches the repo and before deploying becomes risky.
+- [✅] **GitHub Actions CI** — lint + `pytest` + frontend build on push. Required before anyone else touches the repo and before deploying becomes risky.
 - [✅] **Scheduled data jobs** — see [`SCHEDULED_JOBS.md`](SCHEDULED_JOBS.md). Weekly stats refresh + season-start + post-season awards + similarity recompute. Three requirements: failure alerting, staleness detection (already wired into `/api/meta/`), dependency ordering (similarity after stats).
 
 Realistic scope: 2–3 weeks.
@@ -113,6 +113,7 @@ Not scheduled. Pulled into "Now" when the slot opens.
 - 215 MB production database (full local dataset including Statcast zones)
 
 ### Analytical features
+- Positional percentile rankings: career WAR vs same-position pool, shown on profile stat grid and compare cards with rank-on-hover tooltip
 - Bill James scores: HOF Monitor + Black Ink + Gray Ink, surfaced on profile page
 - Era-adjusted toggle on compare chart (OPS+, ERA+)
 - Similarity engine: multi-dimensional weighted distance with two-way player split, exponential-decay score, role/position embeddings, calibrated similarity scores

@@ -216,6 +216,7 @@ export function useChartPlayer(bbrefId: string | null, colorIndex: number): {
 
   const pos = posLabel(p.primary_position, p.throws, hasPit);
 
+  const wp = p.war_percentile;
   const chartPlayer: ChartPlayer = {
     id: p.bbref_id,
     name: `${p.first_name} ${p.last_name}`,
@@ -228,6 +229,7 @@ export function useChartPlayer(bbrefId: string | null, colorIndex: number): {
     isPitcher: hasPit,
     awards: awards.data,
     birthYear: p.birth_date ? new Date(p.birth_date).getUTCFullYear() : null,
+    warPercentile: wp ? { topPct: wp.top_pct, position: wp.position, rank: wp.rank, n: wp.n } : null,
   };
 
   return { data: chartPlayer, isLoading: false };

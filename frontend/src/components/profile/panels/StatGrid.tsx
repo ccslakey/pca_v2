@@ -1,5 +1,6 @@
 import "./styles/StatGrid.scss";
 import { fmtMetric } from "../../../utils/chart";
+import { fmtPercentile } from "../../../utils/format";
 
 interface Peak {
   season: number;
@@ -11,6 +12,7 @@ interface Props {
     isBatter: boolean;
     isPitcher: boolean;
     seasons: { length: number };
+    warPercentile: { topPct: number; position: string; rank: number; n: number } | null;
   };
   war: number;
   peak: Peak | null;
@@ -32,12 +34,18 @@ export function StatGrid({
   careerERA,
 }: Props) {
   const isPureP = player.isPitcher && !player.isBatter;
+  const wp = player.warPercentile;
   return (
     <div className="stat-grid">
       <div className="stat-block is-headline">
         <div className="stat-label">Career WAR</div>
         <div className="stat-value">{war.toFixed(1)}</div>
-        {peak && (
+        {wp && (
+          <div className="stat-sub" title={wp.rank != null ? `#${wp.rank} of ${wp.n} ${wp.position} by career WAR` : undefined}>
+            {fmtPercentile(wp.topPct)} among {wp.position}
+          </div>
+        )}
+        {!wp && peak && (
           <div className="stat-sub">
             Peak {peak.val.toFixed(1)} in {peak.season}
           </div>

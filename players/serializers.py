@@ -3,6 +3,7 @@ from rest_framework import serializers
 from stats.models import JamesScore
 
 from .models import Player
+from .percentiles import war_percentile
 
 
 class PlayerListSerializer(serializers.ModelSerializer[Player]):
@@ -35,6 +36,10 @@ class PlayerDetailSerializer(serializers.ModelSerializer[Player]):
     """Full player profile including all bio fields."""
 
     james_score = JamesScoreSerializer(read_only=True)
+    war_percentile = serializers.SerializerMethodField()
+
+    def get_war_percentile(self, obj: Player) -> dict | None:
+        return war_percentile(obj.bbref_id, obj.primary_position)
 
     class Meta:
         model = Player
