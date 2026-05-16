@@ -8,19 +8,18 @@ Live at: https://pcav2-production.up.railway.app
 
 ## Now — finish before public launch
 
-These are the items that block Threshold 2 (a release post on r/sabermetrics, Tangotiger circles, etc.). Threshold 1 — "live URL that holds up to a 60-second skim" — is shipped.
+Blocks Threshold 2 (release post on r/sabermetrics, Tangotiger circles, etc.). Threshold 1 — "live URL that holds up to a 60-second skim" — shipped. Most of the original Threshold 2 list (methodology page, missing-data honesty, aging curve, percentile rankings, performance pass, CI, scheduled jobs) is done — see `Shipped`. What's left is observability, mobile, and the items that make the launch *spread*.
 
 ### Must-ship
 
-- [✅] **Methodology page** — single most important addition. Document similarity weights ([`SIMILARITY.md`](SIMILARITY.md) is the seed), era cutoffs, qualification thresholds, where numbers diverge from bWAR/fWAR. Audience won't mind your version of WAR — they'll mind not knowing it's your version. Link from the footer.
-- [✅] **Missing-data honesty** — Statcast pitch zones only exist for 2015+. Currently older players show empty panels. Should say "no Statcast data before 2015" explicitly. Same treatment for any other coverage gap.
-- [✅] **Aging curve overlay** — dashed positional average overlaid on the compare chart in age mode for all metrics. Solid (n≥30) + faded tail (n<30) rendering. One fetch per role, all metrics in one payload, cached 24h.
-- [✅] **Percentile rankings** — "top X% among SS" next to career WAR on the profile stat grid and compare player cards. Hover shows exact rank ("# 3 of 312 SS"). 1-hour cached pool per position; `<0.1%` floor formatting for all-timers.
-- [✅] **Performance pass** — page-load timing, prefetch on hover for leaderboard rows, no skeleton flicker, no jank when switching metrics. This audience is impatient; a slow tool gets closed before depth lands.
-- [✅] **GitHub Actions CI** — lint + `pytest` + frontend build on push. Required before anyone else touches the repo and before deploying becomes risky.
-- [✅] **Scheduled data jobs** — see [`SCHEDULED_JOBS.md`](SCHEDULED_JOBS.md). Weekly stats refresh + season-start + post-season awards + similarity recompute. Three requirements: failure alerting, staleness detection (already wired into `/api/meta/`), dependency ordering (similarity after stats).
-
-Realistic scope: 2–3 weeks.
+- [ ] **Analytics** — Plausible or Umami (not GA). Without page-view + popular-comparison telemetry, every post-launch decision is vibes. ~30 min setup. Ship before the 5-person wave.
+- [ ] **Error monitoring** — Sentry free tier. At 50+ users tailing logs stops working. Ship before the 20-person wave.
+- [ ] **Mobile layout** — previously deferred, but the friends-and-family wave will open links on phones. Minimum: usable single-column profile + compare page that doesn't break. Sabermetric audience still expected on desktop, so the bar is "doesn't embarrass," not "feature parity."
+- [ ] **OG images** — see [Social preview images](#social-preview-images-open-graph) below. Not for virality — for the case when *you* post a comparison to Twitter / Bluesky / LinkedIn during the hiring push. Preview being a real chart vs. a generic card is what makes a hiring manager click. Cache rendered PNGs hard; rate-limit the endpoint.
+- [ ] **Engineering write-up** — short post (blog, expanded README section, or LinkedIn) walking through the similarity engine, era adjustments, and methodology tradeoffs. Sabermetric-leaning hiring managers absorb depth from prose much faster than by clicking around a UI; this is probably the single highest-leverage *hiring* signal you can add beyond what's already shipped. (SEO is deferred — see Distribution playbook — since this project is for hiring, not anonymous Google traffic.)
+- [ ] **Career rate-stat slash line in the hero** — career AVG/OBP/SLG/OPS (or ERA/WHIP/K9 for pitchers) computed from existing totals. People expect this on a player page; absence reads as incomplete.
+- [ ] **Team timeline on the profile** — horizontal stripe showing which teams the player played for and when, derived from the `team` field on season tables. Visual richness for almost no work.
+- [ ] **Career milestone overlay** — mark the season a player crossed 500 HR / 3000 H / 300 W / 3000 K / 2000 RBI as labeled markers on the career arc. Good demo material; "the season Bonds passed Ruth" is a shareable screenshot.
 
 ---
 
@@ -64,9 +63,6 @@ Not scheduled. Pulled into "Now" when the slot opens.
 
 ### Fast analytical wins (uses existing data, no new ingest)
 
-- **Career milestone overlay** — mark the season a player crossed 500 HR / 3000 H / 300 W / 3000 K / 2000 RBI as labeled markers on the career arc.
-- **Team timeline on the profile** — horizontal stripe showing which teams the player played for and when, derived from the `team` field on season tables.
-- **Career rate-stat slash line in the hero** — career AVG/OBP/SLG/OPS (or ERA/WHIP/K9 for pitchers) computed from existing totals.
 - **League leadership badges** — for each season in the season-log panel, small "1st" / "T-2nd" badges next to WAR, HR, ERA, etc. when the player led/co-led the league.
 - **`AnnotationGlyph` variants** — add ws, ss, hof, roty, tc, postmvp, bat_title, era_title, all_mlb variants.
 
@@ -99,7 +95,6 @@ Not scheduled. Pulled into "Now" when the slot opens.
 - **Platoon splits (vs LHP/RHP)** — needs more granular data
 - **WPA / clutch stats** — needs play-by-play data
 - **Export to PNG** — nice-to-have, not core
-- **Mobile layout** — desktop-only; "see desktop" warning is sufficient for both thresholds
 - **xBA / xERA from first principles** — high methodological value, low demo value; output won't visually differ from Savant's. Better to explain the gap in interviews.
 - **WAR decomposition from first principles** — bWAR/fWAR regularly disagree by 1–3 WAR; building your own forces each choice to be explicit. Substantial modeling work, diminishing visual return.
 
@@ -111,6 +106,8 @@ Not scheduled. Pulled into "Now" when the slot opens.
 - Live deployment to Railway (Postgres + Dockerfile + WhiteNoise SPA serve + healthcheck)
 - Env-driven Django settings
 - 215 MB production database (full local dataset including Statcast zones)
+- Methodology page documenting similarity weights, era cutoffs, qualification thresholds, and where numbers diverge from bWAR/fWAR (linked from footer)
+- Scheduled data jobs: weekly stats refresh + season-start + post-season awards + similarity recompute, with failure alerting, staleness detection (`/api/meta/`), and dependency ordering (similarity after stats) — see [`SCHEDULED_JOBS.md`](SCHEDULED_JOBS.md)
 
 ### Analytical features
 - Positional percentile rankings: career WAR vs same-position pool, shown on profile stat grid and compare cards with rank-on-hover tooltip
@@ -133,6 +130,7 @@ Not scheduled. Pulled into "Now" when the slot opens.
 - Hero, stat grid, sparkline grid, season table, similar players panel, awards panel, pitch zone panel
 - ProfilePageSkeleton for full-page loading state
 - Staleness disclosure footer
+- Missing-data honesty: explicit "no Statcast data before 2015" treatment on pitch-zone panel and any other coverage-gapped panels (no more empty silent panels)
 
 ### Browse / discovery
 - Leaderboard page: position, era, WAR filters; sortable; award badge tooltips
@@ -153,6 +151,8 @@ Not scheduled. Pulled into "Now" when the slot opens.
 - Code quality refactor: glyph redesign, ProfilePage split into panels, CSS modularization (SCSS)
 - Cached similarity aggregation queries (LocMemCache, 1h)
 - README cleanup matching live app
+- GitHub Actions CI: lint + `pytest` + frontend build on push
+- Performance pass: page-load timing, prefetch on hover for leaderboard rows, no skeleton flicker, no jank when switching metrics
 
 ---
 
