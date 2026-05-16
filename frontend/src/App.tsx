@@ -11,6 +11,12 @@ const LeaderboardPage = lazy(() =>
 const ProfilePage = lazy(() =>
   import('./pages/ProfilePage').then(m => ({ default: m.ProfilePage })),
 );
+const MethodologyIndexPage = lazy(() =>
+  import('./pages/MethodologyIndexPage').then(m => ({ default: m.MethodologyIndexPage })),
+);
+const MethodologyArticlePage = lazy(() =>
+  import('./pages/MethodologyArticlePage').then(m => ({ default: m.MethodologyArticlePage })),
+);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -30,6 +36,8 @@ export function App() {
             <Route path="/" element={<ComparePage />} />
             <Route path="/browse" element={<LeaderboardPage />} />
             <Route path="/player/:bbrefId" element={<ProfilePage />} />
+            <Route path="/methodology" element={<MethodologyIndexPage />} />
+            <Route path="/methodology/:slug" element={<MethodologyArticlePage />} />
           </Routes>
         </Suspense>
       </BrowserRouter>

@@ -12,7 +12,7 @@ These are the items that block Threshold 2 (a release post on r/sabermetrics, Ta
 
 ### Must-ship
 
-- [ ] **Methodology page** — single most important addition. Document similarity weights ([`SIMILARITY.md`](SIMILARITY.md) is the seed), era cutoffs, qualification thresholds, where numbers diverge from bWAR/fWAR. Audience won't mind your version of WAR — they'll mind not knowing it's your version. Link from the footer.
+- [✅] **Methodology page** — single most important addition. Document similarity weights ([`SIMILARITY.md`](SIMILARITY.md) is the seed), era cutoffs, qualification thresholds, where numbers diverge from bWAR/fWAR. Audience won't mind your version of WAR — they'll mind not knowing it's your version. Link from the footer.
 - [✅] **Missing-data honesty** — Statcast pitch zones only exist for 2015+. Currently older players show empty panels. Should say "no Statcast data before 2015" explicitly. Same treatment for any other coverage gap.
 - [ ] **Aging curve overlay** — overlay positional WAR-by-age curve on the career arc chart. Anyone evaluating a player thinks about aging implicitly; surfacing it makes the tool feel professional. Pairs with the existing age/calendar toggle.
 - [ ] **Percentile rankings** — "Career WAR ranks 12th all-time among CF" next to each headline stat. By-position percentiles became possible once `primary_position` shipped.

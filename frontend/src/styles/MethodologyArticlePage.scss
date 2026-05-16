@@ -1,0 +1,229 @@
+.methodology-article-wrap {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 48px 24px 80px;
+  display: grid;
+  grid-template-columns: 1fr 200px;
+  gap: 64px;
+  align-items: start;
+
+  @media (max-width: 720px) {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+}
+
+.methodology-article {
+  min-width: 0;
+}
+
+.methodology-article-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-3);
+  text-decoration: none;
+  margin-bottom: 32px;
+  transition: color 120ms;
+
+  &:hover { color: var(--text-1); }
+}
+
+// Markdown content styles
+.methodology-body {
+  h1 {
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0 0 24px;
+    line-height: 1.2;
+  }
+
+  h2 {
+    font-size: 17px;
+    font-weight: 600;
+    margin: 40px 0 12px;
+    padding-top: 8px;
+    border-top: 1px solid var(--line);
+    letter-spacing: -0.01em;
+
+    &:first-of-type { margin-top: 24px; }
+  }
+
+  h3 {
+    font-size: 14px;
+    font-weight: 600;
+    margin: 24px 0 8px;
+    color: var(--text-1);
+  }
+
+  p {
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--text-1);
+    margin: 0 0 16px;
+  }
+
+  ul, ol {
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--text-1);
+    margin: 0 0 16px;
+    padding-left: 20px;
+
+    li { margin-bottom: 4px; }
+  }
+
+  strong { color: var(--text-0); font-weight: 600; }
+
+  code {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    background: var(--bg-3);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 1px 5px;
+    color: var(--text-1);
+  }
+
+  pre {
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    overflow-x: auto;
+    margin: 0 0 20px;
+
+    code {
+      background: none;
+      border: none;
+      padding: 0;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin: 0 0 20px;
+
+    th {
+      text-align: left;
+      padding: 8px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-3);
+      font-family: var(--font-mono);
+      border-bottom: 1px solid var(--line);
+    }
+
+    td {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--line-soft, var(--line));
+      color: var(--text-1);
+      vertical-align: top;
+
+      code { font-size: 12px; }
+    }
+
+    tr:last-child td { border-bottom: none; }
+  }
+
+  a {
+    color: var(--accent);
+    text-decoration: none;
+
+    &:hover { text-decoration: underline; }
+  }
+
+  hr {
+    border: none;
+    border-top: 1px solid var(--line);
+    margin: 32px 0;
+  }
+}
+
+// Sidebar TOC
+.methodology-toc {
+  position: sticky;
+  top: 24px;
+
+  @media (max-width: 720px) {
+    display: none;
+  }
+}
+
+.methodology-toc-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  margin-bottom: 10px;
+}
+
+.methodology-toc-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.methodology-toc-item {
+  a {
+    display: block;
+    font-size: 12px;
+    color: var(--text-3);
+    text-decoration: none;
+    padding: 2px 0;
+    line-height: 1.4;
+    transition: color 100ms;
+
+    &:hover { color: var(--text-1); }
+  }
+}
+
+.methodology-article-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+  grid-column: 1;
+}
+
+.methodology-nav-link {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-decoration: none;
+  max-width: 240px;
+
+  &.next { text-align: right; margin-left: auto; }
+
+  .nav-label {
+    font-size: 11px;
+    color: var(--text-3);
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .nav-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-1);
+    transition: color 120ms;
+  }
+
+  &:hover .nav-title { color: var(--accent); }
+}

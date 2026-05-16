@@ -1,0 +1,32 @@
+name: Annual awards ingest
+
+on:
+  schedule:
+    # November 15 at 6am UTC — all postseason awards (MVP, Cy Young, ROY, GG, SS)
+    # are announced by early November; running the 15th catches stragglers
+    - cron: '0 6 15 11 *'
+  workflow_dispatch: # allow manual trigger
+
+jobs:
+  awards:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DJANGO_SETTINGS_MODULE: pca_backend.settings
+      SECRET_KEY: ${{ secrets.SECRET_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Ingest awards
+        run: python pipeline/ingest_bref_awards.py

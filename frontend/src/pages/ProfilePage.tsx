@@ -172,6 +172,7 @@ export function ProfilePage() {
         <p className="footer-note">
           Data: Baseball Reference · All WAR values are bWAR
           {meta?.last_updated ? ` · Updated ${meta.last_updated}` : ""}
+          {" · "}<a href="/methodology" style={{ color: "inherit", opacity: 0.7 }}>Methodology</a>
         </p>
       </div>
     </div>
