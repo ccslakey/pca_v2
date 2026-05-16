@@ -14,7 +14,7 @@ These are the items that block Threshold 2 (a release post on r/sabermetrics, Ta
 
 - [✅] **Methodology page** — single most important addition. Document similarity weights ([`SIMILARITY.md`](SIMILARITY.md) is the seed), era cutoffs, qualification thresholds, where numbers diverge from bWAR/fWAR. Audience won't mind your version of WAR — they'll mind not knowing it's your version. Link from the footer.
 - [✅] **Missing-data honesty** — Statcast pitch zones only exist for 2015+. Currently older players show empty panels. Should say "no Statcast data before 2015" explicitly. Same treatment for any other coverage gap.
-- [ ] **Aging curve overlay** — overlay positional WAR-by-age curve on the career arc chart. Anyone evaluating a player thinks about aging implicitly; surfacing it makes the tool feel professional. Pairs with the existing age/calendar toggle.
+- [✅] **Aging curve overlay** — dashed positional average overlaid on the compare chart in age mode for all metrics. Solid (n≥30) + faded tail (n<30) rendering. One fetch per role, all metrics in one payload, cached 24h.
 - [✅] **Percentile rankings** — "top X% among SS" next to career WAR on the profile stat grid and compare player cards. Hover shows exact rank ("# 3 of 312 SS"). 1-hour cached pool per position; `<0.1%` floor formatting for all-timers.
 - [✅] **Performance pass** — page-load timing, prefetch on hover for leaderboard rows, no skeleton flicker, no jank when switching metrics. This audience is impatient; a slow tool gets closed before depth lands.
 - [✅] **GitHub Actions CI** — lint + `pytest` + frontend build on push. Required before anyone else touches the repo and before deploying becomes risky.
@@ -114,6 +114,8 @@ Not scheduled. Pulled into "Now" when the slot opens.
 
 ### Analytical features
 - Positional percentile rankings: career WAR vs same-position pool, shown on profile stat grid and compare cards with rank-on-hover tooltip
+- Aging curve overlay: positional average by age on compare chart, all metrics, solid/faded confidence tiers
+- Bug fix: NL pitcher strikeout totals (Pedro Martinez, Cy Young, etc.) were silently replaced by batting SO due to hr===null guard in mergeSeasons
 - Bill James scores: HOF Monitor + Black Ink + Gray Ink, surfaced on profile page
 - Era-adjusted toggle on compare chart (OPS+, ERA+)
 - Similarity engine: multi-dimensional weighted distance with two-way player split, exponential-decay score, role/position embeddings, calibrated similarity scores
