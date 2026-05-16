@@ -11,6 +11,7 @@ import type {
   AgingCurvePoint,
   AwardKind,
   ChartPlayer,
+  ChartSeason,
   MetricId,
   PlayerAward,
   XMode,
@@ -67,6 +68,30 @@ const AWARD_LABELS: Partial<Record<AwardKind, string>> = {
   all_mlb: "All-MLB Team",
   postmvp: "Postseason MVP",
 };
+
+/** Split a season array into consecutive segments, with gap pairs between them. */
+function splitSegments(
+  pts: ChartSeason[],
+  getX: (s: ChartSeason) => number | null,
+): { segments: ChartSeason[][]; gaps: [ChartSeason, ChartSeason][] } {
+  if (!pts.length) return { segments: [], gaps: [] };
+  const segments: ChartSeason[][] = [];
+  const gaps: [ChartSeason, ChartSeason][] = [];
+  let current: ChartSeason[] = [pts[0]];
+  for (let i = 1; i < pts.length; i++) {
+    const prevX = getX(pts[i - 1]);
+    const currX = getX(pts[i]);
+    if (prevX != null && currX != null && currX - prevX > 1) {
+      segments.push(current);
+      gaps.push([pts[i - 1], pts[i]]);
+      current = [pts[i]];
+    } else {
+      current.push(pts[i]);
+    }
+  }
+  segments.push(current);
+  return { segments, gaps };
+}
 
 /** Top-priority chart annotation for a player in a given year, null if none. */
 function topAnnotation(
@@ -192,10 +217,11 @@ export function CareerChart({
     const visible = agingCurve.filter(
       (pt) => pt.age >= xRange[0] && pt.age <= xRange[1] && pt[metric] != null,
     );
-    return {
-      agingCurveSolid: visible.filter((pt) => pt.n >= 30),
-      agingCurveFaded: visible.filter((pt) => pt.n < 30),
-    };
+    const solid = visible.filter((pt) => pt.n >= 30);
+    const faded = visible.filter((pt) => pt.n < 30);
+    // Prepend last solid point to faded so the two LinePaths share an endpoint
+    const bridge = solid.length > 0 && faded.length > 0 ? [solid[solid.length - 1]] : [];
+    return { agingCurveSolid: solid, agingCurveFaded: [...bridge, ...faded] };
   }, [agingCurve, xRange, xMode, metric]);
 
   const lineData = useMemo(
@@ -376,7 +402,7 @@ export function CareerChart({
                   />
                 )}
                 <text
-                  x={innerW + 4}
+                  x={xScale(last.age) + 5}
                   y={yScale(last[metric] as number)}
                   fill="var(--text-3)"
                   fontSize={10}
@@ -393,18 +419,39 @@ export function CareerChart({
           {lineData.map(({ player, pts }) => {
             const dim = hoverPlayerId !== null && hoverPlayerId !== player.id;
             const hov = hoverPlayerId === player.id;
+            const { segments, gaps } = splitSegments(pts, xVal);
             return (
-              <LinePath
+              <g
                 key={player.id}
-                data={pts}
-                x={(s) => xScale(xVal(s) ?? 0)}
-                y={(s) => yScale(s[metric] as number)}
-                curve={curveCatmullRom}
-                className={`line ${dim ? "is-dim" : ""} ${hov ? "is-hover" : ""}`}
-                style={{ stroke: player.color }}
                 onMouseEnter={() => setHoverPlayerId(player.id)}
                 onMouseLeave={() => setHoverPlayerId(null)}
-              />
+              >
+                {segments.map((seg, i) => (
+                  <LinePath
+                    key={i}
+                    data={seg}
+                    x={(s) => xScale(xVal(s) ?? 0)}
+                    y={(s) => yScale(s[metric] as number)}
+                    curve={curveCatmullRom}
+                    className={`line ${dim ? "is-dim" : ""} ${hov ? "is-hover" : ""}`}
+                    style={{ stroke: player.color }}
+                  />
+                ))}
+                {gaps.map(([a, b], i) => (
+                  <LinePath
+                    key={`gap-${i}`}
+                    data={[a, b]}
+                    x={(s) => xScale(xVal(s) ?? 0)}
+                    y={(s) => yScale(s[metric] as number)}
+                    curve={curveCatmullRom}
+                    stroke={player.color}
+                    strokeWidth={1}
+                    strokeDasharray="3,4"
+                    strokeLinecap="round"
+                    opacity={dim ? 0.08 : 0.3}
+                  />
+                ))}
+              </g>
             );
           })}
 
