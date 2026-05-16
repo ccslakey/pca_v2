@@ -1,12 +1,12 @@
 # pca_v2
 
-A baseball analytics web app for cross-era player comparison. Multi-player career-arc charts with award annotations and era-adjusted metrics, a filterable leaderboard, player profile pages with similarity comps, and a Statcast pitch-zone view. Backed by ~150 years of season-level data from Baseball Reference and pitch-level Statcast for 2015+.
+**Career Arc Visualizer** plots up to ten baseball careers side-by-side — WAR, OPS+, ERA+, and other metrics rendered as multi-line arcs with award glyphs at the seasons that matter. Toggle to an age-aligned axis to compare across eras (Ruth vs. Bonds, Koufax vs. Pedro); click any line for a full profile with similar-player comps, a full season log, and Statcast pitch zones (2015+).
 
-> **Status:** application is feature-complete; production deployment pending. See [`RELEASE_ROADMAP.md`](RELEASE_ROADMAP.md).
+**Live at:** [pcav2-production.up.railway.app](https://pcav2-production.up.railway.app) · share state via URL — `/?compare=ruthba01,bondsba01` round-trips into the app.
 
-<!-- TODO once deployed: live URL + screenshot -->
-<!-- **Live demo:** https://example.com -->
-<!-- ![Compare chart screenshot](docs/screenshots/compare.png) -->
+**What's analytically interesting:** the similarity engine. Z-scored weighted distance over six role-specific features, with a two-axis position embedding (so catchers don't match with corner OFs) and saves-rate detection (Mariano clusters with Hoffman and Wagner, not starters at the same WAR). Pool-calibrated scores so the median candidate is always 30, era-adjusted metrics treated as first-class, and the full methodology in [`SIMILARITY.md`](SIMILARITY.md). Backed by ~150 years of season data from Baseball Reference plus Statcast pitch-level data from 2015+.
+
+<!-- TODO: hero screenshot of compare chart -->
 
 ---
 
