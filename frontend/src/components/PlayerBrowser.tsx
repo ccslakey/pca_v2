@@ -74,29 +74,41 @@ function AwardBadges({ p }: { p: LeaderboardPlayer }) {
   const badges: JSX.Element[] = [];
   if (p.mvp_count > 0)
     badges.push(
-      <span key="mvp" className="award-badge badge-mvp"
-        title={`${p.mvp_count}× Most Valuable Player`}>
+      <span
+        key="mvp"
+        className="award-badge badge-mvp"
+        title={`${p.mvp_count}× Most Valuable Player`}
+      >
         ★{p.mvp_count > 1 ? `×${p.mvp_count}` : ""}
       </span>,
     );
   if (p.cy_count > 0)
     badges.push(
-      <span key="cy" className="award-badge badge-cy"
-        title={`${p.cy_count}× Cy Young Award`}>
+      <span
+        key="cy"
+        className="award-badge badge-cy"
+        title={`${p.cy_count}× Cy Young Award`}
+      >
         CY{p.cy_count > 1 ? `×${p.cy_count}` : ""}
       </span>,
     );
   if (p.gg_count > 0)
     badges.push(
-      <span key="gg" className="award-badge badge-gg"
-        title={`${p.gg_count}× Gold Glove`}>
+      <span
+        key="gg"
+        className="award-badge badge-gg"
+        title={`${p.gg_count}× Gold Glove`}
+      >
         ◇{p.gg_count > 1 ? `×${p.gg_count}` : ""}
       </span>,
     );
   if (p.asg_count > 0)
     badges.push(
-      <span key="asg" className="award-badge badge-asg"
-        title={`${p.asg_count}× All-Star selection`}>
+      <span
+        key="asg"
+        className="award-badge badge-asg"
+        title={`${p.asg_count}× All-Star selection`}
+      >
         {p.asg_count}AS
       </span>,
     );
@@ -184,11 +196,13 @@ export function PlayerBrowser({
     if (onSelect) {
       onSelect(p.bbref_id);
     } else {
-      const existing = (searchParams.get('compare') ?? '').split(',').filter(Boolean);
+      const existing = (searchParams.get("compare") ?? "")
+        .split(",")
+        .filter(Boolean);
       if (!existing.includes(p.bbref_id)) {
-        navigate(`/?compare=${[...existing, p.bbref_id].join(',')}`);
+        navigate(`/?compare=${[...existing, p.bbref_id].join(",")}`);
       } else {
-        navigate('/');
+        navigate("/");
       }
     }
   }
@@ -198,7 +212,7 @@ export function PlayerBrowser({
   const total = data?.count ?? 0;
   const totalPages = data?.total_pages ?? 1;
   const isInitialLoad = isFetching && !data;
-  const isRefetching  = isFetching && !!data;
+  const isRefetching = isFetching && !!data;
 
   return (
     <div className="player-browser">
@@ -211,6 +225,7 @@ export function PlayerBrowser({
           </span>
         </div>
         <div className="browser-page-sizes">
+          <span>Rows per page: </span>
           {pageSizes.map((n) => (
             <button
               key={n}
@@ -266,7 +281,9 @@ export function PlayerBrowser({
       </div>
 
       {/* table */}
-      <div className={`browser-table-wrap ${isRefetching ? 'is-refetching' : ''}`}>
+      <div
+        className={`browser-table-wrap ${isRefetching ? "is-refetching" : ""}`}
+      >
         <table className="browser-table">
           <thead>
             <tr>
@@ -287,93 +304,113 @@ export function PlayerBrowser({
             </tr>
           </thead>
           <tbody>
-            {isInitialLoad && Array.from({ length: pageSize > 15 ? 15 : pageSize }).map((_, i) => (
-              <tr key={`skel-${i}`} className="skeleton-row">
-                <td><div className="skel skel-name" /></td>
-                <td><div className="skel skel-short" /></td>
-                <td><div className="skel skel-short" /></td>
-                <td><div className="skel skel-num" /></td>
-                <td><div className="skel skel-num" /></td>
-                <td><div className="skel skel-num" /></td>
-                <td><div className="skel skel-badges" /></td>
-                <td />
-              </tr>
-            ))}
-            {!isInitialLoad && players.map((p) => {
-              const color = playerColor(p.bbref_id);
-              const isSelected = selectedIds.includes(p.bbref_id);
-              const canAdd = !isSelected && !isAtMax;
-              return (
-                <tr
-                  key={p.bbref_id}
-                  className={isSelected ? "is-selected" : ""}
-                >
-                  <td className="col-name">
-                    <div className="player-row-name">
-                      <span
-                        className="player-avatar"
-                        style={{ background: color }}
-                      >
-                        {initials(p)}
+            {isInitialLoad &&
+              Array.from({ length: pageSize > 15 ? 15 : pageSize }).map(
+                (_, i) => (
+                  <tr key={`skel-${i}`} className="skeleton-row">
+                    <td>
+                      <div className="skel skel-name" />
+                    </td>
+                    <td>
+                      <div className="skel skel-short" />
+                    </td>
+                    <td>
+                      <div className="skel skel-short" />
+                    </td>
+                    <td>
+                      <div className="skel skel-num" />
+                    </td>
+                    <td>
+                      <div className="skel skel-num" />
+                    </td>
+                    <td>
+                      <div className="skel skel-num" />
+                    </td>
+                    <td>
+                      <div className="skel skel-badges" />
+                    </td>
+                    <td />
+                  </tr>
+                ),
+              )}
+            {!isInitialLoad &&
+              players.map((p) => {
+                const color = playerColor(p.bbref_id);
+                const isSelected = selectedIds.includes(p.bbref_id);
+                const canAdd = !isSelected && !isAtMax;
+                return (
+                  <tr
+                    key={p.bbref_id}
+                    className={isSelected ? "is-selected" : ""}
+                  >
+                    <td className="col-name">
+                      <div className="player-row-name">
+                        <span
+                          className="player-avatar"
+                          style={{ background: color }}
+                        >
+                          {initials(p)}
+                        </span>
+                        <Link
+                          to={`/player/${p.bbref_id}`}
+                          className="player-name-link"
+                        >
+                          {p.first_name} {p.last_name}
+                        </Link>
+                      </div>
+                    </td>
+                    <td className="col-pos">
+                      <span className="pos-tag">
+                        {posLabel(p.primary_position, p.throws, p.is_pitcher)}
                       </span>
-                      <Link
-                        to={`/player/${p.bbref_id}`}
-                        className="player-name-link"
-                      >
-                        {p.first_name} {p.last_name}
-                      </Link>
-                    </div>
-                  </td>
-                  <td className="col-pos">
-                    <span className="pos-tag">{posLabel(p.primary_position, p.throws, p.is_pitcher)}</span>
-                  </td>
-                  <td className="col-years">{years(p)}</td>
-                  <td className="col-num">{p.career_war.toFixed(1)}</td>
-                  <td className="col-num">{p.peak_war.toFixed(1)}</td>
-                  <td className="col-num">
-                    {p.is_pitcher ? (
-                      p.career_era != null ? (
+                    </td>
+                    <td className="col-years">{years(p)}</td>
+                    <td className="col-num">{p.career_war.toFixed(1)}</td>
+                    <td className="col-num">{p.peak_war.toFixed(1)}</td>
+                    <td className="col-num">
+                      {p.is_pitcher ? (
+                        p.career_era != null ? (
+                          <>
+                            {p.career_era.toFixed(2)}{" "}
+                            <span className="stat-label">ERA</span>
+                          </>
+                        ) : (
+                          "—"
+                        )
+                      ) : p.career_hr != null ? (
                         <>
-                          {p.career_era.toFixed(2)}{" "}
-                          <span className="stat-label">ERA</span>
+                          {p.career_hr} <span className="stat-label">HR</span>
                         </>
                       ) : (
                         "—"
-                      )
-                    ) : p.career_hr != null ? (
-                      <>
-                        {p.career_hr} <span className="stat-label">HR</span>
-                      </>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td className="col-awards">
-                    <AwardBadges p={p} />
-                  </td>
-                  <td className="col-action">
-                    {isSelected ? (
-                      <button className="add-btn is-added" disabled>
-                        ✓
-                      </button>
-                    ) : (
-                      <button
-                        className="add-btn"
-                        onClick={() => handleAdd(p)}
-                        disabled={!canAdd && !!onSelect}
-                        title={
-                          isAtMax && onSelect
-                            ? "Maximum players reached"
-                            : undefined
-                        }
-                      >
-                        {standalone ? "→" : "+"}
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
+                      )}
+                    </td>
+                    <td className="col-awards">
+                      <AwardBadges p={p} />
+                    </td>
+                    <td className="col-action">
+                      {isSelected ? (
+                        <button className="add-btn is-added" disabled>
+                          ✓
+                        </button>
+                      ) : (
+                        <button
+                          className="add-btn"
+                          onClick={() => handleAdd(p)}
+                          disabled={!canAdd && !!onSelect}
+                          title={
+                            isAtMax && onSelect
+                              ? "Maximum players reached"
+                              : undefined
+                          }
+                        >
+                          {standalone ? "→" : "+"}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             {!isInitialLoad && players.length === 0 && !isFetching && (
               <tr>
                 <td colSpan={8} className="empty-row">

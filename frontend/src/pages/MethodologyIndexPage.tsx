@@ -1,10 +1,12 @@
 import "../styles/MethodologyIndexPage.scss";
 import { Link } from "react-router-dom";
 import { ARTICLES } from "../methodology/articles";
+import { TopBar } from "../components/layout/TopBar";
 
 export function MethodologyIndexPage() {
   return (
     <div className="app">
+      <TopBar selectedIds={[]} onSelect={(_) => null} hideSearch={true} />
       <div className="methodology-index">
         <Link to="/" className="methodology-back">
           ← Back to compare

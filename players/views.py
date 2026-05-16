@@ -84,8 +84,7 @@ def _build_aging_curve(role: str) -> list[dict[str, Any]]:
     for age in sorted(age_buckets):
         bucket = age_buckets[age]
         n = len(bucket.get("war", []))
-        if n < 10:
-            continue
+
         pt: dict[str, Any] = {"age": age, "n": n}
         for fe_key, vals in bucket.items():
             if vals:

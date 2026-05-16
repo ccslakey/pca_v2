@@ -6,9 +6,10 @@ import { MAX_PLAYERS } from "../../constants";
 interface Props {
   selectedIds: string[];
   onSelect: (id: string) => void;
+  hideSearch?: boolean;
 }
 
-export function TopBar({ selectedIds, onSelect }: Props) {
+export function TopBar({ selectedIds, onSelect, hideSearch }: Props) {
   return (
     <header className="topbar">
       <div className="brand">
@@ -22,11 +23,13 @@ export function TopBar({ selectedIds, onSelect }: Props) {
       <Link to="/browse" className="topbar-browse-link">
         Browse Players
       </Link>
-      <PlayerSearch
-        selectedIds={selectedIds}
-        onSelect={onSelect}
-        maxPlayers={MAX_PLAYERS}
-      />
+      {!hideSearch && (
+        <PlayerSearch
+          selectedIds={selectedIds}
+          onSelect={onSelect}
+          maxPlayers={MAX_PLAYERS}
+        />
+      )}
       <ThemePicker />
     </header>
   );

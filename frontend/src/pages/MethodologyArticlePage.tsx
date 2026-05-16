@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import type { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ARTICLES, getArticle } from "../methodology/articles";
+import { TopBar } from "../components/layout/TopBar";
 
 // All markdown imported at build time — live in the methodology chunk.
 const RAW_MD = import.meta.glob("../methodology/*.md", {
@@ -58,6 +59,7 @@ export function MethodologyArticlePage() {
 
   return (
     <div className="app">
+      <TopBar selectedIds={[]} onSelect={(_) => null} hideSearch={true} />
       <div className="methodology-article-wrap">
         <article className="methodology-article">
           <Link to="/methodology" className="methodology-article-back">
