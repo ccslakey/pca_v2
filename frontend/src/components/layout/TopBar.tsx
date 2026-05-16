@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { PlayerSearch } from "./PlayerSearch";
 import { ThemePicker } from "./ThemePicker";
 import { MAX_PLAYERS } from "../../constants";
@@ -10,15 +10,23 @@ interface Props {
 }
 
 export function TopBar({ selectedIds, onSelect, hideSearch }: Props) {
+  const navigate = useNavigate();
+
   return (
     <header className="topbar">
       <div className="brand">
-        <div className="brand-mark" />
-        <span className="brand-name">Career Arc Visualizer</span>
-        <span className="topbar-meta">
+        <div
+          style={{ display: "flex", alignItems: "center", cursor: "pointer" }}
+          role="button"
+          onClick={(_) => navigate("/")}
+        >
+          <div className="brand-mark" />
+          <span className="brand-name">Career Arc Visualizer</span>
+        </div>
+        {/*<span className="topbar-meta">
           <span className="dot" />
           Baseball Reference
-        </span>
+        </span>*/}
       </div>
       <Link to="/browse" className="topbar-browse-link">
         Browse Players

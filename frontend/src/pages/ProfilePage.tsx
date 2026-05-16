@@ -22,6 +22,7 @@ import { AwardsPanel } from "../components/profile/panels/AwardsPanel";
 import { JamesScoresPanel } from "../components/profile/panels/JamesScoresPanel";
 import { PitchZone } from "../components/profile/charts/PitchZone";
 import { ProfilePageSkeleton } from "../components/profile/ProfilePageSkeleton";
+import { TopBar } from "../components/layout/TopBar";
 
 export function ProfilePage() {
   const { bbrefId } = useParams<{ bbrefId: string }>();
@@ -62,36 +63,7 @@ export function ProfilePage() {
 
   return (
     <div className="profile" style={cssVars}>
-      <div className="topbar">
-        <Link to="/" className="profile-back">
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <polyline points="15 6 9 12 15 18" />
-          </svg>
-          Comparison
-        </Link>
-        <div className="brand" style={{ marginLeft: 8 }}>
-          <div className="brand-mark" />
-          <span className="brand-name">Career Arc Visualizer</span>
-        </div>
-        <div style={{ flex: 1 }} />
-        <div className="topbar-meta">
-          <span
-            className="dot"
-            style={{
-              background: color,
-              boxShadow: `0 0 10px ${colorTint(color, 0.7)}`,
-            }}
-          />
-          player profile · {player.id}
-        </div>
-      </div>
+      <TopBar selectedIds={[]} onSelect={() => null} hideSearch={true} />
 
       <div className="profile-main">
         <HeroSection
@@ -172,7 +144,10 @@ export function ProfilePage() {
         <p className="footer-note">
           Data: Baseball Reference · All WAR values are bWAR
           {meta?.last_updated ? ` · Updated ${meta.last_updated}` : ""}
-          {" · "}<a href="/methodology" style={{ color: "inherit", opacity: 0.7 }}>Methodology</a>
+          {" · "}
+          <a href="/methodology" style={{ color: "inherit", opacity: 0.7 }}>
+            Methodology
+          </a>
         </p>
       </div>
     </div>

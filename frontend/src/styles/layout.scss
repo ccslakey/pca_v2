@@ -50,6 +50,7 @@
     display: grid;
     place-items: center;
     box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+    margin-right: 8px;
 
     &::after {
         content: "";
@@ -79,6 +80,7 @@
 .topbar-browse-link {
     font-size: 14px;
     font-weight: 500;
+    height: 32px;
     color: var(--text-3);
     text-decoration: none;
     padding: 5px 10px;
