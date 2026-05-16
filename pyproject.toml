@@ -1,0 +1,23 @@
+[tool.ruff]
+line-length = 120
+exclude = [
+    "migrations",
+    ".venv",
+    "env",
+    "node_modules",
+    "pipeline/explore_*.py",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = [
+    "E501",  # line length not enforced
+    "E701",  # multiple statements on one line — existing style
+]
+
+[tool.ruff.lint.per-file-ignores]
+"pipeline/*.py" = ["E402"]  # Django setup must precede model imports
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "pca_backend.settings"
+python_files = ["test_*.py", "*_test.py", "tests.py"]

@@ -18,7 +18,6 @@ re-run the command — see SPOT_CHECK_JAMES_SCORES.md for instructions.
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Iterable
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
