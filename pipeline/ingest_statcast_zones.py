@@ -40,11 +40,11 @@ import pandas as pd
 # is harmless since pandas falls back to object dtype safely.
 warnings.filterwarnings('ignore', category=pd.errors.DtypeWarning, module='pybaseball')
 
+from django.db.models import Sum
 from pybaseball import statcast_batter, statcast_pitcher
 
-from django.db.models import Sum
-from stats.models import StatcastZoneBucket, IngestionLog, BattingSeason, PitchingSeason
 from players.models import Player
+from stats.models import BattingSeason, IngestionLog, PitchingSeason, StatcastZoneBucket
 
 # ---------------------------------------------------------------------------
 # Constants

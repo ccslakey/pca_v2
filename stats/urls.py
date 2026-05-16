@@ -1,6 +1,7 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
-from .views import BattingSeasonViewSet, meta, PitchingSeasonViewSet
+
+from .views import BattingSeasonViewSet, PitchingSeasonViewSet, meta
 
 router = DefaultRouter()
 router.register(r'batting', BattingSeasonViewSet, basename='batting')

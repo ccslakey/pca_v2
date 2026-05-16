@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 
 from django.core.management.base import BaseCommand
+
 from players.models import Player
 from stats.models import FieldingSeason, PitchingSeason
 from stats.positions import choose_primary_position

@@ -1,7 +1,8 @@
 from rest_framework import serializers
 
-from .models import Player
 from stats.models import JamesScore
+
+from .models import Player
 
 
 class PlayerListSerializer(serializers.ModelSerializer[Player]):

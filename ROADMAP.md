@@ -18,7 +18,7 @@ These are the items that block Threshold 2 (a release post on r/sabermetrics, Ta
 - [ ] **Percentile rankings** — "Career WAR ranks 12th all-time among CF" next to each headline stat. By-position percentiles became possible once `primary_position` shipped.
 - [✅] **Performance pass** — page-load timing, prefetch on hover for leaderboard rows, no skeleton flicker, no jank when switching metrics. This audience is impatient; a slow tool gets closed before depth lands.
 - [ ] **GitHub Actions CI** — lint + `pytest` + frontend build on push. Required before anyone else touches the repo and before deploying becomes risky.
-- [ ] **Scheduled data jobs** — see [`SCHEDULED_JOBS.md`](SCHEDULED_JOBS.md). Weekly stats refresh + season-start + post-season awards + similarity recompute. Three requirements: failure alerting, staleness detection (already wired into `/api/meta/`), dependency ordering (similarity after stats).
+- [✅] **Scheduled data jobs** — see [`SCHEDULED_JOBS.md`](SCHEDULED_JOBS.md). Weekly stats refresh + season-start + post-season awards + similarity recompute. Three requirements: failure alerting, staleness detection (already wired into `/api/meta/`), dependency ordering (similarity after stats).
 
 Realistic scope: 2–3 weeks.
 

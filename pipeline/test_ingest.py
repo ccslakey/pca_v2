@@ -21,33 +21,32 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'pca_backend.settings')
 import requests
 from django.test import TestCase
 
+from pipeline.ingest_bref_history import (
+    already_ingested,
+    extract_table,
+    fetch_with_retry,
+    ingest_batting_page,
+    ingest_fielding_page,
+    ingest_pitching_page,
+    ip_to_outs,
+    league_urls,
+    log_error,
+    log_success,
+    main,
+    parse_name,
+    to_float,
+    to_int,
+    upsert_player,
+)
 from players.models import Player
 from stats.models import (
     BattingSeason,
     FieldingPositionToken,
     FieldingSeason,
-    PitchingSeason,
     IngestionLog,
+    PitchingSeason,
 )
 from stats.positions import parse_bref_positions
-from pipeline.ingest_bref_history import (
-    ip_to_outs,
-    to_int,
-    to_float,
-    parse_name,
-    league_urls,
-    extract_table,
-    upsert_player,
-    fetch_with_retry,
-    ingest_batting_page,
-    ingest_fielding_page,
-    ingest_pitching_page,
-    already_ingested,
-    log_success,
-    log_error,
-    main,
-)
-
 
 # ---------------------------------------------------------------------------
 # HTML fixture builders

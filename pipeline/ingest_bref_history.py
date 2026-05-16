@@ -53,9 +53,8 @@ from bs4 import BeautifulSoup, Comment
 
 pybaseball.cache.enable()
 
-from pybaseball.datasources.bref import BRefSession
-
 from django.core.management import call_command
+from pybaseball.datasources.bref import BRefSession
 
 from players.models import Player
 from stats.models import (

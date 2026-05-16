@@ -104,7 +104,7 @@ function ChartGlyph({
         cx={cx}
         cy={cy}
         r={R}
-        style={{ fill: 'var(--bg-1)', stroke: color }}
+        style={{ fill: "var(--bg-1)", stroke: color }}
         strokeWidth={1.5}
       />
       <svg
@@ -270,7 +270,7 @@ export function CareerChart({
             strokeDasharray="2,4"
           />
 
-          {(metric === "war" && yLo < 0) && (
+          {metric === "war" && yLo < 0 && (
             <line
               className="chart-zero"
               x1={0}
@@ -363,7 +363,7 @@ export function CareerChart({
                   cx={xScale(sx)}
                   cy={yScale(s[metric] as number)}
                   r={isHovered ? 4.5 : 2.2}
-                  style={{ fill: player.color, stroke: 'var(--bg-1)' }}
+                  style={{ fill: player.color, stroke: "var(--bg-1)" }}
                   strokeWidth={1.5}
                   opacity={dim ? 0.2 : 1}
                 />
@@ -371,25 +371,30 @@ export function CareerChart({
             }),
           )}
 
-          {showGlyphs && lineData.map(({ player, pts }) =>
-            pts.map((s) => {
-              const sx = xVal(s);
-              if (sx == null) return null;
-              const ann = topAnnotation(player.awards, s.season);
-              if (!ann || s[metric] == null) return null;
-              const dim = hoverPlayerId !== null && hoverPlayerId !== player.id;
-              return (
-                <g key={`ann-${player.id}-${s.season}`} opacity={dim ? 0.2 : 1}>
-                  <ChartGlyph
-                    kind={ann.kind}
-                    color={player.color}
-                    cx={xScale(sx)}
-                    cy={yScale(s[metric] as number)}
-                  />
-                </g>
-              );
-            }),
-          )}
+          {showGlyphs &&
+            lineData.map(({ player, pts }) =>
+              pts.map((s) => {
+                const sx = xVal(s);
+                if (sx == null) return null;
+                const ann = topAnnotation(player.awards, s.season);
+                if (!ann || s[metric] == null) return null;
+                const dim =
+                  hoverPlayerId !== null && hoverPlayerId !== player.id;
+                return (
+                  <g
+                    key={`ann-${player.id}-${s.season}`}
+                    opacity={dim ? 0.2 : 1}
+                  >
+                    <ChartGlyph
+                      kind={ann.kind}
+                      color={player.color}
+                      cx={xScale(sx)}
+                      cy={yScale(s[metric] as number)}
+                    />
+                  </g>
+                );
+              }),
+            )}
         </Group>
       </svg>
 
@@ -400,13 +405,13 @@ export function CareerChart({
           style={{
             position: "absolute",
             pointerEvents: "none",
-            background: "rgba(20,23,33,0.96)",
             border: "1px solid var(--line)",
             borderRadius: 10,
             padding: "10px 12px",
             minWidth: 180,
             fontSize: 12,
             backdropFilter: "blur(6px)",
+            background: "var(--bg-3)",
           }}
         >
           <div className="tooltip-season">
@@ -421,7 +426,7 @@ export function CareerChart({
                     className="swatch"
                     style={{ background: r.player.color }}
                   />
-                  {r.player.name}
+                  <span className="player-name">{r.player.name}</span>
                 </span>
                 <span className="v">{fmtMetric(metric, r.val)}</span>
               </div>

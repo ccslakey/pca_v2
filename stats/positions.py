@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-
 POSITION_CODE_MAP = {
     "1": "P",
     "2": "C",

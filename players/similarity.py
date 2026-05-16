@@ -8,6 +8,7 @@ from django.core.cache import cache
 from django.db.models import Max, Sum
 
 from stats.models import BattingSeason, PitchingSeason
+
 from .models import Player
 
 _CACHE_TTL   = 3600
