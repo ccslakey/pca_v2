@@ -8,6 +8,7 @@ import { useTooltip, TooltipWithBounds } from "@visx/tooltip";
 import { localPoint } from "@visx/event";
 import { curveCatmullRom } from "d3-shape";
 import type {
+  AgingCurvePoint,
   AwardKind,
   ChartPlayer,
   MetricId,
@@ -130,6 +131,7 @@ interface Props {
   setHoverPlayerId: (id: string | null) => void;
   width: number;
   height?: number;
+  agingCurve?: AgingCurvePoint[];
 }
 
 interface TooltipData {
@@ -150,6 +152,7 @@ export function CareerChart({
   setHoverPlayerId,
   width,
   height = 420,
+  agingCurve = [],
 }: Props) {
   const innerW = Math.max(0, width - MARGIN.left - MARGIN.right);
   const innerH = Math.max(0, height - MARGIN.top - MARGIN.bottom);
@@ -183,6 +186,17 @@ export function CareerChart({
 
   const yt = useMemo(() => yTicks(yLo, yHi, metric), [yLo, yHi, metric]);
   const xt = useMemo(() => xTicks(xRange[0], xRange[1]), [xRange]);
+
+  const { agingCurveSolid, agingCurveFaded } = useMemo(() => {
+    if (xMode !== "age") return { agingCurveSolid: [], agingCurveFaded: [] };
+    const visible = agingCurve.filter(
+      (pt) => pt.age >= xRange[0] && pt.age <= xRange[1] && pt[metric] != null,
+    );
+    return {
+      agingCurveSolid: visible.filter((pt) => pt.n >= 30),
+      agingCurveFaded: visible.filter((pt) => pt.n < 30),
+    };
+  }, [agingCurve, xRange, xMode, metric]);
 
   const lineData = useMemo(
     () =>
@@ -331,6 +345,50 @@ export function CareerChart({
               y2={innerH}
             />
           )}
+
+          {(agingCurveSolid.length > 0 || agingCurveFaded.length > 0) && (() => {
+            const allVisible = [...agingCurveSolid, ...agingCurveFaded].sort((a, b) => a.age - b.age);
+            const last = allVisible[allVisible.length - 1];
+            return (
+              <>
+                {agingCurveSolid.length > 0 && (
+                  <LinePath
+                    data={agingCurveSolid}
+                    x={(pt) => xScale(pt.age)}
+                    y={(pt) => yScale(pt[metric] as number)}
+                    curve={curveCatmullRom}
+                    stroke="var(--text-3)"
+                    strokeWidth={1}
+                    strokeDasharray="4,3"
+                    opacity={0.5}
+                  />
+                )}
+                {agingCurveFaded.length > 0 && (
+                  <LinePath
+                    data={agingCurveFaded}
+                    x={(pt) => xScale(pt.age)}
+                    y={(pt) => yScale(pt[metric] as number)}
+                    curve={curveCatmullRom}
+                    stroke="var(--text-3)"
+                    strokeWidth={1}
+                    strokeDasharray="4,3"
+                    opacity={0.2}
+                  />
+                )}
+                <text
+                  x={innerW + 4}
+                  y={yScale(last[metric] as number)}
+                  fill="var(--text-3)"
+                  fontSize={10}
+                  fontFamily="var(--font-mono)"
+                  dominantBaseline="middle"
+                  opacity={0.6}
+                >
+                  avg
+                </text>
+              </>
+            );
+          })()}
 
           {lineData.map(({ player, pts }) => {
             const dim = hoverPlayerId !== null && hoverPlayerId !== player.id;

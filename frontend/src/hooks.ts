@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { fetchBattingSeasons, fetchFeatured, fetchLeaderboard, fetchMeta, fetchPitchingSeasons, fetchPlayer, fetchPlayerAwards, fetchPitchZone, fetchSimilarPlayers, searchPlayers } from './api';
+import { fetchAgingCurve, fetchBattingSeasons, fetchFeatured, fetchLeaderboard, fetchMeta, fetchPitchingSeasons, fetchPlayer, fetchPlayerAwards, fetchPitchZone, fetchSimilarPlayers, searchPlayers } from './api';
 import type { ZoneOutcome, ZoneRole, LeaderboardFilters } from './types';
 import type { BattingSeason, ChartPlayer, ChartSeason, PitchingSeason } from './types';
 import { posLabel } from './utils/format';
@@ -76,7 +76,9 @@ function ageAtMidSeason(season: number, birthDate: string): number {
 
 /** Merge batting + pitching season arrays into ChartSeason[] (one entry per year). */
 function mergeSeasons(batting: BattingSeason[], pitching: PitchingSeason[], birthDate: string | null): ChartSeason[] {
-  const map = new Map<number, ChartSeason & { _battingPA: number; _pitchingIP: number }>();
+  // _pitchingSO is tracked separately so NL pitchers (who have batting seasons with hr=0)
+  // still show pitching strikeouts rather than their negligible batting strikeout totals.
+  const map = new Map<number, ChartSeason & { _battingPA: number; _pitchingIP: number; _pitchingSO: number }>();
 
   for (const s of batting) {
     const existing = map.get(s.year);
@@ -106,6 +108,7 @@ function mergeSeasons(batting: BattingSeason[], pitching: PitchingSeason[], birt
         so: s.strikeouts,
         _battingPA: pa,
         _pitchingIP: 0,
+        _pitchingSO: 0,
       });
     }
   }
@@ -121,8 +124,7 @@ function mergeSeasons(batting: BattingSeason[], pitching: PitchingSeason[], birt
         existing.era_plus = ip >= 30 ? s.era_plus : null;
         existing._pitchingIP = ip;
       }
-      // pitching strikeouts add on top (two-way player)
-      if (existing.hr === null) existing.so = (existing.so ?? 0) + (s.strikeouts ?? 0);
+      existing._pitchingSO += s.strikeouts ?? 0;
     } else {
       map.set(s.year, {
         season: s.year,
@@ -137,14 +139,18 @@ function mergeSeasons(batting: BattingSeason[], pitching: PitchingSeason[], birt
         so: s.strikeouts,
         _battingPA: 0,
         _pitchingIP: ip,
+        _pitchingSO: s.strikeouts ?? 0,
       });
     }
   }
 
   return [...map.values()]
     .sort((a, b) => a.season - b.season)
-    .map(({ _battingPA: _b, _pitchingIP: _p, ...rest }) => ({
+    .map(({ _battingPA: _b, _pitchingIP: _p, _pitchingSO: ps, ...rest }) => ({
       ...rest,
+      // Prefer pitching SO when present — NL pitchers have hr=0 not null,
+      // so the old hr===null guard would silently drop 300-K seasons.
+      so: ps > 0 ? ps : rest.so,
       age: birthDate != null ? ageAtMidSeason(rest.season, birthDate) : null,
     }));
 }
@@ -175,6 +181,15 @@ export function usePlayerAwards(bbrefId: string | null) {
     queryKey: ['awards', bbrefId],
     queryFn: () => fetchPlayerAwards(bbrefId!),
     enabled: bbrefId != null,
+    staleTime: Infinity,
+  });
+}
+
+export function useAgingCurve(role: 'B' | 'P' | null) {
+  return useQuery({
+    queryKey: ['agingCurve', role],
+    queryFn: () => fetchAgingCurve(role!),
+    enabled: role != null,
     staleTime: Infinity,
   });
 }

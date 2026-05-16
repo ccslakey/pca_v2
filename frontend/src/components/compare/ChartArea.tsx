@@ -1,6 +1,7 @@
 import { ParentSize } from '@visx/responsive';
 import { CareerChart } from './CareerChart';
 import { BrushChart } from './BrushChart';
+import { useAgingCurve } from '../../hooks';
 import type { ChartPlayer, MetricId, XMode } from '../../types';
 
 interface Props {
@@ -26,6 +27,11 @@ export function ChartArea({
   setHoverPlayerId,
   setXRange,
 }: Props) {
+  const allBatters = players.length > 0 && players.every((p) => p.isBatter && !p.isPitcher);
+  const allPitchers = players.length > 0 && players.every((p) => p.isPitcher);
+  const curveRole = allBatters ? 'B' : allPitchers ? 'P' : null;
+  const { data: agingCurve } = useAgingCurve(curveRole);
+
   return (
     <ParentSize>
       {({ width }) => (
@@ -39,6 +45,7 @@ export function ChartArea({
             hoverPlayerId={hoverPlayerId}
             setHoverPlayerId={setHoverPlayerId}
             width={width}
+            agingCurve={agingCurve}
           />
           <BrushChart
             players={players}

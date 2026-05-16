@@ -34,20 +34,79 @@ _LEADERBOARD_CACHE_TTL = 3600  # 1 hour
 _FEATURED_CACHE_KEY = "featured:v1"
 _FEATURED_CACHE_TTL = 3600  # 1 hour
 
+_AGING_CURVE_CACHE_TTL = 86_400  # 24 hours — changes only on ingest
+
+
+def _build_aging_curve(role: str) -> list[dict[str, Any]]:
+    """
+    Mean value per metric by age for qualifying seasons — all metrics in one payload.
+    Batters: ≥100 PA → war, hr, avg, ops, ops_plus, so.
+    Pitchers: ≥50 IP (150 ip_outs) → war, era, era_plus, so.
+    Age approximated as season_year − birth_year (off by ≤1 yr, fine for pop averages).
+    Metric switching on the frontend costs zero extra requests.
+    """
+    if role == "P":
+        qs = list(
+            PitchingSeason.objects.filter(ip_outs__gte=150, player__birth_date__isnull=False).values(
+                "year", "war", "era", "era_plus", "strikeouts", "player__birth_date"
+            )
+        )
+        db_to_fe = {"war": "war", "era": "era", "era_plus": "era_plus", "strikeouts": "so"}
+    else:
+        qs = list(
+            BattingSeason.objects.filter(plate_appearances__gte=100, player__birth_date__isnull=False).values(
+                "year", "war", "home_runs", "batting_avg", "ops", "ops_plus", "strikeouts", "player__birth_date"
+            )
+        )
+        db_to_fe = {
+            "war": "war",
+            "home_runs": "hr",
+            "batting_avg": "avg",
+            "ops": "ops",
+            "ops_plus": "ops_plus",
+            "strikeouts": "so",
+        }
+
+    # Accumulate lists per (age, metric)
+    age_buckets: dict[int, dict[str, list[float]]] = {}
+    for s in qs:
+        age = s["year"] - s["player__birth_date"].year
+        # satchel page loved the game
+        if not (18 <= age <= 60):
+            continue
+        bucket = age_buckets.setdefault(age, {})
+        for db_key, fe_key in db_to_fe.items():
+            val = s.get(db_key)
+            if val is not None:
+                bucket.setdefault(fe_key, []).append(float(val))
+
+    result = []
+    for age in sorted(age_buckets):
+        bucket = age_buckets[age]
+        n = len(bucket.get("war", []))
+        if n < 10:
+            continue
+        pt: dict[str, Any] = {"age": age, "n": n}
+        for fe_key, vals in bucket.items():
+            if vals:
+                precision = 3 if fe_key in ("avg", "ops") else 2
+                pt[fe_key] = round(sum(vals) / len(vals), precision)
+        result.append(pt)
+
+    return result
+
 
 def _build_featured_trios() -> list[dict[str, Any]]:
     """Resolve curated bbref_ids → name/id bundles in one query."""
     all_ids = {pid for c in FEATURED_COMPARISONS for pid in c["player_ids"]}
     by_id = {
         p["bbref_id"]: p
-        for p in Player.objects.filter(bbref_id__in=all_ids).values(
-            "bbref_id", "first_name", "last_name"
-        )
+        for p in Player.objects.filter(bbref_id__in=all_ids).values("bbref_id", "first_name", "last_name")
     }
     return [
         {
-            "slug":    c["slug"],
-            "label":   c["label"],
+            "slug": c["slug"],
+            "label": c["label"],
             "players": [by_id[pid] for pid in c["player_ids"] if pid in by_id],
         }
         for c in FEATURED_COMPARISONS
@@ -90,9 +149,13 @@ def _build_leaderboard_rows() -> list[dict[str, Any]]:
     players = {
         p["bbref_id"]: p
         for p in Player.objects.values(
-            "bbref_id", "first_name", "last_name",
-            "debut", "final_game",
-            "primary_position", "throws",
+            "bbref_id",
+            "first_name",
+            "last_name",
+            "debut",
+            "final_game",
+            "primary_position",
+            "throws",
         )
     }
 
@@ -117,24 +180,26 @@ def _build_leaderboard_rows() -> list[dict[str, Any]]:
 
         aw = award_counts.get(pid, {})
         p = players[pid]
-        rows.append({
-            "bbref_id":         pid,
-            "first_name":       p["first_name"],
-            "last_name":        p["last_name"],
-            "debut":      p["debut"].isoformat() if p["debut"] else None,
-            "final_game": p["final_game"].isoformat() if p["final_game"] else None,
-            "primary_position":  p["primary_position"],
-            "throws":            p["throws"],
-            "career_war":       career_war,
-            "peak_war":         peak_war,
-            "is_pitcher":       is_pitcher,
-            "career_hr":        int(bat.get("hr") or 0) if not is_pitcher else None,
-            "career_era":       era if is_pitcher else None,
-            "mvp_count":        aw.get("mvp", 0),
-            "cy_count":         aw.get("cy", 0),
-            "gg_count":         aw.get("gg", 0),
-            "asg_count":        aw.get("asg", 0),
-        })
+        rows.append(
+            {
+                "bbref_id": pid,
+                "first_name": p["first_name"],
+                "last_name": p["last_name"],
+                "debut": p["debut"].isoformat() if p["debut"] else None,
+                "final_game": p["final_game"].isoformat() if p["final_game"] else None,
+                "primary_position": p["primary_position"],
+                "throws": p["throws"],
+                "career_war": career_war,
+                "peak_war": peak_war,
+                "is_pitcher": is_pitcher,
+                "career_hr": int(bat.get("hr") or 0) if not is_pitcher else None,
+                "career_era": era if is_pitcher else None,
+                "mvp_count": aw.get("mvp", 0),
+                "cy_count": aw.get("cy", 0),
+                "gg_count": aw.get("gg", 0),
+                "asg_count": aw.get("asg", 0),
+            }
+        )
 
     return rows
 
@@ -148,9 +213,7 @@ def _get_leaderboard_rows() -> list[dict[str, Any]]:
 
 
 class PlayerViewSet(viewsets.ReadOnlyModelViewSet[Player]):
-    queryset: QuerySet[Player] = Player.objects.select_related("james_score").order_by(
-        "last_name", "first_name"
-    )
+    queryset: QuerySet[Player] = Player.objects.select_related("james_score").order_by("last_name", "first_name")
     filter_backends = [filters.SearchFilter, DjangoFilterBackend]
     search_fields = ["first_name", "last_name", "bbref_id"]
     filterset_fields = ["bats", "throws", "birth_country", "primary_position"]
@@ -175,12 +238,7 @@ class PlayerViewSet(viewsets.ReadOnlyModelViewSet[Player]):
     @action(detail=True, url_path="fielding")
     def fielding(self, request: Request, pk: str | None = None) -> Response:
         player: Player = self.get_object()
-        qs = (
-            player.fielding_seasons
-            .prefetch_related("position_tokens")
-            .all()
-            .order_by("year", "stint")
-        )
+        qs = player.fielding_seasons.prefetch_related("position_tokens").all().order_by("year", "stint")
         return Response(FieldingSeasonSerializer(qs, many=True).data)
 
     @action(detail=True, url_path="awards")
@@ -192,24 +250,39 @@ class PlayerViewSet(viewsets.ReadOnlyModelViewSet[Player]):
     @action(detail=True, url_path="pitch_zone")
     def pitch_zone(self, request: Request, pk: str | None = None) -> Response:
         player: Player = self.get_object()
-        role    = request.query_params.get("role", "B")
+        role = request.query_params.get("role", "B")
         outcome = request.query_params.get("outcome", "contact")
 
-        VALID_ROLES    = {"B", "P"}
+        VALID_ROLES = {"B", "P"}
         VALID_OUTCOMES = {"contact", "hits", "whiffs"}
         if role not in VALID_ROLES or outcome not in VALID_OUTCOMES:
             return Response({"detail": "Invalid role or outcome."}, status=400)
 
         qs = player.zone_buckets.filter(role=role, outcome=outcome)
-        return Response({
-            "role": role,
-            "outcome": outcome,
-            "buckets": StatcastZoneBucketSerializer(qs, many=True).data,
-        })
+        return Response(
+            {
+                "role": role,
+                "outcome": outcome,
+                "buckets": StatcastZoneBucketSerializer(qs, many=True).data,
+            }
+        )
 
     @action(detail=True, url_path="similar")
     def similar(self, request: Request, pk: str | None = None) -> Response:
         return Response(similar_players(self.get_object()))
+
+    @action(detail=False, url_path="aging_curve")
+    def aging_curve(self, request: Request) -> Response:
+        """Mean WAR by age for a role group. ?role=B (default) or ?role=P."""
+        role = request.query_params.get("role", "B")
+        if role not in ("B", "P"):
+            role = "B"
+        cache_key = f"aging_curve:v1:{role}"
+        data = cache.get(cache_key)
+        if data is None:
+            data = _build_aging_curve(role)
+            cache.set(cache_key, data, _AGING_CURVE_CACHE_TTL)
+        return Response(data)
 
     @action(detail=False, url_path="featured")
     def featured(self, request: Request) -> Response:
@@ -219,14 +292,14 @@ class PlayerViewSet(viewsets.ReadOnlyModelViewSet[Player]):
     @action(detail=False, url_path="leaderboard")
     def leaderboard(self, request: Request) -> Response:
         pos_filter = request.query_params.get("pos", "")
-        min_war    = request.query_params.get("min_war", "0")
-        era_start  = request.query_params.get("era_start", "")
-        era_end    = request.query_params.get("era_end", "")
-        sort_by    = request.query_params.get("sort", "career_war")
-        order      = request.query_params.get("order", "desc")
+        min_war = request.query_params.get("min_war", "0")
+        era_start = request.query_params.get("era_start", "")
+        era_end = request.query_params.get("era_end", "")
+        sort_by = request.query_params.get("sort", "career_war")
+        order = request.query_params.get("order", "desc")
         try:
             page_size = min(int(request.query_params.get("page_size", "25")), 250)
-            page      = max(int(request.query_params.get("page", "1")), 1)
+            page = max(int(request.query_params.get("page", "1")), 1)
         except ValueError:
             page_size, page = 25, 1
 
@@ -236,7 +309,7 @@ class PlayerViewSet(viewsets.ReadOnlyModelViewSet[Player]):
             min_war_val = 0.0
         try:
             era_start_val = int(era_start) if era_start else None
-            era_end_val   = int(era_end)   if era_end   else None
+            era_end_val = int(era_end) if era_end else None
         except ValueError:
             era_start_val = era_end_val = None
 
@@ -268,8 +341,7 @@ class PlayerViewSet(viewsets.ReadOnlyModelViewSet[Player]):
         # --- sort in Python ---
         reverse = order != "asc"
         filtered.sort(
-            key=lambda r: (-(r[sort_by] or 0) if reverse else (r[sort_by] or 0),
-                           r["last_name"], r["first_name"]),
+            key=lambda r: (-(r[sort_by] or 0) if reverse else (r[sort_by] or 0), r["last_name"], r["first_name"]),
             reverse=False,  # key already encodes direction
         )
 
@@ -277,12 +349,14 @@ class PlayerViewSet(viewsets.ReadOnlyModelViewSet[Player]):
         total = len(filtered)
         total_pages = max(1, (total + page_size - 1) // page_size)
         offset = (page - 1) * page_size
-        results = filtered[offset: offset + page_size]
+        results = filtered[offset : offset + page_size]
 
-        return Response({
-            "count":       total,
-            "page":        page,
-            "page_size":   page_size,
-            "total_pages": total_pages,
-            "results":     results,
-        })
+        return Response(
+            {
+                "count": total,
+                "page": page,
+                "page_size": page_size,
+                "total_pages": total_pages,
+                "results": results,
+            }
+        )

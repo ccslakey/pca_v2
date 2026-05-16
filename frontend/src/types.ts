@@ -309,3 +309,17 @@ export interface ChartPlayer {
 }
 
 export type XMode = 'year' | 'age';
+
+export interface AgingCurvePoint {
+  age: number;
+  n: number;    // qualifying seasons — <30 means thin sample, render faded
+  // All available metrics — batters omit era/era_plus, pitchers omit hr/avg/ops/ops_plus
+  war?: number;
+  hr?: number;
+  avg?: number;
+  ops?: number;
+  ops_plus?: number;
+  era?: number;
+  era_plus?: number;
+  so?: number;
+}

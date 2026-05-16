@@ -1,4 +1,5 @@
 import type {
+  AgingCurvePoint,
   PaginatedResponse,
   PlayerSummary,
   PlayerDetail,
@@ -71,6 +72,10 @@ export function fetchMeta(): Promise<{ last_updated: string | null }> {
 
 export function fetchFeatured(): Promise<FeaturedResponse> {
   return get<FeaturedResponse>('/players/featured/');
+}
+
+export function fetchAgingCurve(role: 'B' | 'P'): Promise<AgingCurvePoint[]> {
+  return get<AgingCurvePoint[]>(`/players/aging_curve/?role=${role}`);
 }
 
 export function fetchPitchZone(
