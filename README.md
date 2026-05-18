@@ -1,6 +1,6 @@
 # pca_v2
 
-**Career Arc Visualizer** plots up to ten baseball careers side-by-side — WAR, OPS+, ERA+, and other metrics rendered as multi-line arcs with award glyphs at the seasons that matter. Toggle to an age-aligned axis to compare across eras (Ruth vs. Bonds, Koufax vs. Pedro); click any line for a full profile with similar-player comps, a full season log, and Statcast pitch zones (2015+).
+**Career Arc Visualizer** plots up to ten baseball careers side-by-side — WAR, OPS+, ERA+, and other metrics rendered as multi-line arcs with award glyphs at the seasons that matter. Toggle to an age-aligned axis to compare across eras (Ruth vs. Bonds, Koufax vs. Pedro); click a player card for a full profile with similar-player comps, a full season log, and Statcast pitch zones (2015+).
 
 **Live at:** [pcav2-production.up.railway.app](https://pcav2-production.up.railway.app) · share state via URL — `/?compare=ruthba01,bondsba01` round-trips into the app.
 

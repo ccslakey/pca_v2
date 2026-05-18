@@ -70,12 +70,9 @@ WSGI_APPLICATION = 'pca_backend.wsgi.application'
 
 # --- Database ---
 
+_db_url = os.environ.get('DATABASE_URL') or 'postgres://connorslakey@localhost:5432/pca_v2'
 DATABASES = {
-    'default': dj_database_url.config(
-        default='postgres://connorslakey@localhost:5432/pca_v2',
-        conn_max_age=600,
-        conn_health_checks=True,
-    )
+    'default': dj_database_url.parse(_db_url, conn_max_age=600, conn_health_checks=True)
 }
 
 # --- Password validation ---
