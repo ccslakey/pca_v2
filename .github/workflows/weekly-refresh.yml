@@ -3,7 +3,7 @@ name: Weekly data refresh
 on:
   schedule:
     # 5am UTC Monday = 1am EDT / midnight EST — data ready well before 7am ET
-    - cron: '0 5 * * 1'
+    - cron: "0 5 * * 1"
   workflow_dispatch: # allow manual trigger from the Actions tab
 
 jobs:
@@ -21,7 +21,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: "3.12"
           cache: pip
 
       - name: Install dependencies
@@ -36,13 +36,13 @@ jobs:
             --start-year $(date +%Y) \
             --force
 
-      # Step 2: Statcast pitch zones — incremental from 8 days ago
-      # 8-day window catches any late-arriving Statcast data from last week
+      # Step 2: Statcast pitch zones — incremental from 14 days ago
+      # 14-day window catches any late-arriving Statcast data
       - name: Ingest Statcast zones
         timeout-minutes: 120
         run: |
           python pipeline/ingest_statcast_zones.py \
-            --start-date $(date -d '8 days ago' +%Y-%m-%d) \
+            --start-date $(date -d '14 days ago' +%Y-%m-%d) \
             --min-war 5.0
 
       # Step 3 & 4 run after stats are committed — dependency order enforced by step sequence
