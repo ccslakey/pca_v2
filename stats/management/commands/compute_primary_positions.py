@@ -3,9 +3,10 @@ from __future__ import annotations
 from collections import defaultdict
 
 from django.core.management.base import BaseCommand
+from django.db.models import Prefetch
 
 from players.models import Player
-from stats.models import FieldingSeason, PitchingSeason
+from stats.models import FieldingSeason, FieldingPositionToken, PitchingSeason
 from stats.positions import choose_primary_position
 
 
@@ -15,14 +16,15 @@ class Command(BaseCommand):
     def handle(self, *args, **options) -> None:
         position_games: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
 
+        token_qs = FieldingPositionToken.objects.order_by("rank")
         seasons = (
             FieldingSeason.objects
-            .prefetch_related("position_tokens")
+            .prefetch_related(Prefetch("position_tokens", queryset=token_qs))
             .only("player_id")
         )
         for season in seasons:
             tokens = [
-                t for t in season.position_tokens.order_by("rank").all()
+                t for t in season.position_tokens.all()
                 if t.position != "H"
             ]
             if not tokens:
