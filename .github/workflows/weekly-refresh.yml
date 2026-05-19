@@ -9,7 +9,7 @@ on:
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 180 # 3h hard cap — kills a stalled scrape before next run
+    timeout-minutes: 300 # 5h hard cap — kills a stalled scrape before next run
 
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -30,6 +30,7 @@ jobs:
       # Step 1: current-season batting + pitching + fielding
       # --force re-ingests this year even if already logged (BBref updates stats retroactively)
       - name: Ingest season stats
+        timeout-minutes: 120
         run: |
           python pipeline/ingest_bref_history.py \
             --start-year $(date +%Y) \
@@ -38,6 +39,7 @@ jobs:
       # Step 2: Statcast pitch zones — incremental from 8 days ago
       # 8-day window catches any late-arriving Statcast data from last week
       - name: Ingest Statcast zones
+        timeout-minutes: 120
         run: |
           python pipeline/ingest_statcast_zones.py \
             --start-date $(date -d '8 days ago' +%Y-%m-%d) \
