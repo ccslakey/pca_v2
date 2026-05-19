@@ -6,7 +6,7 @@ from django.core.management.base import BaseCommand
 from django.db.models import Prefetch
 
 from players.models import Player
-from stats.models import FieldingSeason, FieldingPositionToken, PitchingSeason
+from stats.models import FieldingPositionToken, FieldingSeason, PitchingSeason
 from stats.positions import choose_primary_position
 
 

@@ -37,7 +37,6 @@ from collections.abc import Callable, Generator
 from typing import Any
 
 import django
-import requests
 
 # ---------------------------------------------------------------------------
 # Django setup — must happen before any model imports
@@ -55,6 +54,7 @@ pybaseball.cache.enable()
 from django.core.management import call_command
 from pybaseball.datasources.bref import BRefSession
 
+from pipeline.ingest_utils import already_ingested, fetch_with_retry, log_error, log_success
 from players.models import Player
 from stats.models import (
     BattingSeason,
@@ -63,7 +63,6 @@ from stats.models import (
     PitchingSeason,
 )
 from stats.positions import parse_bref_positions
-from pipeline.ingest_utils import TRANSIENT_ERRORS, already_ingested, fetch_with_retry, log_error, log_success
 
 # ---------------------------------------------------------------------------
 # League → year range mapping
@@ -377,9 +376,7 @@ def ingest_batting_page(
     dry_run: bool,
     verbose: bool,
 ) -> int:
-    df = extract_table(
-        fetch_with_retry(session, url).content, "players_standard_batting"
-    )
+    df = extract_table(fetch_with_retry(session, url).content, "players_standard_batting")
     if df.empty:
         return 0
 
@@ -395,9 +392,7 @@ def ingest_batting_page(
             continue
 
         team = row.get("team_name_abbr", "").strip()
-        player = upsert_player(
-            bbref_id, row.get("name_display", ""), chadwick_index, dry_run
-        )
+        player = upsert_player(bbref_id, row.get("name_display", ""), chadwick_index, dry_run)
         if player is None:
             continue
 
@@ -426,9 +421,7 @@ def ingest_batting_page(
         )
 
     if verbose:
-        print(
-            f"    {len(records)} batting rows {'(dry run)' if dry_run else 'written'}"
-        )
+        print(f"    {len(records)} batting rows {'(dry run)' if dry_run else 'written'}")
     return len(records)
 
 
@@ -441,9 +434,7 @@ def ingest_pitching_page(
     dry_run: bool,
     verbose: bool,
 ) -> int:
-    df = extract_table(
-        fetch_with_retry(session, url).content, "players_standard_pitching"
-    )
+    df = extract_table(fetch_with_retry(session, url).content, "players_standard_pitching")
     if df.empty:
         return 0
 
@@ -459,9 +450,7 @@ def ingest_pitching_page(
             continue
 
         team = row.get("team_name_abbr", "").strip()
-        player = upsert_player(
-            bbref_id, row.get("name_display", ""), chadwick_index, dry_run
-        )
+        player = upsert_player(bbref_id, row.get("name_display", ""), chadwick_index, dry_run)
         if player is None:
             continue
 
@@ -490,9 +479,7 @@ def ingest_pitching_page(
         )
 
     if verbose:
-        print(
-            f"    {len(records)} pitching rows {'(dry run)' if dry_run else 'written'}"
-        )
+        print(f"    {len(records)} pitching rows {'(dry run)' if dry_run else 'written'}")
     return len(records)
 
 
@@ -539,9 +526,7 @@ def ingest_fielding_page(
     dry_run: bool,
     verbose: bool,
 ) -> int:
-    df = extract_table(
-        fetch_with_retry(session, url).content, "players_standard_fielding"
-    )
+    df = extract_table(fetch_with_retry(session, url).content, "players_standard_fielding")
     if df.empty:
         return 0
 
@@ -557,9 +542,7 @@ def ingest_fielding_page(
             continue
 
         team = row.get("team_name_abbr", "").strip()
-        player = upsert_player(
-            bbref_id, row.get("name_display", ""), chadwick_index, dry_run
-        )
+        player = upsert_player(bbref_id, row.get("name_display", ""), chadwick_index, dry_run)
         if player is None:
             continue
 
@@ -593,9 +576,7 @@ def ingest_fielding_page(
         rows_written += 1
 
     if verbose:
-        print(
-            f"    {rows_written} fielding rows {'(dry run)' if dry_run else 'written'}"
-        )
+        print(f"    {rows_written} fielding rows {'(dry run)' if dry_run else 'written'}")
     return rows_written
 
 
@@ -605,9 +586,7 @@ def ingest_fielding_page(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Ingest BRef batting/pitching/fielding history into Django."
-    )
+    parser = argparse.ArgumentParser(description="Ingest BRef batting/pitching/fielding history into Django.")
     parser.add_argument("--start-year", type=int, default=1871)
     parser.add_argument("--end-year", type=int, default=2026)
     parser.add_argument("--batting-only", action="store_true")

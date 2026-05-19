@@ -44,7 +44,6 @@ import re
 import sys
 
 import django
-import requests
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "pca_backend.settings")
@@ -53,9 +52,9 @@ django.setup()
 from bs4 import BeautifulSoup, Comment
 from pybaseball.datasources.bref import BRefSession
 
+from pipeline.ingest_utils import already_ingested, fetch_with_retry, log_error, log_success
 from players.models import Player
 from stats.models import PlayerAward
-from pipeline.ingest_utils import TRANSIENT_ERRORS, already_ingested, fetch_with_retry, log_error, log_success
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -65,20 +64,20 @@ BREF = "https://www.baseball-reference.com"
 
 # One source key per scraper for idempotency
 SOURCE_KEYS: dict[str, str] = {
-    "mvp":       "bref_awards_mvp",
-    "cy":        "bref_awards_cy",
-    "roty":      "bref_awards_roty",
-    "hof":       "bref_awards_hof",
-    "tc_b":      "bref_awards_tc_b",
-    "tc_p":      "bref_awards_tc_p",
-    "postmvp":   "bref_awards_postmvp",
+    "mvp": "bref_awards_mvp",
+    "cy": "bref_awards_cy",
+    "roty": "bref_awards_roty",
+    "hof": "bref_awards_hof",
+    "tc_b": "bref_awards_tc_b",
+    "tc_p": "bref_awards_tc_p",
+    "postmvp": "bref_awards_postmvp",
     "bat_title": "bref_awards_bat_title",
     "era_title": "bref_awards_era_title",
-    "gg":        "bref_awards_gg",
-    "ss":        "bref_awards_ss",
-    "all_mlb":   "bref_awards_all_mlb",
-    "asg":       "bref_awards_asg",
-    "ws":        "bref_awards_ws",
+    "gg": "bref_awards_gg",
+    "ss": "bref_awards_ss",
+    "all_mlb": "bref_awards_all_mlb",
+    "asg": "bref_awards_asg",
+    "ws": "bref_awards_ws",
 }
 
 ALL_KINDS = list(SOURCE_KEYS.keys())
@@ -197,8 +196,7 @@ def scrape_simple(
             if lg:
                 league = lg.get_text(strip=True) or None
 
-        if upsert_award(bbref_id, year, kind, known_ids, league=league,
-                        dry_run=dry_run, verbose=verbose):
+        if upsert_award(bbref_id, year, kind, known_ids, league=league, dry_run=dry_run, verbose=verbose):
             count += 1
 
     return count
@@ -249,8 +247,7 @@ def scrape_triple_crown(
             if not bbref_id:
                 continue
 
-            if upsert_award(bbref_id, year, kind, known_ids, league=league,
-                            dry_run=dry_run, verbose=verbose):
+            if upsert_award(bbref_id, year, kind, known_ids, league=league, dry_run=dry_run, verbose=verbose):
                 count += 1
 
     return count
@@ -308,8 +305,7 @@ def scrape_title_table(
         if not bbref_id:
             continue
 
-        if upsert_award(bbref_id, year, kind, known_ids, league=league,
-                        dry_run=dry_run, verbose=verbose):
+        if upsert_award(bbref_id, year, kind, known_ids, league=league, dry_run=dry_run, verbose=verbose):
             count += 1
 
     return count
@@ -371,8 +367,9 @@ def scrape_award_grid(
             bbref_id = bbref_from_href(player_link["href"])
             if not bbref_id:
                 continue
-            if upsert_award(bbref_id, year, kind, known_ids, league=league,
-                            notes=pos, dry_run=dry_run, verbose=verbose):
+            if upsert_award(
+                bbref_id, year, kind, known_ids, league=league, notes=pos, dry_run=dry_run, verbose=verbose
+            ):
                 count += 1
 
     return count
@@ -432,8 +429,16 @@ def scrape_all_mlb(
                 continue
             # Normalise position slot: "SP_1" → "SP", "OF_3" → "OF"
             pos_label = re.sub(r"_\d+$", "", pos).upper() if pos else None
-            if upsert_award(bbref_id, year, "all_mlb", known_ids, league=team_rank,
-                            notes=pos_label, dry_run=dry_run, verbose=verbose):
+            if upsert_award(
+                bbref_id,
+                year,
+                "all_mlb",
+                known_ids,
+                league=team_rank,
+                notes=pos_label,
+                dry_run=dry_run,
+                verbose=verbose,
+            ):
                 count += 1
 
     return count
@@ -485,8 +490,7 @@ def scrape_postseason_mvp(
             bbref_id = bbref_from_href(link["href"])
             if not bbref_id:
                 continue
-            if upsert_award(bbref_id, year, "postmvp", known_ids, notes=notes,
-                            dry_run=dry_run, verbose=verbose):
+            if upsert_award(bbref_id, year, "postmvp", known_ids, notes=notes, dry_run=dry_run, verbose=verbose):
                 count += 1
 
     return count
@@ -502,8 +506,8 @@ def scrape_postseason_mvp(
 # ---------------------------------------------------------------------------
 
 ASG_TABLES = [
-    ("NLAllStarsbatting",  "NL"),
-    ("ALAllStarsbatting",  "AL"),
+    ("NLAllStarsbatting", "NL"),
+    ("ALAllStarsbatting", "AL"),
     ("NLAllStarspitching", "NL"),
     ("ALAllStarspitching", "AL"),
 ]
@@ -560,8 +564,7 @@ def scrape_asg_game(
                 if not bbref_id or (bbref_id, league) in seen:
                     continue
                 seen.add((bbref_id, league))
-                if upsert_award(bbref_id, year, "asg", known_ids, league=league,
-                                dry_run=dry_run, verbose=verbose):
+                if upsert_award(bbref_id, year, "asg", known_ids, league=league, dry_run=dry_run, verbose=verbose):
                     count += 1
 
     return count
@@ -694,10 +697,7 @@ def scrape_world_series(
             roster &= known_ids  # only players in our DB
 
             if not dry_run:
-                awards = [
-                    PlayerAward(player_id=bid, year=year, kind="ws", league=None, notes=None)
-                    for bid in roster
-                ]
+                awards = [PlayerAward(player_id=bid, year=year, kind="ws", league=None, notes=None) for bid in roster]
                 PlayerAward.objects.bulk_create(awards, ignore_conflicts=True)
                 log_success(source_key, len(awards))
 
@@ -726,17 +726,28 @@ def run_kind(
     verbose: bool,
 ) -> int:
     if kind == "mvp":
-        return scrape_simple(session, f"{BREF}/awards/mvp.shtml", "mvp", "mvp",
-                             known_ids, dry_run=dry_run, verbose=verbose)
+        return scrape_simple(
+            session, f"{BREF}/awards/mvp.shtml", "mvp", "mvp", known_ids, dry_run=dry_run, verbose=verbose
+        )
     if kind == "cy":
-        return scrape_simple(session, f"{BREF}/awards/cya.shtml", "cya", "cy",
-                             known_ids, dry_run=dry_run, verbose=verbose)
+        return scrape_simple(
+            session, f"{BREF}/awards/cya.shtml", "cya", "cy", known_ids, dry_run=dry_run, verbose=verbose
+        )
     if kind == "roty":
-        return scrape_simple(session, f"{BREF}/awards/roy.shtml", "roy", "roty",
-                             known_ids, dry_run=dry_run, verbose=verbose)
+        return scrape_simple(
+            session, f"{BREF}/awards/roy.shtml", "roy", "roty", known_ids, dry_run=dry_run, verbose=verbose
+        )
     if kind == "hof":
-        return scrape_simple(session, f"{BREF}/awards/hof.shtml", "hof", "hof",
-                             known_ids, has_league=False, dry_run=dry_run, verbose=verbose)
+        return scrape_simple(
+            session,
+            f"{BREF}/awards/hof.shtml",
+            "hof",
+            "hof",
+            known_ids,
+            has_league=False,
+            dry_run=dry_run,
+            verbose=verbose,
+        )
     if kind == "tc_b":
         return scrape_triple_crown(session, known_ids, dry_run=dry_run, verbose=verbose)
     if kind == "tc_p":
@@ -745,30 +756,40 @@ def run_kind(
     if kind == "postmvp":
         return scrape_postseason_mvp(session, known_ids, dry_run=dry_run, verbose=verbose)
     if kind == "bat_title":
-        return scrape_title_table(session, f"{BREF}/awards/batting-titles.shtml",
-                                  "bat_title", known_ids, dry_run=dry_run, verbose=verbose)
+        return scrape_title_table(
+            session, f"{BREF}/awards/batting-titles.shtml", "bat_title", known_ids, dry_run=dry_run, verbose=verbose
+        )
     if kind == "era_title":
-        return scrape_title_table(session, f"{BREF}/awards/pitching-era-titles.shtml",
-                                  "era_title", known_ids, dry_run=dry_run, verbose=verbose)
+        return scrape_title_table(
+            session,
+            f"{BREF}/awards/pitching-era-titles.shtml",
+            "era_title",
+            known_ids,
+            dry_run=dry_run,
+            verbose=verbose,
+        )
     if kind == "gg":
-        n = scrape_award_grid(session, f"{BREF}/awards/gold_glove_al.shtml",
-                              "gg", known_ids, dry_run=dry_run, verbose=verbose)
-        n += scrape_award_grid(session, f"{BREF}/awards/gold_glove_nl.shtml",
-                               "gg", known_ids, dry_run=dry_run, verbose=verbose)
+        n = scrape_award_grid(
+            session, f"{BREF}/awards/gold_glove_al.shtml", "gg", known_ids, dry_run=dry_run, verbose=verbose
+        )
+        n += scrape_award_grid(
+            session, f"{BREF}/awards/gold_glove_nl.shtml", "gg", known_ids, dry_run=dry_run, verbose=verbose
+        )
         return n
     if kind == "ss":
-        n = scrape_award_grid(session, f"{BREF}/awards/silver_slugger_al.shtml",
-                              "ss", known_ids, dry_run=dry_run, verbose=verbose)
-        n += scrape_award_grid(session, f"{BREF}/awards/silver_slugger_nl.shtml",
-                               "ss", known_ids, dry_run=dry_run, verbose=verbose)
+        n = scrape_award_grid(
+            session, f"{BREF}/awards/silver_slugger_al.shtml", "ss", known_ids, dry_run=dry_run, verbose=verbose
+        )
+        n += scrape_award_grid(
+            session, f"{BREF}/awards/silver_slugger_nl.shtml", "ss", known_ids, dry_run=dry_run, verbose=verbose
+        )
         return n
     if kind == "all_mlb":
         return scrape_all_mlb(session, known_ids, dry_run=dry_run, verbose=verbose)
     if kind == "asg":
         return scrape_allstar(session, known_ids, force=force, dry_run=dry_run, verbose=verbose)
     if kind == "ws":
-        return scrape_world_series(session, known_ids, force=force,
-                                   dry_run=dry_run, verbose=verbose)
+        return scrape_world_series(session, known_ids, force=force, dry_run=dry_run, verbose=verbose)
     raise ValueError(f"Unknown kind: {kind!r}")
 
 
@@ -779,15 +800,17 @@ def run_kind(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Ingest BRef award data")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Parse and print without writing to DB")
-    parser.add_argument("--force", action="store_true",
-                        help="Re-ingest even if already logged as successful")
-    parser.add_argument("--verbose", action="store_true",
-                        help="Print every award row")
-    parser.add_argument("--kinds", nargs="+", choices=ALL_KINDS, default=ALL_KINDS,
-                        metavar="KIND", help=f"Award kinds to ingest (default: all). "
-                                             f"Choices: {', '.join(ALL_KINDS)}")
+    parser.add_argument("--dry-run", action="store_true", help="Parse and print without writing to DB")
+    parser.add_argument("--force", action="store_true", help="Re-ingest even if already logged as successful")
+    parser.add_argument("--verbose", action="store_true", help="Print every award row")
+    parser.add_argument(
+        "--kinds",
+        nargs="+",
+        choices=ALL_KINDS,
+        default=ALL_KINDS,
+        metavar="KIND",
+        help=f"Award kinds to ingest (default: all). Choices: {', '.join(ALL_KINDS)}",
+    )
     args = parser.parse_args()
 
     session = BRefSession()

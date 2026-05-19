@@ -43,9 +43,9 @@ warnings.filterwarnings('ignore', category=pd.errors.DtypeWarning, module='pybas
 from django.db.models import Sum
 from pybaseball import statcast_batter, statcast_pitcher
 
+from pipeline.ingest_utils import already_ingested, log_error, log_success
 from players.models import Player
 from stats.models import BattingSeason, PitchingSeason, StatcastZoneBucket
-from pipeline.ingest_utils import already_ingested, log_error, log_success
 
 # ---------------------------------------------------------------------------
 # Constants
