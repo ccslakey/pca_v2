@@ -43,4 +43,20 @@ class PlayerDetailSerializer(serializers.ModelSerializer[Player]):
 
     class Meta:
         model = Player
-        fields = "__all__"
+        fields = [
+            "bbref_id",
+            "mlbam_id",
+            "fangraphs_id",
+            "retro_id",
+            "first_name",
+            "last_name",
+            "birth_date",
+            "birth_country",
+            "bats",
+            "throws",
+            "debut",
+            "final_game",
+            "primary_position",
+            "james_score",
+            "war_percentile",
+        ]
