@@ -18,8 +18,9 @@ dump.json
 media/
 staticfiles/
 
-# pytest / coverage
+# pytest / coverage / linting caches
 .pytest_cache/
+.ruff_cache/
 .coverage
 htmlcov/
 
@@ -34,6 +35,9 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
+# Claude Code
+.claude/
 
 # Frontend
 frontend/node_modules/

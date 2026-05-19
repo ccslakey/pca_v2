@@ -1,0 +1,16 @@
+#!/bin/sh
+# Pre-commit lint checks. Activate with: git config core.hooksPath .githooks
+set -e
+
+STAGED_PY=$(git diff --cached --name-only --diff-filter=ACMR | grep '\.py$' || true)
+STAGED_TS=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(ts|tsx)$' || true)
+
+if [ -n "$STAGED_PY" ]; then
+  echo "→ ruff"
+  ruff check .
+fi
+
+if [ -n "$STAGED_TS" ]; then
+  echo "→ tsc"
+  (cd frontend && ./node_modules/.bin/tsc)
+fi
