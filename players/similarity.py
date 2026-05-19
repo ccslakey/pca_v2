@@ -36,7 +36,7 @@ POS_EMBEDDING: dict[str, tuple[float, float]] = {
 # Aggregate loaders (cached)
 # ---------------------------------------------------------------------------
 
-def _load_bat_agg() -> tuple[dict, dict, dict]:
+def _load_bat_agg() -> tuple[dict, dict, dict, dict]:
     cached = cache.get("sim_bat_agg")
     if cached is not None:
         return cached  # type: ignore[return-value]
@@ -59,7 +59,13 @@ def _load_bat_agg() -> tuple[dict, dict, dict]:
         ops_num[pid] = ops_num.get(pid, 0.0) + r["ops_plus"] * r["plate_appearances"]
         ops_den[pid] = ops_den.get(pid, 0)   + r["plate_appearances"]
 
-    result = (bat_totals, ops_num, ops_den)
+    bat_pool_ids = {p for p, t in bat_totals.items() if (t.get("career_war") or 0) >= _MIN_WAR}
+    positions: dict[str, str | None] = {
+        p.bbref_id: p.primary_position
+        for p in Player.objects.filter(bbref_id__in=bat_pool_ids).only("bbref_id", "primary_position")
+    }
+
+    result = (bat_totals, ops_num, ops_den, positions)
     cache.set("sim_bat_agg", result, timeout=_CACHE_TTL)
     return result
 
@@ -229,19 +235,17 @@ def _hydrate(
 # ---------------------------------------------------------------------------
 
 def similar_players(player: Player) -> dict:
-    bat_totals, ops_num, ops_den = _load_bat_agg()
+    pid = player.bbref_id
+    cache_key = f"sim:v1:{pid}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached  # type: ignore[return-value]
+
+    bat_totals, ops_num, ops_den, positions = _load_bat_agg()
     pit_totals, era_num, era_den = _load_pit_agg()
 
     pitcher_ids = set(pit_totals.keys())
     batter_ids  = set(bat_totals.keys())
-    pid         = player.bbref_id
-
-    # Load primary_position for all batter pool members in one query
-    bat_pool_ids = {p for p, t in bat_totals.items() if (t.get("career_war") or 0) >= _MIN_WAR}
-    positions: dict[str, str | None] = {
-        p.bbref_id: p.primary_position
-        for p in Player.objects.filter(bbref_id__in=bat_pool_ids).only("bbref_id", "primary_position")
-    }
 
     def batter_vec(p: str) -> list[float]:
         return _batter_vec(p, bat_totals, ops_num, ops_den, positions)
@@ -256,9 +260,11 @@ def similar_players(player: Player) -> dict:
         bat_totals=bat_totals, pit_totals=pit_totals, pitcher_ids=pitcher_ids
     )
 
-    return {
+    result = {
         "batters":  _hydrate(_rank_pool(pid, bat_pool, batter_vec, BAT_WEIGHTS), **hydrate_kwargs)
                     if pid in batter_ids else [],
         "pitchers": _hydrate(_rank_pool(pid, pit_pool, pitcher_vec, PIT_WEIGHTS), **hydrate_kwargs)
                     if pid in pitcher_ids else [],
     }
+    cache.set(cache_key, result, timeout=_CACHE_TTL)
+    return result
