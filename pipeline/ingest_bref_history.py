@@ -51,7 +51,6 @@ from bs4 import BeautifulSoup, Comment
 
 pybaseball.cache.enable()
 
-from django.core.management import call_command
 from pybaseball.datasources.bref import BRefSession
 
 from pipeline.ingest_utils import already_ingested, fetch_with_retry, log_error, log_success
@@ -601,11 +600,6 @@ def main() -> None:
     parser.add_argument("--pitching-only", action="store_true")
     parser.add_argument("--fielding-only", action="store_true")
     parser.add_argument(
-        "--skip-primary-position-recompute",
-        action="store_true",
-        help="Do not recompute Player.primary_position after fielding ingest",
-    )
-    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Parse and print counts without writing to DB",
@@ -679,10 +673,6 @@ def main() -> None:
                 print(f"    ERROR: {exc}")
                 if not args.dry_run:
                     log_error(source_key, exc)
-
-    if do_fielding and not args.dry_run and not args.skip_primary_position_recompute:
-        print("\nRecomputing primary positions from fielding data...")
-        call_command("compute_primary_positions")
 
     print(f"\nDone. Total rows processed: {total_rows:,}")
 
