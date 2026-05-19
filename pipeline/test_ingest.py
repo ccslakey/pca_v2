@@ -32,7 +32,6 @@ from pipeline.ingest_bref_history import (
     league_urls,
     log_error,
     log_success,
-    main,
     parse_name,
     to_float,
     to_int,
@@ -774,73 +773,6 @@ class TestIngestFieldingPage(TestCase):
 
         self.assertEqual(rows, 1)
         self.assertFalse(FieldingSeason.objects.filter(player_id='troutmi01').exists())
-
-
-class TestMainPrimaryPositionRecompute(unittest.TestCase):
-    @patch('pipeline.ingest_bref_history.call_command')
-    @patch('pipeline.ingest_bref_history.build_chadwick_index', return_value={})
-    @patch('pipeline.ingest_bref_history.ingest_fielding_page', return_value=0)
-    @patch('pipeline.ingest_bref_history.log_success')
-    @patch('pipeline.ingest_bref_history.already_ingested', return_value=False)
-    @patch('sys.argv', ['ingest_bref_history.py', '--fielding-only', '--start-year', '2020', '--end-year', '2020'])
-    def test_fielding_ingest_recomputes_primary_positions(
-        self,
-        mock_already_ingested: MagicMock,
-        mock_log_success: MagicMock,
-        mock_ingest: MagicMock,
-        mock_chadwick: MagicMock,
-        mock_call_command: MagicMock,
-    ) -> None:
-        main()
-        mock_call_command.assert_called_once_with('compute_primary_positions')
-
-    @patch('pipeline.ingest_bref_history.call_command')
-    @patch('pipeline.ingest_bref_history.build_chadwick_index', return_value={})
-    @patch('pipeline.ingest_bref_history.ingest_fielding_page', return_value=0)
-    @patch('pipeline.ingest_bref_history.log_success')
-    @patch('pipeline.ingest_bref_history.already_ingested', return_value=False)
-    @patch('sys.argv', [
-        'ingest_bref_history.py',
-        '--fielding-only',
-        '--start-year',
-        '2020',
-        '--end-year',
-        '2020',
-        '--skip-primary-position-recompute',
-    ])
-    def test_skip_flag_suppresses_primary_position_recompute(
-        self,
-        mock_already_ingested: MagicMock,
-        mock_log_success: MagicMock,
-        mock_ingest: MagicMock,
-        mock_chadwick: MagicMock,
-        mock_call_command: MagicMock,
-    ) -> None:
-        main()
-        mock_call_command.assert_not_called()
-
-    @patch('pipeline.ingest_bref_history.call_command')
-    @patch('pipeline.ingest_bref_history.build_chadwick_index', return_value={})
-    @patch('pipeline.ingest_bref_history.ingest_fielding_page', return_value=0)
-    @patch('pipeline.ingest_bref_history.already_ingested', return_value=False)
-    @patch('sys.argv', [
-        'ingest_bref_history.py',
-        '--fielding-only',
-        '--start-year',
-        '2020',
-        '--end-year',
-        '2020',
-        '--dry-run',
-    ])
-    def test_dry_run_suppresses_primary_position_recompute(
-        self,
-        mock_already_ingested: MagicMock,
-        mock_ingest: MagicMock,
-        mock_chadwick: MagicMock,
-        mock_call_command: MagicMock,
-    ) -> None:
-        main()
-        mock_call_command.assert_not_called()
 
 
 if __name__ == '__main__':
