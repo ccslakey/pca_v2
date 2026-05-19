@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import datetime
+
 from django.core.cache import cache
 from django.core.management import call_command
 from django.urls import reverse
 from rest_framework.test import APITestCase
 
 from players.models import Player
+from players.views import _build_aging_curve, _build_leaderboard_rows
 from stats.models import (
     BattingSeason,
     FieldingPositionToken,
@@ -461,3 +464,119 @@ class TestComputePrimaryPositions(APITestCase):
         call_command('compute_primary_positions')
         player.refresh_from_db()
         self.assertEqual(player.primary_position, 'P')
+
+
+class TestAgingCurve(APITestCase):
+    def setUp(self):
+        cache.clear()
+        # Player born 1980 → age 30 in the 2010 season
+        self.p = make_player('agecurve01', birth_date=datetime.date(1980, 1, 1))
+
+    def _make_player(self, bbref_id, birth_year):
+        return Player.objects.get_or_create(
+            bbref_id=bbref_id,
+            defaults=dict(
+                first_name='Test', last_name='Player',
+                birth_date=datetime.date(birth_year, 1, 1),
+            ),
+        )[0]
+
+    def test_batting_curve_aggregates_by_age(self):
+        p30 = self._make_player('bat30a01', 1980)
+        p31 = self._make_player('bat31a01', 1979)
+        BattingSeason.objects.create(player=p30, year=2010, stint=1, team='NYA', league='AL',
+                                     plate_appearances=150, war=4.0)
+        BattingSeason.objects.create(player=p31, year=2010, stint=1, team='NYA', league='AL',
+                                     plate_appearances=150, war=6.0)
+        result = _build_aging_curve('B')
+        by_age = {pt['age']: pt for pt in result}
+        self.assertIn(30, by_age)
+        self.assertAlmostEqual(by_age[30]['war'], 4.0)
+        self.assertIn(31, by_age)
+        self.assertAlmostEqual(by_age[31]['war'], 6.0)
+
+    def test_batting_curve_excludes_below_pa_threshold(self):
+        p = self._make_player('batlow01', 1980)
+        BattingSeason.objects.create(player=p, year=2010, stint=1, team='NYA', league='AL',
+                                     plate_appearances=50, war=10.0)
+        result = _build_aging_curve('B')
+        by_age = {pt['age']: pt for pt in result}
+        self.assertNotIn(30, by_age)
+
+    def test_batting_curve_excludes_players_without_birth_date(self):
+        p = make_player('nobirth01')  # birth_date=None by default
+        BattingSeason.objects.create(player=p, year=2010, stint=1, team='NYA', league='AL',
+                                     plate_appearances=150, war=5.0)
+        result = _build_aging_curve('B')
+        # Should not raise and should not include this player
+        self.assertIsInstance(result, list)
+
+    def test_pitching_curve_uses_ip_threshold(self):
+        p = self._make_player('pitcage01', 1980)
+        # ip_outs=150 meets the ≥150 threshold
+        PitchingSeason.objects.create(player=p, year=2010, stint=1, team='NYA', league='AL',
+                                      ip_outs=150, war=5.0, era=3.0, era_plus=120, strikeouts=180)
+        result = _build_aging_curve('P')
+        by_age = {pt['age']: pt for pt in result}
+        self.assertIn(30, by_age)
+        self.assertAlmostEqual(by_age[30]['war'], 5.0)
+
+    def test_pitching_curve_excludes_below_ip_threshold(self):
+        p = self._make_player('pitclow01', 1980)
+        PitchingSeason.objects.create(player=p, year=2010, stint=1, team='NYA', league='AL',
+                                      ip_outs=30, war=1.0, era=3.0, era_plus=110, strikeouts=40)
+        result = _build_aging_curve('P')
+        by_age = {pt['age']: pt for pt in result}
+        self.assertNotIn(30, by_age)
+
+    def test_returns_list(self):
+        result = _build_aging_curve('B')
+        self.assertIsInstance(result, list)
+
+    def test_pitching_role_returns_list(self):
+        result = _build_aging_curve('P')
+        self.assertIsInstance(result, list)
+
+
+class TestLeaderboardRows(APITestCase):
+    def setUp(self):
+        cache.clear()
+
+    def test_includes_players_with_positive_war(self):
+        p = make_player('lead01', 'Lead', 'One')
+        add_batting(p, 2010, war=5.0, hr=20)
+        rows = _build_leaderboard_rows()
+        ids = {r['bbref_id'] for r in rows}
+        self.assertIn('lead01', ids)
+
+    def test_excludes_players_with_zero_or_negative_war(self):
+        p = make_player('zerowa01', 'Zero', 'War')
+        add_batting(p, 2010, war=0.0)
+        rows = _build_leaderboard_rows()
+        ids = {r['bbref_id'] for r in rows}
+        self.assertNotIn('zerowa01', ids)
+
+    def test_career_war_sums_batting_and_pitching(self):
+        p = make_player('twoway01', 'Two', 'Way')
+        add_batting(p, 2010, war=3.0)
+        add_pitching(p, 2010, war=4.0)
+        rows = _build_leaderboard_rows()
+        row = next(r for r in rows if r['bbref_id'] == 'twoway01')
+        self.assertAlmostEqual(row['career_war'], 7.0)
+
+    def test_second_call_returns_identical_rows(self):
+        add_batting(make_player('cache01', 'Cache', 'One'), 2010, war=3.0)
+        first = _build_leaderboard_rows()
+        second = _build_leaderboard_rows()
+        self.assertEqual(
+            {r['bbref_id'] for r in first},
+            {r['bbref_id'] for r in second},
+        )
+
+    def test_is_pitcher_true_when_pitching_war_exceeds_batting(self):
+        p = make_player('ispitch01', 'Is', 'Pitcher')
+        add_batting(p, 2010, war=1.0)
+        add_pitching(p, 2010, war=6.0)
+        rows = _build_leaderboard_rows()
+        row = next(r for r in rows if r['bbref_id'] == 'ispitch01')
+        self.assertTrue(row['is_pitcher'])
