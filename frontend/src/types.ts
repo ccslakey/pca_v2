@@ -221,11 +221,14 @@ export interface ZoneResponse {
   buckets: ZoneBucket[];
 }
 
-export interface PaginatedResponse<T> {
+interface PaginatedBase<T> {
   count: number;
+  results: T[];
+}
+
+export interface PaginatedResponse<T> extends PaginatedBase<T> {
   next: string | null;
   previous: string | null;
-  results: T[];
 }
 
 // ---- Leaderboard ----
@@ -249,12 +252,10 @@ export interface LeaderboardPlayer {
   asg_count: number;
 }
 
-export interface LeaderboardResponse {
-  count: number;
+export interface LeaderboardResponse extends PaginatedBase<LeaderboardPlayer> {
   page: number;
   page_size: number;
   total_pages: number;
-  results: LeaderboardPlayer[];
 }
 
 export interface LeaderboardFilters {
