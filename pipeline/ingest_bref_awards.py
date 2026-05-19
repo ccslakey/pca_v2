@@ -42,7 +42,6 @@ import argparse
 import os
 import re
 import sys
-import time
 
 import django
 import requests
@@ -55,19 +54,14 @@ from bs4 import BeautifulSoup, Comment
 from pybaseball.datasources.bref import BRefSession
 
 from players.models import Player
-from stats.models import IngestionLog, PlayerAward
+from stats.models import PlayerAward
+from pipeline.ingest_utils import TRANSIENT_ERRORS, already_ingested, fetch_with_retry, log_error, log_success
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 
 BREF = "https://www.baseball-reference.com"
-
-TRANSIENT_ERRORS = (
-    requests.exceptions.ConnectionError,
-    requests.exceptions.Timeout,
-    requests.exceptions.ChunkedEncodingError,
-)
 
 # One source key per scraper for idempotency
 SOURCE_KEYS: dict[str, str] = {
@@ -95,24 +89,6 @@ ALL_KINDS = list(SOURCE_KEYS.keys())
 # ---------------------------------------------------------------------------
 
 
-def fetch_with_retry(
-    session: BRefSession,
-    url: str,
-    retries: int = 3,
-    backoff: int = 20,
-) -> requests.Response:
-    for attempt in range(1, retries + 1):
-        try:
-            return session.get(url)
-        except TRANSIENT_ERRORS as exc:
-            if attempt == retries:
-                raise
-            wait = backoff * attempt
-            print(f"    network error ({exc}), retrying in {wait}s ({attempt}/{retries})")
-            time.sleep(wait)
-    raise RuntimeError("fetch_with_retry: exhausted retries")
-
-
 def find_table(soup: BeautifulSoup, table_id: str) -> BeautifulSoup | None:
     """Find a table by id, checking both visible HTML and comment-embedded tables."""
     t = soup.find("table", {"id": table_id})
@@ -124,20 +100,6 @@ def find_table(soup: BeautifulSoup, table_id: str) -> BeautifulSoup | None:
         if t:
             return t
     return None
-
-
-def already_ingested(source_key: str) -> bool:
-    return IngestionLog.objects.filter(source=source_key, status="success").exists()
-
-
-def log_success(source_key: str, rows: int) -> None:
-    IngestionLog.objects.create(source=source_key, rows_loaded=rows, status="success")
-
-
-def log_error(source_key: str, exc: Exception) -> None:
-    IngestionLog.objects.create(
-        source=source_key, rows_loaded=0, status="error", error_msg=str(exc)
-    )
 
 
 def known_player_ids() -> set[str]:

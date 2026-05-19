@@ -44,7 +44,8 @@ from django.db.models import Sum
 from pybaseball import statcast_batter, statcast_pitcher
 
 from players.models import Player
-from stats.models import BattingSeason, IngestionLog, PitchingSeason, StatcastZoneBucket
+from stats.models import BattingSeason, PitchingSeason, StatcastZoneBucket
+from pipeline.ingest_utils import already_ingested, log_error, log_success
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -68,19 +69,6 @@ PITCHER_OUTCOMES = {
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-def already_ingested(source_key: str) -> bool:
-    return IngestionLog.objects.filter(source=source_key, status='success').exists()
-
-
-def log_success(source_key: str, rows: int) -> None:
-    IngestionLog.objects.create(source=source_key, rows_loaded=rows, status='success')
-
-
-def log_error(source_key: str, exc: Exception) -> None:
-    IngestionLog.objects.create(source=source_key, rows_loaded=0,
-                                status='error', error_msg=str(exc))
-
 
 def aggregate_buckets(df: pd.DataFrame, outcome_fns: dict) -> list[dict]:
     """

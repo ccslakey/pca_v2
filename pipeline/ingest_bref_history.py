@@ -33,7 +33,6 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-import time
 from collections.abc import Callable, Generator
 from typing import Any
 
@@ -61,10 +60,10 @@ from stats.models import (
     BattingSeason,
     FieldingPositionToken,
     FieldingSeason,
-    IngestionLog,
     PitchingSeason,
 )
 from stats.positions import parse_bref_positions
+from pipeline.ingest_utils import TRANSIENT_ERRORS, already_ingested, fetch_with_retry, log_error, log_success
 
 # ---------------------------------------------------------------------------
 # League → year range mapping
@@ -82,12 +81,6 @@ PRE_MLB_LEAGUES: dict[str, tuple[int, int]] = {
 BREF_BASE = "https://www.baseball-reference.com/leagues"
 
 MULTI_TEAM_MARKERS: set[str] = {"2TM", "3TM", "4TM", "5TM", "TOT"}
-
-TRANSIENT_ERRORS = (
-    requests.exceptions.ConnectionError,
-    requests.exceptions.Timeout,
-    requests.exceptions.ChunkedEncodingError,
-)
 
 # Maps BRef data-stat column name → (model field name, converter function)
 ColMap = dict[str, tuple[str, Callable[[Any], Any]]]
@@ -270,37 +263,6 @@ def upsert_player(
         defaults=defaults,
     )
     return player
-
-
-# ---------------------------------------------------------------------------
-# Retry wrapper
-# ---------------------------------------------------------------------------
-
-
-def fetch_with_retry(
-    session: BRefSession,
-    url: str,
-    retries: int = 3,
-    backoff: int = 20,
-) -> requests.Response:
-    """
-    Fetches a URL via BRefSession, retrying on transient network errors.
-    Waits backoff * attempt seconds between tries (20s, 40s, 60s by default).
-    """
-    for attempt in range(1, retries + 1):
-        try:
-            return session.get(url)
-        except TRANSIENT_ERRORS as exc:
-            if attempt == retries:
-                raise
-            wait = backoff * attempt
-            print(
-                f"    network error ({exc}), retrying in {wait}s (attempt {attempt}/{retries})"
-            )
-            time.sleep(wait)
-    raise RuntimeError(
-        "fetch_with_retry exhausted retries without returning or raising"
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -635,25 +597,6 @@ def ingest_fielding_page(
             f"    {rows_written} fielding rows {'(dry run)' if dry_run else 'written'}"
         )
     return rows_written
-
-
-# ---------------------------------------------------------------------------
-# Ingestion log helpers
-# ---------------------------------------------------------------------------
-
-
-def already_ingested(source_key: str) -> bool:
-    return IngestionLog.objects.filter(source=source_key, status="success").exists()
-
-
-def log_success(source_key: str, rows: int) -> None:
-    IngestionLog.objects.create(source=source_key, rows_loaded=rows, status="success")
-
-
-def log_error(source_key: str, exc: Exception) -> None:
-    IngestionLog.objects.create(
-        source=source_key, rows_loaded=0, status="error", error_msg=str(exc)
-    )
 
 
 # ---------------------------------------------------------------------------
