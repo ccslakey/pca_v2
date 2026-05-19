@@ -1,5 +1,5 @@
 import "./PitchZone.scss";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { usePitchZone } from "../../../hooks";
 import type { ZoneOutcome, ZoneRole } from "../../../types";
 
@@ -54,6 +54,21 @@ function toSvgZ(ft: number) {
   return ((Z_MAX - ft) / (Z_MAX - Z_MIN)) * HEIGHT;
 }
 
+const SZ_X1 = toSvgX(SZ_X_MIN);
+const SZ_X2 = toSvgX(SZ_X_MAX);
+const SZ_Z1 = toSvgZ(SZ_Z_MAX);
+const SZ_Z2 = toSvgZ(SZ_Z_MIN);
+
+const OVERLAY_STYLE: React.CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  display: "grid",
+  placeItems: "center",
+  color: "var(--text-3)",
+  fontSize: 11,
+  fontFamily: "var(--font-mono)",
+};
+
 export function PitchZone({ bbrefId, isBatter, isPitcher, color }: Props) {
   const isTwoWay = isBatter && isPitcher;
   const [role, setRole] = useState<ZoneRole>(isBatter ? "B" : "P");
@@ -71,32 +86,26 @@ export function PitchZone({ bbrefId, isBatter, isPitcher, color }: Props) {
   const cellW = WIDTH / GRID;
   const cellH = HEIGHT / GRID;
 
-  const grid = new Map<string, { count: number; total: number }>();
-  if (data?.buckets) {
-    for (const b of data.buckets) {
-      const cx = Math.floor(((b.plate_x - X_MIN) / (X_MAX - X_MIN)) * GRID);
-      const cz = Math.floor(((Z_MAX - b.plate_z) / (Z_MAX - Z_MIN)) * GRID);
-      if (cx < 0 || cx >= GRID || cz < 0 || cz >= GRID) continue;
-      const key = `${cx},${cz}`;
-      const prev = grid.get(key) ?? { count: 0, total: 0 };
-      grid.set(key, {
-        count: prev.count + b.count,
-        total: prev.total + b.total,
-      });
+  const { grid, lo, span } = useMemo(() => {
+    const g = new Map<string, { count: number; total: number }>();
+    if (data?.buckets) {
+      for (const b of data.buckets) {
+        const cx = Math.floor(((b.plate_x - X_MIN) / (X_MAX - X_MIN)) * GRID);
+        const cz = Math.floor(((Z_MAX - b.plate_z) / (Z_MAX - Z_MIN)) * GRID);
+        if (cx < 0 || cx >= GRID || cz < 0 || cz >= GRID) continue;
+        const key = `${cx},${cz}`;
+        const prev = g.get(key) ?? { count: 0, total: 0 };
+        g.set(key, { count: prev.count + b.count, total: prev.total + b.total });
+      }
     }
-  }
-
-  const rates: number[] = [];
-  for (const { count, total } of grid.values()) {
-    if (total >= MIN_TOTAL) rates.push(count / total);
-  }
-  const lo = rates.length ? Math.min(...rates) : 0;
-  const span = rates.length ? Math.max(...rates) - lo : 1;
-
-  const szX1 = toSvgX(SZ_X_MIN);
-  const szX2 = toSvgX(SZ_X_MAX);
-  const szZ1 = toSvgZ(SZ_Z_MAX);
-  const szZ2 = toSvgZ(SZ_Z_MIN);
+    const rates: number[] = [];
+    for (const { count, total } of g.values()) {
+      if (total >= MIN_TOTAL) rates.push(count / total);
+    }
+    const lo = rates.length ? Math.min(...rates) : 0;
+    const span = rates.length ? Math.max(...rates) - lo : 1;
+    return { grid: g, lo, span };
+  }, [data?.buckets]);
 
   const uid = `${bbrefId}-${role}`;
   const clipId = `zone-clip-${uid}`;
@@ -203,10 +212,10 @@ export function PitchZone({ bbrefId, isBatter, isPitcher, color }: Props) {
 
           {/* Strike zone overlay */}
           <rect
-            x={szX1}
-            y={szZ1}
-            width={szX2 - szX1}
-            height={szZ2 - szZ1}
+            x={SZ_X1}
+            y={SZ_Z1}
+            width={SZ_X2 - SZ_X1}
+            height={SZ_Z2 - SZ_Z1}
             fill="none"
             stroke={color}
             opacity={0.35}
@@ -214,19 +223,19 @@ export function PitchZone({ bbrefId, isBatter, isPitcher, color }: Props) {
             strokeDasharray="4 3"
           />
           <line
-            x1={(szX1 + szX2) / 2}
-            y1={szZ1}
-            x2={(szX1 + szX2) / 2}
-            y2={szZ2}
+            x1={(SZ_X1 + SZ_X2) / 2}
+            y1={SZ_Z1}
+            x2={(SZ_X1 + SZ_X2) / 2}
+            y2={SZ_Z2}
             stroke={color}
             opacity={0.15}
             strokeWidth={0.75}
           />
           <line
-            x1={szX1}
-            y1={(szZ1 + szZ2) / 2}
-            x2={szX2}
-            y2={(szZ1 + szZ2) / 2}
+            x1={SZ_X1}
+            y1={(SZ_Z1 + SZ_Z2) / 2}
+            x2={SZ_X2}
+            y2={(SZ_Z1 + SZ_Z2) / 2}
             stroke={color}
             opacity={0.15}
             strokeWidth={0.75}
@@ -255,37 +264,11 @@ export function PitchZone({ bbrefId, isBatter, isPitcher, color }: Props) {
         </svg>
 
         {isLoading && (
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              display: "grid",
-              placeItems: "center",
-              color: "var(--text-3)",
-              fontSize: 11,
-              fontFamily: "var(--font-mono)",
-            }}
-          >
-            Loading…
-          </div>
+          <div style={OVERLAY_STYLE}>Loading…</div>
         )}
 
         {!isLoading && !hasData && (
-          <div
-            style={{
-              width: WIDTH,
-              height: HEIGHT,
-              position: "absolute",
-              inset: 0,
-              display: "grid",
-              placeItems: "center",
-              color: "var(--text-3)",
-              fontSize: 11,
-              fontFamily: "var(--font-mono)",
-            }}
-          >
-            No Statcast data
-          </div>
+          <div style={OVERLAY_STYLE}>No Statcast data</div>
         )}
       </div>
 
