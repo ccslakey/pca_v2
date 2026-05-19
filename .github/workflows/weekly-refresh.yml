@@ -36,13 +36,13 @@ jobs:
             --start-year $(date +%Y) \
             --force
 
-      # Step 2: Statcast pitch zones — incremental from 8 days ago
-      # 8-day window catches any late-arriving Statcast data from last week
+      # Step 2: Statcast pitch zones — incremental from 14 days ago
+      # 14-day window catches any late-arriving Statcast data
       - name: Ingest Statcast zones
         timeout-minutes: 120
         run: |
           python pipeline/ingest_statcast_zones.py \
-            --start-date $(date -d '8 days ago' +%Y-%m-%d) \
+            --start-date $(date -d '14 days ago' +%Y-%m-%d) \
             --min-war 5.0
 
       # Step 3 & 4 run after stats are committed — dependency order enforced by step sequence
