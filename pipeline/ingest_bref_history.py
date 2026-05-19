@@ -498,25 +498,6 @@ def _positions_raw(row: Any) -> str | None:
     return None
 
 
-def _sync_position_tokens(season: FieldingSeason) -> None:
-    FieldingPositionToken.objects.filter(fielding_season=season).delete()
-    tokens = [
-        FieldingPositionToken(
-            fielding_season=season,
-            rank=token.rank,
-            position=token.position,
-            is_primary_marker=token.is_primary_marker,
-            is_minor_marker=token.is_minor_marker,
-            is_career_major_marker=token.is_career_major_marker,
-            is_career_minor_marker=token.is_career_minor_marker,
-            reported_games=token.reported_games,
-        )
-        for token in parse_bref_positions(season.positions_raw)
-    ]
-    if tokens:
-        FieldingPositionToken.objects.bulk_create(tokens)
-
-
 def ingest_fielding_page(
     session: BRefSession,
     year: int,
@@ -533,7 +514,8 @@ def ingest_fielding_page(
     if "team_name_abbr" in df.columns:
         df = df[~df["team_name_abbr"].isin(MULTI_TEAM_MARKERS)]
 
-    rows_written = 0
+    seasons: list[FieldingSeason] = []
+    parsed_token_lists: list[list[Any]] = []
     stint_tracker: dict[str, int] = {}
 
     for _, row in df.iterrows():
@@ -549,35 +531,61 @@ def ingest_fielding_page(
         stint = stint_tracker.get(bbref_id, 0) + 1
         stint_tracker[bbref_id] = stint
 
-        defaults: dict[str, Any] = {
+        positions_raw = _positions_raw(row)
+
+        kwargs: dict[str, Any] = {
+            "player_id": player.bbref_id,
             "year": year,
             "stint": stint,
             "team": team,
             "league": row.get("lg_ID", row.get("league_ID", league)) or league,
-            "positions_raw": _positions_raw(row),
+            "positions_raw": positions_raw,
         }
         for model_field in FIELDING_COL_ALIASES:
             value = _mapped_fielding_value(row, model_field)
             if value is not None:
-                defaults[model_field] = value
+                kwargs[model_field] = value
 
-        if dry_run:
-            rows_written += 1
-            continue
+        seasons.append(FieldingSeason(**kwargs))
+        parsed_token_lists.append(parse_bref_positions(positions_raw))
 
-        season, _ = FieldingSeason.objects.update_or_create(
-            player_id=player.bbref_id,
-            year=year,
-            stint=stint,
-            team=team,
-            defaults=defaults,
-        )
-        _sync_position_tokens(season)
-        rows_written += 1
+    if dry_run or not seasons:
+        if verbose:
+            print(f"    {len(seasons)} fielding rows {'(dry run)' if dry_run else 'written'}")
+        return len(seasons)
+
+    update_fields = ["league", "positions_raw", *FIELDING_COL_ALIASES.keys()]
+    saved = FieldingSeason.objects.bulk_create(
+        seasons,
+        update_conflicts=True,
+        unique_fields=["player", "year", "stint", "team"],
+        update_fields=update_fields,
+    )
+
+    season_ids = [s.pk for s in saved]
+    FieldingPositionToken.objects.filter(fielding_season_id__in=season_ids).delete()
+
+    token_records: list[FieldingPositionToken] = []
+    for season, tokens in zip(saved, parsed_token_lists, strict=True):
+        for token in tokens:
+            token_records.append(
+                FieldingPositionToken(
+                    fielding_season_id=season.pk,
+                    rank=token.rank,
+                    position=token.position,
+                    is_primary_marker=token.is_primary_marker,
+                    is_minor_marker=token.is_minor_marker,
+                    is_career_major_marker=token.is_career_major_marker,
+                    is_career_minor_marker=token.is_career_minor_marker,
+                    reported_games=token.reported_games,
+                )
+            )
+    if token_records:
+        FieldingPositionToken.objects.bulk_create(token_records)
 
     if verbose:
-        print(f"    {rows_written} fielding rows {'(dry run)' if dry_run else 'written'}")
-    return rows_written
+        print(f"    {len(seasons)} fielding rows written")
+    return len(seasons)
 
 
 # ---------------------------------------------------------------------------
