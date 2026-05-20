@@ -31,10 +31,11 @@ from pipeline.ingest_statcast_zones import (
     _source_key,
     aggregate_buckets,
     ingest_bulk,
+    players_by_war,
     write_buckets,
 )
 from players.models import Player
-from stats.models import BattingSeason, IngestionLog, StatcastZoneBucket
+from stats.models import BattingSeason, IngestionLog, PitchingSeason, StatcastZoneBucket
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -393,3 +394,83 @@ class TestIngestBulk(TestCase):
             incremental=True,
         )
         self.assertEqual(n, 0)
+
+
+# ---------------------------------------------------------------------------
+# players_by_war
+# ---------------------------------------------------------------------------
+
+
+class TestPlayersByWar(TestCase):
+    """
+    Active-bypass behaviour: rookies and callups should appear in the target
+    list when they meet the current-year PA/BFP threshold, even with zero
+    career WAR.
+    """
+
+    def setUp(self):
+        # Veteran with high career WAR — passes the WAR filter
+        self.vet = _make_player("vetbatt01", 1001)
+        BattingSeason.objects.create(
+            player=self.vet, year=2020, stint=1, team="LAA",
+            war=8.0, plate_appearances=600,
+        )
+
+        # Rookie with zero career WAR, active in 2026 above threshold
+        self.rookie = _make_player("rookiebat01", 1002)
+        BattingSeason.objects.create(
+            player=self.rookie, year=2026, stint=1, team="NYM",
+            war=0.5, plate_appearances=120,
+        )
+
+        # Bench player active in 2026 but below threshold
+        self.bench = _make_player("benchbat01", 1003)
+        BattingSeason.objects.create(
+            player=self.bench, year=2026, stint=1, team="CHC",
+            war=0.0, plate_appearances=10,
+        )
+
+        # Pitcher rookie active in 2026
+        self.pitcher_rookie = _make_player("rookiepit01", 1004)
+        PitchingSeason.objects.create(
+            player=self.pitcher_rookie, year=2026, stint=1, team="SFG",
+            war=0.3, bfp=200,
+        )
+
+    def _ids(self, results):
+        return {p.bbref_id for p, _ in results}
+
+    def test_war_only_excludes_rookies_when_current_year_disabled(self):
+        results = players_by_war(min_war=5.0, roles={"B", "P"}, current_year=None)
+        ids = self._ids(results)
+        self.assertIn("vetbatt01", ids)
+        self.assertNotIn("rookiebat01", ids)
+        self.assertNotIn("benchbat01", ids)
+        self.assertNotIn("rookiepit01", ids)
+
+    def test_active_bypass_includes_rookies_above_pa_threshold(self):
+        results = players_by_war(
+            min_war=5.0, roles={"B", "P"},
+            current_year=2026, active_min_pa=50, active_min_bfp=50,
+        )
+        ids = self._ids(results)
+        self.assertIn("vetbatt01", ids)         # WAR path
+        self.assertIn("rookiebat01", ids)       # active-PA bypass
+        self.assertIn("rookiepit01", ids)       # active-BFP bypass
+        self.assertNotIn("benchbat01", ids)     # below PA threshold
+
+    def test_active_bypass_assigns_correct_roles(self):
+        results = players_by_war(
+            min_war=5.0, roles={"B", "P"}, current_year=2026,
+        )
+        roles_by_id = {p.bbref_id: roles for p, roles in results}
+        self.assertEqual(roles_by_id["rookiebat01"], {"B"})
+        self.assertEqual(roles_by_id["rookiepit01"], {"P"})
+
+    def test_active_bypass_respects_roles_filter(self):
+        results = players_by_war(
+            min_war=5.0, roles={"B"}, current_year=2026,
+        )
+        ids = self._ids(results)
+        self.assertIn("rookiebat01", ids)
+        self.assertNotIn("rookiepit01", ids)    # filtered by roles={'B'}

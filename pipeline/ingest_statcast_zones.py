@@ -297,10 +297,18 @@ def ingest_bulk(targets: list[tuple[Player, set[str]]],
 # Player selection
 # ---------------------------------------------------------------------------
 
-def players_by_war(min_war: float, roles: set[str]) -> list[tuple[Player, set[str]]]:
+def players_by_war(min_war: float, roles: set[str],
+                   current_year: int | None = None,
+                   active_min_pa: int = 50,
+                   active_min_bfp: int = 50) -> list[tuple[Player, set[str]]]:
     """
-    Return [(player, {roles})] for players with career WAR >= min_war
-    and mlbam_id available and at least one season >= 2015.
+    Return [(player, {roles})] for players with mlbam_id and a Statcast-era
+    season (>= 2015) who match either:
+      - career WAR >= min_war, or
+      - active in current_year above the PA/BFP threshold (bypasses WAR).
+
+    The current-year bypass surfaces rookies and callups who would otherwise
+    be excluded by the career WAR floor. Pass current_year=None to disable.
     """
     bat_war = {
         r['player_id']: r['s'] or 0.0
@@ -318,6 +326,16 @@ def players_by_war(min_war: float, roles: set[str]) -> list[tuple[Player, set[st
     batter_ids  = set(BattingSeason.objects.values_list('player_id', flat=True).distinct())
     pitcher_ids = set(PitchingSeason.objects.values_list('player_id', flat=True).distinct())
 
+    active_bat: set[str] = set()
+    active_pit: set[str] = set()
+    if current_year is not None:
+        active_bat = set(BattingSeason.objects.filter(
+            year=current_year, plate_appearances__gte=active_min_pa,
+        ).values_list('player_id', flat=True))
+        active_pit = set(PitchingSeason.objects.filter(
+            year=current_year, bfp__gte=active_min_bfp,
+        ).values_list('player_id', flat=True))
+
     results = []
     qs = Player.objects.filter(
         mlbam_id__isnull=False,
@@ -326,7 +344,8 @@ def players_by_war(min_war: float, roles: set[str]) -> list[tuple[Player, set[st
     for p in qs:
         career_war = (bat_war.get(p.bbref_id, 0.0) or 0.0) + \
                      (pit_war.get(p.bbref_id, 0.0) or 0.0)
-        if career_war < min_war:
+        is_active = p.bbref_id in active_bat or p.bbref_id in active_pit
+        if career_war < min_war and not is_active:
             continue
         player_roles: set[str] = set()
         if 'B' in roles and p.bbref_id in batter_ids:
@@ -367,6 +386,13 @@ def main() -> None:
                         help=f'Start date YYYY-MM-DD (default: {DEFAULT_START_DATE})')
     parser.add_argument('--end-date', default=DEFAULT_END_DATE,
                         help='End date YYYY-MM-DD (default: today)')
+    parser.add_argument('--current-year', type=int, default=date.today().year,
+                        help='Year used for active-player bypass of the WAR filter '
+                             '(default: current calendar year). Pass 0 to disable.')
+    parser.add_argument('--active-min-pa', type=int, default=50,
+                        help='Min current-year PA for batter active-bypass (default: 50)')
+    parser.add_argument('--active-min-bfp', type=int, default=50,
+                        help='Min current-year BFP for pitcher active-bypass (default: 50)')
     args = parser.parse_args()
 
     start_date  = args.start_date
@@ -394,7 +420,13 @@ def main() -> None:
                 continue
             targets.append((p, player_roles))
     else:
-        targets = players_by_war(args.min_war, roles)
+        current_year = args.current_year if args.current_year > 0 else None
+        targets = players_by_war(
+            args.min_war, roles,
+            current_year=current_year,
+            active_min_pa=args.active_min_pa,
+            active_min_bfp=args.active_min_bfp,
+        )
 
     if args.limit:
         targets = targets[:args.limit]
