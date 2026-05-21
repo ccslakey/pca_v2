@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from django.core.cache import cache
+from django.db import connection
 from django.db.models import Count, Max, Sum
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, viewsets
@@ -43,53 +44,71 @@ def _build_aging_curve(role: str) -> list[dict[str, Any]]:
     Batters: ≥100 PA → war, hr, avg, ops, ops_plus, so.
     Pitchers: ≥50 IP (150 ip_outs) → war, era, era_plus, so.
     Age approximated as season_year − birth_year (off by ≤1 yr, fine for pop averages).
-    Metric switching on the frontend costs zero extra requests.
     """
     if role == "P":
-        qs = list(
-            PitchingSeason.objects.filter(ip_outs__gte=150, player__birth_date__isnull=False).values(
-                "year", "war", "era", "era_plus", "strikeouts", "player__birth_date"
-            )
-        )
-        db_to_fe = {"war": "war", "era": "era", "era_plus": "era_plus", "strikeouts": "so"}
+        sql = """
+            SELECT
+                age,
+                ROUND(AVG(war)::numeric,      2) AS war,
+                ROUND(AVG(era)::numeric,      2) AS era,
+                ROUND(AVG(era_plus)::numeric, 2) AS era_plus,
+                ROUND(AVG(so)::numeric,       2) AS so,
+                COUNT(*)                          AS n
+            FROM (
+                SELECT
+                    (s.year - EXTRACT(YEAR FROM p.birth_date)::int) AS age,
+                    s.war, s.era, s.era_plus, s.strikeouts AS so
+                FROM stats_pitchingseason s
+                JOIN players_player p ON p.bbref_id = s.player_id
+                WHERE s.ip_outs >= 150 AND p.birth_date IS NOT NULL
+            ) sub
+            WHERE age BETWEEN 18 AND 60  -- satchel paige loved the game
+            GROUP BY age
+            ORDER BY age
+        """
     else:
-        qs = list(
-            BattingSeason.objects.filter(plate_appearances__gte=100, player__birth_date__isnull=False).values(
-                "year", "war", "home_runs", "batting_avg", "ops", "ops_plus", "strikeouts", "player__birth_date"
-            )
-        )
-        db_to_fe = {
-            "war": "war",
-            "home_runs": "hr",
-            "batting_avg": "avg",
-            "ops": "ops",
-            "ops_plus": "ops_plus",
-            "strikeouts": "so",
-        }
+        sql = """
+            SELECT
+                age,
+                ROUND(AVG(war)::numeric,      2) AS war,
+                ROUND(AVG(hr)::numeric,        2) AS hr,
+                ROUND(AVG(avg_)::numeric,      3) AS avg,
+                ROUND(AVG(ops)::numeric,       3) AS ops,
+                ROUND(AVG(ops_plus)::numeric,  2) AS ops_plus,
+                ROUND(AVG(so)::numeric,        2) AS so,
+                COUNT(*)                           AS n
+            FROM (
+                SELECT
+                    (s.year - EXTRACT(YEAR FROM p.birth_date)::int) AS age,
+                    s.war,
+                    s.home_runs   AS hr,
+                    s.batting_avg AS avg_,
+                    s.ops,
+                    s.ops_plus,
+                    s.strikeouts  AS so
+                FROM stats_battingseason s
+                JOIN players_player p ON p.bbref_id = s.player_id
+                WHERE s.plate_appearances >= 100 AND p.birth_date IS NOT NULL
+            ) sub
+            WHERE age BETWEEN 18 AND 60  -- satchel paige loved the game
+            GROUP BY age
+            ORDER BY age
+        """
 
-    # Accumulate lists per (age, metric)
-    age_buckets: dict[int, dict[str, list[float]]] = {}
-    for s in qs:
-        age = s["year"] - s["player__birth_date"].year
-        # satchel page loved the game
-        if not (18 <= age <= 60):
-            continue
-        bucket = age_buckets.setdefault(age, {})
-        for db_key, fe_key in db_to_fe.items():
-            val = s.get(db_key)
-            if val is not None:
-                bucket.setdefault(fe_key, []).append(float(val))
+    with connection.cursor() as cursor:
+        cursor.execute(sql)
+        rows = cursor.fetchall()
+        col_names = [col[0] for col in cursor.description]
 
     result = []
-    for age in sorted(age_buckets):
-        bucket = age_buckets[age]
-        n = len(bucket.get("war", []))
-
-        pt: dict[str, Any] = {"age": age, "n": n}
-        for fe_key, vals in bucket.items():
-            if vals:
-                precision = 3 if fe_key in ("avg", "ops") else 2
-                pt[fe_key] = round(sum(vals) / len(vals), precision)
+    for row in rows:
+        vals = dict(zip(col_names, row))
+        pt: dict[str, Any] = {"age": int(vals["age"]), "n": int(vals["n"])}
+        for k, v in vals.items():
+            if k in ("age", "n"):
+                continue
+            if v is not None:
+                pt[k] = float(v)
         result.append(pt)
 
     return result
