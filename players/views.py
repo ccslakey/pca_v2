@@ -12,7 +12,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.serializers import BaseSerializer
 
-from stats.models import BattingSeason, PitchingSeason, PlayerAward
+from stats.models import BattingSeason, IngestionLog, PitchingSeason, PlayerAward
 from stats.serializers import (
     BattingSeasonSerializer,
     FieldingSeasonSerializer,
@@ -28,6 +28,17 @@ from .similarity import similar_players
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet
+
+def _get_last_updated() -> str | None:
+    last = (
+        IngestionLog.objects
+        .filter(status="success")
+        .order_by("-completed_at")
+        .values_list("completed_at", flat=True)
+        .first()
+    )
+    return last.date().isoformat() if last else None
+
 
 _LEADERBOARD_CACHE_KEY = "leaderboard:v2"
 _LEADERBOARD_CACHE_TTL = 3600  # 1 hour
@@ -302,10 +313,25 @@ class PlayerViewSet(viewsets.ReadOnlyModelViewSet[Player]):
             cache.set(cache_key, data, _AGING_CURVE_CACHE_TTL)
         return Response(data)
 
+    @action(detail=True, url_path="bundle")
+    def bundle(self, request: Request, pk: str | None = None) -> Response:
+        """Return detail + batting + pitching + awards + last_updated in one round trip."""
+        player: Player = self.get_object()
+        batting_qs  = player.batting_seasons.all().order_by("year", "stint")
+        pitching_qs = player.pitching_seasons.all().order_by("year", "stint")
+        awards_qs   = player.awards.all().order_by("-year", "kind")
+        return Response({
+            "detail":       PlayerDetailSerializer(player, context={"request": request}).data,
+            "batting":      BattingSeasonSerializer(batting_qs, many=True).data,
+            "pitching":     PitchingSeasonSerializer(pitching_qs, many=True).data,
+            "awards":       PlayerAwardSerializer(awards_qs, many=True).data,
+            "last_updated": _get_last_updated(),
+        })
+
     @action(detail=False, url_path="featured")
     def featured(self, request: Request) -> Response:
         """Curated comparison groups for the Compare page landing state."""
-        return Response({"trios": _get_featured_trios()})
+        return Response({"trios": _get_featured_trios(), "last_updated": _get_last_updated()})
 
     @action(detail=False, url_path="leaderboard")
     def leaderboard(self, request: Request) -> Response:

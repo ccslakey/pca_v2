@@ -203,6 +203,15 @@ export interface FeaturedTrio {
 
 export interface FeaturedResponse {
   trios: FeaturedTrio[];
+  last_updated: string | null;
+}
+
+export interface PlayerBundle {
+  detail: PlayerDetail;
+  batting: BattingSeason[];
+  pitching: PitchingSeason[];
+  awards: PlayerAward[];
+  last_updated: string | null;
 }
 
 export type ZoneRole    = 'B' | 'P';

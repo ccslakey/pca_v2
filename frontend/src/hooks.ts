@@ -1,17 +1,9 @@
-import { useQuery } from '@tanstack/react-query';
-import { fetchAgingCurve, fetchBattingSeasons, fetchFeatured, fetchLeaderboard, fetchMeta, fetchPitchingSeasons, fetchPlayer, fetchPlayerAwards, fetchPitchZone, fetchSimilarPlayers, searchPlayers } from './api';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchAgingCurve, fetchFeatured, fetchLeaderboard, fetchPlayer, fetchPlayerAwards, fetchPlayerBundle, fetchPitchZone, fetchSimilarPlayers, searchPlayers } from './api';
 import type { ZoneOutcome, ZoneRole, LeaderboardFilters } from './types';
 import type { ChartPlayer } from './types';
 import { initials, posLabel } from './utils/format';
 import { mergeSeasons } from './utils/seasons';
-
-export function useMeta() {
-  return useQuery({
-    queryKey: ['meta'],
-    queryFn: fetchMeta,
-    staleTime: 1000 * 60 * 60, // 1 hour
-  });
-}
 
 export function useFeatured() {
   return useQuery({
@@ -48,24 +40,24 @@ export function usePlayerDetail(bbrefId: string | null) {
   });
 }
 
-function useBattingSeasons(bbrefId: string | null) {
+export function usePlayerBundle(bbrefId: string | null) {
+  const queryClient = useQueryClient();
   return useQuery({
-    queryKey: ['batting', bbrefId],
-    queryFn: () => fetchBattingSeasons(bbrefId!),
+    queryKey: ['playerBundle', bbrefId],
+    queryFn: async () => {
+      const data = await fetchPlayerBundle(bbrefId!);
+      // Populate per-key caches so existing consumers (usePlayerDetail,
+      // usePlayerAwards, etc.) get cache hits instead of firing new requests.
+      queryClient.setQueryData(['player',   bbrefId], data.detail);
+      queryClient.setQueryData(['batting',  bbrefId], data.batting);
+      queryClient.setQueryData(['pitching', bbrefId], data.pitching);
+      queryClient.setQueryData(['awards',   bbrefId], data.awards);
+      return data;
+    },
     enabled: bbrefId != null,
     staleTime: Infinity,
   });
 }
-
-function usePitchingSeasons(bbrefId: string | null) {
-  return useQuery({
-    queryKey: ['pitching', bbrefId],
-    queryFn: () => fetchPitchingSeasons(bbrefId!),
-    enabled: bbrefId != null,
-    staleTime: Infinity,
-  });
-}
-
 
 export function usePitchZone(
   bbrefId: string | null,
@@ -112,30 +104,23 @@ export function useChartPlayer(bbrefId: string | null, colorIndex: number): {
   data: ChartPlayer | undefined;
   isLoading: boolean;
 } {
-  const detail   = usePlayerDetail(bbrefId);
-  const batting  = useBattingSeasons(bbrefId);
-  const pitching = usePitchingSeasons(bbrefId);
-  const awards   = usePlayerAwards(bbrefId);
+  const { data: bundle, isLoading } = usePlayerBundle(bbrefId);
 
-  const isLoading = detail.isLoading || batting.isLoading || pitching.isLoading || awards.isLoading;
-
-  if (!detail.data || !batting.data || !pitching.data || !awards.data) {
+  if (!bundle) {
     return { data: undefined, isLoading };
   }
 
-  const p      = detail.data;
-  const bat    = batting.data;
-  const pit    = pitching.data;
+  const { detail: p, batting: bat, pitching: pit, awards } = bundle;
   const hasBat = bat.length > 0;
   const hasPit = pit.length > 0;
 
-  const debutYear     = p.debut     ? new Date(p.debut).getUTCFullYear()     : null;
-  const finalYear     = p.final_game ? new Date(p.final_game).getUTCFullYear() : null;
+  const debutYear = p.debut      ? new Date(p.debut).getUTCFullYear()      : null;
+  const finalYear = p.final_game ? new Date(p.final_game).getUTCFullYear() : null;
   const years = debutYear && finalYear ? `${debutYear}–${finalYear}` : 'Active';
 
   const pos = posLabel(p.primary_position, p.throws, hasPit);
+  const wp  = p.war_percentile;
 
-  const wp = p.war_percentile;
   const chartPlayer: ChartPlayer = {
     id: p.bbref_id,
     name: `${p.first_name} ${p.last_name}`,
@@ -146,7 +131,7 @@ export function useChartPlayer(bbrefId: string | null, colorIndex: number): {
     seasons: mergeSeasons(bat, pit, p.birth_date),
     isBatter: hasBat,
     isPitcher: hasPit,
-    awards: awards.data,
+    awards,
     birthYear: p.birth_date ? new Date(p.birth_date).getUTCFullYear() : null,
     warPercentile: wp ? { topPct: wp.top_pct, position: wp.position, rank: wp.rank, n: wp.n } : null,
   };

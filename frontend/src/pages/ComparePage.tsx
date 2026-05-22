@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { ChartPlayer, MetricId, XMode } from '../types';
-import { useChartPlayer, useFeatured, useMeta } from '../hooks';
+import { useChartPlayer, useFeatured } from '../hooks';
 import { TopBar } from '../components/layout/TopBar';
 import { ChipBar } from '../components/compare/ChipBar';
 import { MetricToggle } from '../components/compare/MetricToggle';
@@ -66,7 +66,6 @@ export function ComparePage() {
     () => slots.filter(s => s.player).map(s => s.player as ChartPlayer),
     [slots],
   );
-  const { data: meta }     = useMeta();
   const { data: featured } = useFeatured();
 
   // First-load: if URL has no ?compare=, auto-select a random featured trio.
@@ -174,7 +173,7 @@ export function ComparePage() {
 
         <p className="footer-note">
           Data: Baseball Reference · All WAR values are bWAR
-          {meta?.last_updated ? ` · Updated ${meta.last_updated}` : ''}
+          {featured?.last_updated ? ` · Updated ${featured.last_updated}` : ''}
           {' · '}<a href="/methodology" style={{ color: 'inherit', opacity: 0.7 }}>Methodology</a>
         </p>
       </div>

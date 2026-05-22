@@ -1,6 +1,7 @@
 import type {
   AgingCurvePoint,
   PaginatedResponse,
+  PlayerBundle,
   PlayerSummary,
   PlayerDetail,
   BattingSeason,
@@ -31,6 +32,10 @@ export function searchPlayers(q: string): Promise<PaginatedResponse<PlayerSummar
 
 export function fetchPlayer(bbrefId: string): Promise<PlayerDetail> {
   return get<PlayerDetail>(`/players/${bbrefId}/`);
+}
+
+export function fetchPlayerBundle(bbrefId: string): Promise<PlayerBundle> {
+  return get<PlayerBundle>(`/players/${bbrefId}/bundle/`);
 }
 
 export function fetchBattingSeasons(bbrefId: string): Promise<BattingSeason[]> {
@@ -64,10 +69,6 @@ export function fetchLeaderboard(filters: LeaderboardFilters = {}): Promise<Lead
   if (filters.page)      params.set('page', String(filters.page));
   if (filters.page_size) params.set('page_size', String(filters.page_size));
   return get<LeaderboardResponse>(`/players/leaderboard/?${params}`);
-}
-
-export function fetchMeta(): Promise<{ last_updated: string | null }> {
-  return get<{ last_updated: string | null }>('/meta/');
 }
 
 export function fetchFeatured(): Promise<FeaturedResponse> {

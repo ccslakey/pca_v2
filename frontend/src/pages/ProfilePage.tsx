@@ -3,10 +3,10 @@ import { useState } from "react";
 import { useParams } from "react-router-dom";
 import {
   useChartPlayer,
+  usePlayerBundle,
   useSimilarPlayers,
   usePlayerAwards,
   usePlayerDetail,
-  useMeta,
 } from "../hooks";
 import { METRICS } from "../constants";
 import type { MetricId } from "../types";
@@ -30,10 +30,10 @@ export function ProfilePage() {
   const [tab, setTab] = useState<"standard" | "advanced">("standard");
 
   const { data: player, isLoading } = useChartPlayer(bbrefId ?? null, 0);
+  const { data: bundle } = usePlayerBundle(bbrefId ?? null);
   const { data: similar } = useSimilarPlayers(bbrefId ?? null);
   const { data: awards = [] } = usePlayerAwards(bbrefId ?? null);
   const { data: detail } = usePlayerDetail(bbrefId ?? null);
-  const { data: meta } = useMeta();
 
   if (isLoading || !player) {
     return <ProfilePageSkeleton />;
@@ -143,7 +143,7 @@ export function ProfilePage() {
 
         <p className="footer-note">
           Data: Baseball Reference · All WAR values are bWAR
-          {meta?.last_updated ? ` · Updated ${meta.last_updated}` : ""}
+          {bundle?.last_updated ? ` · Updated ${bundle.last_updated}` : ""}
           {" · "}
           <a href="/methodology" style={{ color: "inherit", opacity: 0.7 }}>
             Methodology
