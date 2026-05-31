@@ -189,12 +189,29 @@ export interface SimilarPlayersResponse {
   pitchers: SimilarPlayer[];
 }
 
+export interface NarrativeToolCall {
+  name: string;
+  input: Record<string, unknown>;
+}
+
+export interface NarrativeTrace {
+  mode?: 'agentic' | 'single_shot';
+  model_calls?: number;
+  tool_calls?: NarrativeToolCall[];
+  repairs?: number;
+  verification?: 'passed' | 'failed' | null;
+  input_tokens?: number;
+  output_tokens?: number;
+  cache_read_tokens?: number;
+}
+
 export interface NarrativeResponse {
   text: string;
   source: 'llm' | 'template';
   verified: boolean;
   model: string | null;
   flagged?: string[];
+  trace?: NarrativeTrace;
   generated_at: string;
 }
 

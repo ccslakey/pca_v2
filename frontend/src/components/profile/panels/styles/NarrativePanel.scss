@@ -1,8 +1,12 @@
 .narrative-panel {
+  .panel-header {
+    align-items: center;
+  }
+
   .narrative-text {
     margin: 0;
     font-size: 14px;
-    line-height: 1.6;
+    line-height: 1.62;
     color: var(--text-2);
   }
 
@@ -10,5 +14,94 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+  }
+
+  // --- A: source badge + verified marker ---
+
+  .narrative-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-left: 8px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    vertical-align: middle;
+    cursor: help;
+
+    &.is-ai {
+      color: var(--team-color, var(--accent));
+      background: color-mix(in srgb, var(--team-color, var(--accent)) 12%, transparent);
+      border: 1px solid color-mix(in srgb, var(--team-color, var(--accent)) 30%, transparent);
+    }
+    &.is-template {
+      color: var(--text-3);
+      background: var(--bg-3);
+      border: 1px solid var(--line);
+    }
+  }
+
+  .narrative-verified {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--accent-2, var(--accent));
+    cursor: help;
+    white-space: nowrap;
+  }
+
+  // --- D: generation trace disclosure ---
+
+  .narrative-trace {
+    margin-top: 12px;
+    border-top: 1px solid var(--line-soft, var(--line));
+    padding-top: 10px;
+  }
+
+  .narrative-trace-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-3);
+    transition: color 0.12s ease;
+
+    &:hover { color: var(--text-1); }
+
+    svg {
+      transition: transform 0.15s ease;
+      &.open { transform: rotate(90deg); }
+    }
+  }
+
+  .narrative-trace-body {
+    margin: 10px 0 0;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 14px;
+    font-size: 11px;
+
+    div { display: contents; }
+
+    dt {
+      color: var(--text-3);
+      font-family: var(--font-mono);
+      white-space: nowrap;
+    }
+    dd {
+      margin: 0;
+      color: var(--text-2);
+      &.ok { color: var(--accent-2, var(--accent)); }
+      &.mono { font-family: var(--font-mono); }
+    }
   }
 }
