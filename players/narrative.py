@@ -14,6 +14,7 @@ point, no view logic here.
 from __future__ import annotations
 
 import json
+import logging
 import re
 from typing import Any
 
@@ -23,6 +24,8 @@ from django.utils import timezone
 from . import llm
 from .models import Player
 from .similarity import similar_players
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Fact assembly — the only thing the model is allowed to see
@@ -291,16 +294,26 @@ SYSTEM_PROMPT_TOOLS = (
     "describe it accurately in the project's own terms.\n\n" + _RULES
 )
 
-_MAX_TOOL_ITERATIONS = 5
+# Agent loop guardrails.
+_MAX_MODEL_CALLS = 8   # hard cap on round-trips to the model
+_MAX_TOOL_CALLS = 8    # hard cap on tool executions per narrative
+_MAX_REPAIRS = 1       # verification-failure revisions before falling back
 
 
-def _result(text: str, source: str, model: str | None, flagged: list[str] | None = None) -> dict[str, Any]:
+def _result(
+    text: str,
+    source: str,
+    model: str | None,
+    flagged: list[str] | None = None,
+    trace: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     return {
         "text": text,
         "source": source,          # "llm" | "template"
         "verified": True,          # we never serve an unverified number
         "model": model,
         "flagged": flagged or [],  # numbers the LLM tried to use that we rejected
+        "trace": trace or {},      # observability: tools called, calls, repairs, tokens
         "generated_at": timezone.now().isoformat(),
     }
 
@@ -327,6 +340,8 @@ def _generate_single_shot(facts: dict[str, Any]) -> dict[str, Any]:
     """Step 1: hand the model the full facts payload in one call."""
     allowed = allowed_numbers(facts)
     user = json.dumps(facts)
+    trace: dict[str, Any] = {"mode": "single_shot", "model_calls": 1, "repairs": 0}
+
     text = llm.complete_text(SYSTEM_PROMPT, user)
     bad = verify_numbers(text, allowed)
     if bad:
@@ -336,9 +351,13 @@ def _generate_single_shot(facts: dict[str, Any]) -> dict[str, Any]:
         )
         text = llm.complete_text(SYSTEM_PROMPT, repair)
         bad = verify_numbers(text, allowed)
+        trace["model_calls"] = 2
+        trace["repairs"] = 1
     if bad:
-        return _result(render_template(facts), "template", None, flagged=bad)
-    return _result(text, "llm", settings.NARRATIVE_MODEL)
+        trace["verification"] = "failed"
+        return _result(render_template(facts), "template", None, flagged=bad, trace=trace)
+    trace["verification"] = "passed"
+    return _result(text, "llm", settings.NARRATIVE_MODEL, trace=trace)
 
 
 def _collect_string_numbers(obj: Any, allowed: set[float]) -> None:
@@ -370,14 +389,35 @@ def _text_of(content: list) -> str:
     return "".join(b.text for b in content if getattr(b, "type", None) == "text").strip()
 
 
+def _add_usage(trace: dict[str, Any], resp: Any) -> None:
+    """Fold an Anthropic response's token usage into the trace, if present."""
+    usage = getattr(resp, "usage", None)
+    if usage is None:
+        return
+    trace["input_tokens"] = trace.get("input_tokens", 0) + getattr(usage, "input_tokens", 0)
+    trace["output_tokens"] = trace.get("output_tokens", 0) + getattr(usage, "output_tokens", 0)
+    cached = getattr(usage, "cache_read_input_tokens", 0)
+    if cached:
+        trace["cache_read_tokens"] = trace.get("cache_read_tokens", 0) + cached
+
+
 def _generate_agentic(player: Player, facts: dict[str, Any]) -> dict[str, Any]:
-    """Step 2: the model gathers its own facts via tool calls. The narrative is
-    verified against the union of data the tools actually returned — if the
-    agent cites a stat it never retrieved, that number is flagged."""
+    """Step 4: the model plans, gathers its own facts via tools, drafts, and is
+    held to a verify→repair loop. The narrative is verified against the union of
+    data the tools actually returned; on a failure the flagged numbers are fed
+    back for revision (bounded by _MAX_REPAIRS) before falling back to the
+    deterministic template. The returned `trace` records what the agent did."""
     from . import narrative_tools
 
     facts_cache: dict[str, Any] = {}
     allowed: set[float] = set()
+    trace: dict[str, Any] = {
+        "mode": "agentic",
+        "model_calls": 0,
+        "tool_calls": [],
+        "repairs": 0,
+        "verification": None,
+    }
     messages: list[dict[str, Any]] = [
         {
             "role": "user",
@@ -386,27 +426,49 @@ def _generate_agentic(player: Player, facts: dict[str, Any]) -> dict[str, Any]:
         }
     ]
 
-    text = ""
-    for _ in range(_MAX_TOOL_ITERATIONS):
+    def finish(text: str, source: str, model: str | None, flagged: list[str] | None = None) -> dict[str, Any]:
+        trace["verification"] = "passed" if source == "llm" else "failed"
+        logger.info(
+            "narrative agent player=%s source=%s model_calls=%s tools=%s repairs=%s flagged=%s",
+            player.bbref_id, source, trace["model_calls"],
+            [t["name"] for t in trace["tool_calls"]], trace["repairs"], flagged or [],
+        )
+        return _result(text, source, model, flagged=flagged, trace=trace)
+
+    for _ in range(_MAX_MODEL_CALLS):
         resp = llm.complete(SYSTEM_PROMPT_TOOLS, messages, tools=narrative_tools.TOOLS)
+        trace["model_calls"] += 1
+        _add_usage(trace, resp)
         tool_uses = [b for b in resp.content if getattr(b, "type", None) == "tool_use"]
         text = _text_of(resp.content)
         messages.append({"role": "assistant", "content": resp.content})
 
-        if not tool_uses:
-            break
+        if tool_uses:
+            results = []
+            for tu in tool_uses:
+                if len(trace["tool_calls"]) >= _MAX_TOOL_CALLS:
+                    out: dict[str, Any] = {"error": "tool-call budget exhausted"}
+                else:
+                    out = narrative_tools.run_tool(tu.name, tu.input, facts_cache)
+                    trace["tool_calls"].append({"name": tu.name, "input": tu.input})
+                    _accumulate_allowed(out, allowed)
+                results.append({"type": "tool_result", "tool_use_id": tu.id, "content": json.dumps(out)})
+            messages.append({"role": "user", "content": results})
+            continue
 
-        results = []
-        for tu in tool_uses:
-            out = narrative_tools.run_tool(tu.name, tu.input, facts_cache)
-            _accumulate_allowed(out, allowed)
-            results.append({"type": "tool_result", "tool_use_id": tu.id, "content": json.dumps(out)})
-        messages.append({"role": "user", "content": results})
+        # No tool calls: the model produced its final draft. Verify it.
+        bad = verify_numbers(text, allowed)
+        if not bad:
+            return finish(text, "llm", settings.NARRATIVE_MODEL)
+        if trace["repairs"] < _MAX_REPAIRS:
+            trace["repairs"] += 1
+            messages.append({
+                "role": "user",
+                "content": f"These numbers are not supported by the data you retrieved: {bad}. "
+                "Revise using only retrieved figures — call more tools if you need the data.",
+            })
+            continue
+        return finish(render_template(facts), "template", None, flagged=bad)
 
-    if not text:
-        return _result(render_template(facts), "template", None)
-
-    bad = verify_numbers(text, allowed)
-    if bad:
-        return _result(render_template(facts), "template", None, flagged=bad)
-    return _result(text, "llm", settings.NARRATIVE_MODEL)
+    # Loop budget exhausted without a verified draft.
+    return finish(render_template(facts), "template", None)

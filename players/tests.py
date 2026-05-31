@@ -810,19 +810,52 @@ class TestAgenticNarrative(APITestCase):
     @override_settings(LLM_ENABLED=True, NARRATIVE_USE_TOOLS=True)
     def test_citing_unretrieved_stat_is_flagged(self):
         # Model writes a number without ever calling a tool — nothing is grounded.
-        responses = [_Resp([_Block("text", text="He hit 73 home runs in 2001.")])]
-        with patch.object(narrative.llm, "complete", side_effect=responses):
+        # Draft fails, repair (1) fails too → deterministic fallback with the flag.
+        bad = _Resp([_Block("text", text="He hit 73 home runs in 2001.")])
+        with patch.object(narrative.llm, "complete", side_effect=[bad, bad]) as m:
             result = generate_narrative(self.player)
         self.assertEqual(result["source"], "template")
         self.assertIn("73", result["flagged"])
+        self.assertEqual(result["trace"]["repairs"], 1)
+        self.assertEqual(m.call_count, 2)  # draft + one repair
 
     @override_settings(LLM_ENABLED=True, NARRATIVE_USE_TOOLS=True)
-    def test_no_text_produced_falls_back(self):
-        # Agent loops without ever emitting prose → deterministic fallback.
-        loop = [_Resp([_Block("tool_use", name="get_career_totals", input={"player_id": "ruthba01"}, id="t1")])]
-        with patch.object(narrative.llm, "complete", side_effect=loop * 6):
+    def test_repair_recovers_after_flagged_draft(self):
+        # Draft cites an unretrieved number; after the flag is fed back, the model
+        # revises to a grounded sentence and the LLM output is served.
+        responses = [
+            _Resp([_Block("tool_use", name="get_career_totals", input={"player_id": "ruthba01"}, id="t1")]),
+            _Resp([_Block("text", text="He hit 73 home runs.")]),          # unsupported → flagged
+            _Resp([_Block("text", text="He compiled 11.5 WAR with 54 home runs.")]),  # grounded
+        ]
+        with patch.object(narrative.llm, "complete", side_effect=responses):
+            result = generate_narrative(self.player)
+        self.assertEqual(result["source"], "llm")
+        self.assertEqual(result["trace"]["repairs"], 1)
+
+    @override_settings(LLM_ENABLED=True, NARRATIVE_USE_TOOLS=True)
+    def test_trace_records_tool_calls(self):
+        responses = [
+            _Resp([_Block("tool_use", name="get_career_totals", input={"player_id": "ruthba01"}, id="t1")]),
+            _Resp([_Block("text", text="Babe Ruth compiled 11.5 WAR.")]),
+        ]
+        with patch.object(narrative.llm, "complete", side_effect=responses):
+            result = generate_narrative(self.player)
+        trace = result["trace"]
+        self.assertEqual(trace["mode"], "agentic")
+        self.assertEqual([t["name"] for t in trace["tool_calls"]], ["get_career_totals"])
+        self.assertEqual(trace["model_calls"], 2)
+        self.assertEqual(trace["verification"], "passed")
+
+    @override_settings(LLM_ENABLED=True, NARRATIVE_USE_TOOLS=True)
+    def test_model_call_budget_exhausts_to_template(self):
+        # Agent loops forever asking for tools, never writes prose → hits the
+        # model-call cap and falls back deterministically.
+        loop = _Resp([_Block("tool_use", name="get_career_totals", input={"player_id": "ruthba01"}, id="t1")])
+        with patch.object(narrative.llm, "complete", return_value=loop) as m:
             result = generate_narrative(self.player)
         self.assertEqual(result["source"], "template")
+        self.assertEqual(m.call_count, 8)  # _MAX_MODEL_CALLS
 
 
 # ---------------------------------------------------------------------------
