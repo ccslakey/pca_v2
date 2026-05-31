@@ -8,13 +8,17 @@ the narrative agent can call it safely regardless of configuration.
 """
 from __future__ import annotations
 
+import hashlib
 from typing import Any
 
 from django.conf import settings
+from django.core.cache import cache
 from pgvector.django import CosineDistance
 
 from . import embeddings
 from .models import MethodologyChunk
+
+_CACHE_TTL = 86_400  # results are static between re-indexes
 
 
 def search_methodology(query: str, k: int = 3) -> list[dict[str, Any]]:
@@ -22,6 +26,16 @@ def search_methodology(query: str, k: int = 3) -> list[dict[str, Any]]:
         return []
     if not MethodologyChunk.objects.exists():
         return []
+
+    # Cache by query so an interactive surface (metric explainers) embeds each
+    # distinct query at most once — important under Voyage's free-tier limits.
+    # Hash the query so the key is memcached-safe (no spaces / length limits).
+    digest = hashlib.md5(f"{k}:{query.strip().lower()}".encode()).hexdigest()
+    cache_key = f"rag:v1:{digest}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     try:
         qvec = embeddings.embed_query(query)
     except Exception:
@@ -32,7 +46,7 @@ def search_methodology(query: str, k: int = 3) -> list[dict[str, Any]]:
         .annotate(distance=CosineDistance("embedding", qvec))
         .order_by("distance")[:k]
     )
-    return [
+    results = [
         {
             "slug": c.slug,
             "title": c.title,
@@ -41,3 +55,5 @@ def search_methodology(query: str, k: int = 3) -> list[dict[str, Any]]:
         }
         for c in rows
     ]
+    cache.set(cache_key, results, _CACHE_TTL)
+    return results

@@ -189,6 +189,18 @@ export interface SimilarPlayersResponse {
   pitchers: SimilarPlayer[];
 }
 
+export interface MethodologyResult {
+  slug: string;
+  title: string;
+  content: string;
+  score: number;
+}
+
+export interface MethodologySearchResponse {
+  query: string;
+  results: MethodologyResult[];
+}
+
 export interface NarrativeToolCall {
   name: string;
   input: Record<string, unknown>;

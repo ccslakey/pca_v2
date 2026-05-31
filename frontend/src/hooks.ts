@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchAgingCurve, fetchFeatured, fetchLeaderboard, fetchNarrative, fetchPlayer, fetchPlayerAwards, fetchPlayerBundle, fetchPitchZone, fetchSimilarPlayers, searchPlayers } from './api';
+import { fetchAgingCurve, fetchFeatured, fetchLeaderboard, fetchMethodologySearch, fetchNarrative, fetchPlayer, fetchPlayerAwards, fetchPlayerBundle, fetchPitchZone, fetchSimilarPlayers, searchPlayers } from './api';
 import type { ZoneOutcome, ZoneRole, LeaderboardFilters } from './types';
 import type { ChartPlayer } from './types';
 import { initials, posLabel } from './utils/format';
@@ -105,6 +105,15 @@ export function useNarrative(bbrefId: string | null) {
     queryFn: () => fetchNarrative(bbrefId!),
     enabled: bbrefId != null,
     staleTime: Infinity, // server caches per data version
+  });
+}
+
+export function useMethodologySearch(query: string | null) {
+  return useQuery({
+    queryKey: ['methodology', query],
+    queryFn: () => fetchMethodologySearch(query!),
+    enabled: query != null && query.length > 0,
+    staleTime: Infinity, // corpus is static between re-indexes
   });
 }
 

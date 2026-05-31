@@ -935,6 +935,13 @@ class TestMethodologySearch(APITestCase):
         with patch.object(rag.embeddings, "embed_query", side_effect=RuntimeError("boom")):
             self.assertEqual(rag.search_methodology("x"), [])
 
+    def test_results_cached_per_query(self):
+        # A repeated query is served from cache — no second embed (free-tier safe).
+        with patch.object(rag.embeddings, "embed_query", return_value=_unit_vec(0)) as m:
+            rag.search_methodology("what is war", k=2)
+            rag.search_methodology("what is war", k=2)
+        self.assertEqual(m.call_count, 1)
+
 
 class TestMethodologySearchTool(APITestCase):
     @override_settings(RAG_ENABLED=True)

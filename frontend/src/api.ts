@@ -16,6 +16,7 @@ import type {
   LeaderboardResponse,
   LeaderboardFilters,
   NarrativeResponse,
+  MethodologySearchResponse,
 } from './types';
 
 const BASE = '/api';
@@ -61,6 +62,10 @@ export function fetchPlayerAwards(bbrefId: string): Promise<PlayerAward[]> {
 
 export function fetchNarrative(bbrefId: string): Promise<NarrativeResponse> {
   return get<NarrativeResponse>(`/players/${bbrefId}/narrative/`);
+}
+
+export function fetchMethodologySearch(query: string): Promise<MethodologySearchResponse> {
+  return get<MethodologySearchResponse>(`/players/methodology_search/?q=${encodeURIComponent(query)}`);
 }
 
 export function fetchLeaderboard(filters: LeaderboardFilters = {}): Promise<LeaderboardResponse> {
