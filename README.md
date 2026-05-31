@@ -178,6 +178,16 @@ cd frontend && npm test
 
 Backend tests use a temporary database and rolled-back transactions — they do not touch your dev database.
 
+### Narrative eval harness
+
+Scores the narrative agent — hallucination rate (verifier-based), tool-selection
+accuracy, and RAG hit-rate@k — over a fixed player/question sample:
+
+```bash
+python pipeline/eval_narrative.py                  # scorecard (degrades gracefully without keys)
+python pipeline/eval_narrative.py --max-hallucination 0.0   # CI gate: exit 1 if any hallucination slips through
+```
+
 ---
 
 ## Documentation
