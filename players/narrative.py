@@ -276,22 +276,26 @@ _RULES = (
     "or approximate a figure.\n"
     "- Do not round to 'over 500' style approximations — cite the exact figures.\n"
     "- Refer to standout seasons by their year.\n"
-    "- Be plain and direct. No hype, no fabricated narrative detail."
+    "- Be plain and direct. No hype, no fabricated narrative detail.\n"
+    "- Return plain prose only: no markdown, headings, titles, or bullet points. "
+    "Do not restate the player's name as a title — just write the sentences."
 )
+
+_LENGTH = "Write 2-3 sentences, roughly 60 words."
 
 SYSTEM_PROMPT = (
     "You are a baseball analyst writing a concise, factual scouting summary of a "
     "player's career. You will be given a JSON object of that player's real "
-    "statistics. Write 2-3 sentences.\n\n" + _RULES
+    f"statistics. {_LENGTH}\n\n" + _RULES
 )
 
 SYSTEM_PROMPT_TOOLS = (
     "You are a baseball analyst writing a concise, factual scouting summary of a "
-    "player's career. First call the provided tools to retrieve that player's "
-    "statistics, then write 2-3 sentences. Call get_career_totals at minimum; "
-    "call get_season_log, get_awards, or get_similar_players if they add value. "
-    "If you mention a metric like OPS+ or WAR, you may call search_methodology to "
-    "describe it accurately in the project's own terms.\n\n" + _RULES
+    f"player's career. First call the provided tools to retrieve that player's "
+    f"statistics, then write the summary. {_LENGTH} Call get_career_totals at "
+    "minimum; call get_season_log, get_awards, or get_similar_players if they add "
+    "value. If you mention a metric like OPS+ or WAR, you may call "
+    "search_methodology to describe it accurately in the project's own terms.\n\n" + _RULES
 )
 
 # Agent loop guardrails.
