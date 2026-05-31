@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchAgingCurve, fetchFeatured, fetchLeaderboard, fetchPlayer, fetchPlayerAwards, fetchPlayerBundle, fetchPitchZone, fetchSimilarPlayers, searchPlayers } from './api';
+import { fetchAgingCurve, fetchFeatured, fetchLeaderboard, fetchNarrative, fetchPlayer, fetchPlayerAwards, fetchPlayerBundle, fetchPitchZone, fetchSimilarPlayers, searchPlayers } from './api';
 import type { ZoneOutcome, ZoneRole, LeaderboardFilters } from './types';
 import type { ChartPlayer } from './types';
 import { initials, posLabel } from './utils/format';
@@ -96,6 +96,15 @@ export function useSimilarPlayers(bbrefId: string | null) {
     queryFn: () => fetchSimilarPlayers(bbrefId!),
     enabled: bbrefId != null,
     staleTime: Infinity,
+  });
+}
+
+export function useNarrative(bbrefId: string | null) {
+  return useQuery({
+    queryKey: ['narrative', bbrefId],
+    queryFn: () => fetchNarrative(bbrefId!),
+    enabled: bbrefId != null,
+    staleTime: Infinity, // server caches per data version
   });
 }
 

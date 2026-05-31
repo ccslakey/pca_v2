@@ -15,6 +15,7 @@ import type {
   ZoneResponse,
   LeaderboardResponse,
   LeaderboardFilters,
+  NarrativeResponse,
 } from './types';
 
 const BASE = '/api';
@@ -56,6 +57,10 @@ export function fetchSimilarPlayers(bbrefId: string): Promise<SimilarPlayersResp
 
 export function fetchPlayerAwards(bbrefId: string): Promise<PlayerAward[]> {
   return get<PlayerAward[]>(`/players/${bbrefId}/awards/`);
+}
+
+export function fetchNarrative(bbrefId: string): Promise<NarrativeResponse> {
+  return get<NarrativeResponse>(`/players/${bbrefId}/narrative/`);
 }
 
 export function fetchLeaderboard(filters: LeaderboardFilters = {}): Promise<LeaderboardResponse> {

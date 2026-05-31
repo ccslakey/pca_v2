@@ -1,0 +1,14 @@
+.narrative-panel {
+  .narrative-text {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-2);
+  }
+
+  .narrative-skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+}

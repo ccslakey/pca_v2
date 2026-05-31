@@ -580,3 +580,344 @@ class TestLeaderboardRows(APITestCase):
         rows = _build_leaderboard_rows()
         row = next(r for r in rows if r['bbref_id'] == 'ispitch01')
         self.assertTrue(row['is_pitcher'])
+
+
+# ---------------------------------------------------------------------------
+# Grounded narrative (LLM summary feature)
+# ---------------------------------------------------------------------------
+
+from unittest.mock import patch  # noqa: E402
+
+from django.test import SimpleTestCase, override_settings  # noqa: E402
+
+from players import narrative  # noqa: E402
+from players.narrative import (  # noqa: E402
+    allowed_numbers,
+    build_facts,
+    generate_narrative,
+    render_template,
+    verify_numbers,
+)
+
+
+class TestVerifyNumbers(SimpleTestCase):
+    """The anti-hallucination check: every emitted number must trace to data."""
+
+    def test_clean_text_passes(self):
+        allowed = {714.0, 162.1, 1927.0, 0.342}
+        self.assertEqual(
+            verify_numbers("714 HR and 162.1 WAR in 1927, hitting .342", allowed), []
+        )
+
+    def test_flags_invented_number(self):
+        self.assertEqual(verify_numbers("He hit 800 home runs", {714.0}), ["800"])
+
+    def test_comma_grouping_normalized(self):
+        self.assertEqual(verify_numbers("racked up 1,500 hits", {1500.0}), [])
+
+    def test_legitimate_rounding_accepted(self):
+        # Model rounds a .342 average to .34 — still grounded.
+        self.assertEqual(verify_numbers("a .34 hitter", {0.342}), [])
+
+    def test_wrong_rounding_flagged(self):
+        self.assertEqual(verify_numbers("a .35 hitter", {0.342}), [".35"])
+
+    def test_league_average_baseline_is_safe(self):
+        # 100 is the OPS+/ERA+ league-average constant, allowed without a fact.
+        self.assertEqual(verify_numbers("an OPS+ above the 100 baseline", set()), [])
+
+    def test_integer_rounding_of_war(self):
+        # 162.7 WAR may be cited as "163" — acceptable rounding to whole number.
+        self.assertEqual(verify_numbers("163 career WAR", {162.7}), [])
+
+
+class TestNarrativeFacts(APITestCase):
+    def setUp(self):
+        cache.clear()
+        self.player = make_player(
+            "ruthba01", "Babe", "Ruth",
+            primary_position="RF",
+            debut=datetime.date(1914, 5, 6),
+            final_game=datetime.date(1935, 5, 30),
+        )
+        self.player.birth_date = datetime.date(1895, 2, 6)
+        self.player.save()
+        add_batting(self.player, 1920, war=11.5, hr=54, avg=0.376, ops=1.382)
+        add_batting(self.player, 1921, war=12.9, hr=59, avg=0.378, ops=1.359)
+        PlayerAward.objects.create(player=self.player, year=1923, kind="mvp", league="AL")
+
+    def test_facts_include_career_aggregates(self):
+        facts = build_facts(self.player)
+        self.assertEqual(facts["bio"]["name"], "Babe Ruth")
+        self.assertEqual(facts["batting"]["career_hr"], 113)
+        self.assertAlmostEqual(facts["career_war_total"], 24.4)
+        self.assertEqual(facts["batting"]["peak_year"], 1921)
+        self.assertEqual(facts["awards"]["mvp"]["count"], 1)
+
+    def test_allowed_numbers_include_active_years(self):
+        facts = build_facts(self.player)
+        allowed = allowed_numbers(facts)
+        self.assertIn(1925.0, allowed)  # mid-career year, safe to mention
+
+    def test_template_is_fully_grounded(self):
+        # The fallback can never emit a number it didn't get from the data.
+        facts = build_facts(self.player)
+        text = render_template(facts)
+        self.assertEqual(verify_numbers(text, allowed_numbers(facts)), [])
+        self.assertIn("Babe Ruth", text)
+
+
+class TestGenerateNarrative(APITestCase):
+    def setUp(self):
+        cache.clear()
+        self.player = make_player(
+            "ruthba01", "Babe", "Ruth", primary_position="RF",
+            debut=datetime.date(1914, 5, 6), final_game=datetime.date(1935, 5, 30),
+        )
+        add_batting(self.player, 1920, war=11.5, hr=54, avg=0.376, ops=1.382)
+
+    def test_no_key_uses_template(self):
+        # LLM_ENABLED defaults to False in tests — no SDK, no network.
+        result = generate_narrative(self.player)
+        self.assertEqual(result["source"], "template")
+        self.assertTrue(result["verified"])
+        self.assertIsNone(result["model"])
+
+    @override_settings(LLM_ENABLED=True, NARRATIVE_USE_TOOLS=False, NARRATIVE_MODEL="claude-haiku-4-5-20251001")
+    def test_clean_llm_output_is_served(self):
+        with patch.object(narrative.llm, "complete_text", return_value="Babe Ruth was a dominant slugger."):
+            result = generate_narrative(self.player)
+        self.assertEqual(result["source"], "llm")
+        self.assertEqual(result["model"], "claude-haiku-4-5-20251001")
+
+    @override_settings(LLM_ENABLED=True, NARRATIVE_USE_TOOLS=False)
+    def test_hallucinated_number_falls_back_to_template(self):
+        # 999 HR is not in the data; after a failed repair we serve the template.
+        with patch.object(narrative.llm, "complete_text", return_value="He hit 999 home runs.") as m:
+            result = generate_narrative(self.player)
+        self.assertEqual(result["source"], "template")
+        self.assertIn("999", result["flagged"])
+        self.assertEqual(m.call_count, 2)  # initial draft + one repair attempt
+
+    @override_settings(LLM_ENABLED=True, NARRATIVE_USE_TOOLS=False)
+    def test_api_error_falls_back_to_template(self):
+        with patch.object(narrative.llm, "complete_text", side_effect=RuntimeError("boom")):
+            result = generate_narrative(self.player)
+        self.assertEqual(result["source"], "template")
+        self.assertTrue(result["verified"])
+
+
+class TestNarrativeEndpoint(APITestCase):
+    def setUp(self):
+        cache.clear()
+        self.player = make_player(
+            "ruthba01", "Babe", "Ruth", primary_position="RF",
+            debut=datetime.date(1914, 5, 6), final_game=datetime.date(1935, 5, 30),
+        )
+        add_batting(self.player, 1920, war=11.5, hr=54, avg=0.376, ops=1.382)
+        self.url = reverse("player-narrative", kwargs={"pk": "ruthba01"})
+
+    def test_returns_200_with_expected_shape(self):
+        r = self.client.get(self.url)
+        self.assertEqual(r.status_code, 200)
+        for key in ("text", "source", "verified", "model", "generated_at"):
+            self.assertIn(key, r.data)
+
+    def test_404_for_unknown_player(self):
+        r = self.client.get(reverse("player-narrative", kwargs={"pk": "nobody00"}))
+        self.assertEqual(r.status_code, 404)
+
+
+# ---------------------------------------------------------------------------
+# Tool-calling agent (step 2)
+# ---------------------------------------------------------------------------
+
+from players import narrative_tools  # noqa: E402
+
+
+class _Block:
+    """Stand-in for an Anthropic content block (text or tool_use)."""
+
+    def __init__(self, type, text=None, name=None, input=None, id=None):
+        self.type = type
+        self.text = text
+        self.name = name
+        self.input = input
+        self.id = id
+
+
+class _Resp:
+    def __init__(self, content):
+        self.content = content
+
+
+class TestNarrativeTools(APITestCase):
+    def setUp(self):
+        cache.clear()
+        self.player = make_player(
+            "ruthba01", "Babe", "Ruth", primary_position="RF",
+            debut=datetime.date(1914, 5, 6), final_game=datetime.date(1935, 5, 30),
+        )
+        add_batting(self.player, 1920, war=11.5, hr=54, avg=0.376, ops=1.382)
+        PlayerAward.objects.create(player=self.player, year=1923, kind="mvp", league="AL")
+
+    def test_get_career_totals_shape(self):
+        out = narrative_tools.run_tool("get_career_totals", {"player_id": "ruthba01"}, {})
+        self.assertEqual(out["bio"]["name"], "Babe Ruth")
+        self.assertEqual(out["batting"]["career_hr"], 54)
+
+    def test_get_awards(self):
+        out = narrative_tools.run_tool("get_awards", {"player_id": "ruthba01"}, {})
+        self.assertEqual(out["awards"]["mvp"]["count"], 1)
+
+    def test_unknown_player_returns_error(self):
+        out = narrative_tools.run_tool("get_career_totals", {"player_id": "nobody00"}, {})
+        self.assertIn("error", out)
+
+    def test_unknown_tool_returns_error(self):
+        out = narrative_tools.run_tool("get_nonsense", {"player_id": "ruthba01"}, {})
+        self.assertIn("error", out)
+
+    def test_facts_cache_resolves_once(self):
+        cache_dict = {}
+        narrative_tools.run_tool("get_career_totals", {"player_id": "ruthba01"}, cache_dict)
+        narrative_tools.run_tool("get_awards", {"player_id": "ruthba01"}, cache_dict)
+        self.assertEqual(list(cache_dict.keys()), ["ruthba01"])
+
+
+class TestAgenticNarrative(APITestCase):
+    def setUp(self):
+        cache.clear()
+        self.player = make_player(
+            "ruthba01", "Babe", "Ruth", primary_position="RF",
+            debut=datetime.date(1914, 5, 6), final_game=datetime.date(1935, 5, 30),
+        )
+        add_batting(self.player, 1920, war=11.5, hr=54, avg=0.376, ops=1.382)
+
+    @override_settings(LLM_ENABLED=True, NARRATIVE_USE_TOOLS=True, NARRATIVE_MODEL="claude-haiku-4-5-20251001")
+    def test_agent_gathers_facts_then_writes(self):
+        # Turn 1: model asks for career totals. Turn 2: writes using a returned number.
+        responses = [
+            _Resp([_Block("tool_use", name="get_career_totals", input={"player_id": "ruthba01"}, id="t1")]),
+            _Resp([_Block("text", text="Babe Ruth compiled 11.5 WAR with 54 home runs.")]),
+        ]
+        with patch.object(narrative.llm, "complete", side_effect=responses) as m:
+            result = generate_narrative(self.player)
+        self.assertEqual(result["source"], "llm")
+        self.assertEqual(result["model"], "claude-haiku-4-5-20251001")
+        self.assertEqual(m.call_count, 2)
+
+    @override_settings(LLM_ENABLED=True, NARRATIVE_USE_TOOLS=True)
+    def test_citing_unretrieved_stat_is_flagged(self):
+        # Model writes a number without ever calling a tool — nothing is grounded.
+        responses = [_Resp([_Block("text", text="He hit 73 home runs in 2001.")])]
+        with patch.object(narrative.llm, "complete", side_effect=responses):
+            result = generate_narrative(self.player)
+        self.assertEqual(result["source"], "template")
+        self.assertIn("73", result["flagged"])
+
+    @override_settings(LLM_ENABLED=True, NARRATIVE_USE_TOOLS=True)
+    def test_no_text_produced_falls_back(self):
+        # Agent loops without ever emitting prose → deterministic fallback.
+        loop = [_Resp([_Block("tool_use", name="get_career_totals", input={"player_id": "ruthba01"}, id="t1")])]
+        with patch.object(narrative.llm, "complete", side_effect=loop * 6):
+            result = generate_narrative(self.player)
+        self.assertEqual(result["source"], "template")
+
+
+# ---------------------------------------------------------------------------
+# Methodology RAG (step 3)
+# ---------------------------------------------------------------------------
+
+from players import rag  # noqa: E402
+from players.management.commands.index_methodology import _chunk, _title_of  # noqa: E402
+from players.models import MethodologyChunk  # noqa: E402
+
+
+def _unit_vec(i: int, dim: int = 1024) -> list[float]:
+    v = [0.0] * dim
+    v[i] = 1.0
+    return v
+
+
+class TestChunking(SimpleTestCase):
+    def test_title_from_h1(self):
+        self.assertEqual(_title_of("# WAR: Source\n\nbody", "war"), "WAR: Source")
+
+    def test_title_fallback_to_slug(self):
+        self.assertEqual(_title_of("no heading", "era-adjusted-metrics"), "Era Adjusted Metrics")
+
+    def test_short_doc_single_chunk(self):
+        self.assertEqual(len(_chunk("one short paragraph")), 1)
+
+    def test_long_doc_splits(self):
+        para = " ".join(["word"] * 80)
+        self.assertGreater(len(_chunk("\n\n".join([para, para, para]))), 1)
+
+
+class TestStringNumberGrounding(SimpleTestCase):
+    def test_numbers_in_retrieved_text_are_allowed(self):
+        # Numbers quoted from methodology docs must verify, since they're real.
+        allowed: set[float] = set()
+        narrative._accumulate_allowed(
+            {"results": [{"content": "An OPS+ of 100 is league average; a weight of 2.0 applies."}]},
+            allowed,
+        )
+        self.assertIn(100.0, allowed)
+        self.assertIn(2.0, allowed)
+
+
+@override_settings(RAG_ENABLED=True)
+class TestMethodologySearch(APITestCase):
+    def setUp(self):
+        cache.clear()
+        MethodologyChunk.objects.create(
+            slug="war", title="WAR", chunk_index=0,
+            content="WAR measures total value.", embedding=_unit_vec(0),
+        )
+        MethodologyChunk.objects.create(
+            slug="similarity", title="Similarity", chunk_index=0,
+            content="k-NN weighted distance.", embedding=_unit_vec(5),
+        )
+
+    def test_returns_nearest_first(self):
+        with patch.object(rag.embeddings, "embed_query", return_value=_unit_vec(0)):
+            results = rag.search_methodology("what is war", k=2)
+        self.assertEqual(results[0]["slug"], "war")
+        self.assertEqual(len(results), 2)
+        self.assertAlmostEqual(results[0]["score"], 1.0, places=3)
+
+    def test_disabled_returns_empty(self):
+        with override_settings(RAG_ENABLED=False):
+            self.assertEqual(rag.search_methodology("x"), [])
+
+    def test_empty_corpus_returns_empty(self):
+        MethodologyChunk.objects.all().delete()
+        with patch.object(rag.embeddings, "embed_query", return_value=_unit_vec(0)):
+            self.assertEqual(rag.search_methodology("x"), [])
+
+    def test_embed_error_returns_empty(self):
+        with patch.object(rag.embeddings, "embed_query", side_effect=RuntimeError("boom")):
+            self.assertEqual(rag.search_methodology("x"), [])
+
+
+class TestMethodologySearchTool(APITestCase):
+    @override_settings(RAG_ENABLED=True)
+    def test_tool_returns_results_shape(self):
+        MethodologyChunk.objects.create(
+            slug="war", title="WAR", chunk_index=0,
+            content="WAR measures total value.", embedding=_unit_vec(0),
+        )
+        with patch.object(rag.embeddings, "embed_query", return_value=_unit_vec(0)):
+            out = narrative_tools.run_tool("search_methodology", {"query": "war"}, {})
+        self.assertIn("results", out)
+        self.assertEqual(out["results"][0]["slug"], "war")
+
+
+class TestMethodologyEndpoint(APITestCase):
+    def test_endpoint_returns_shape(self):
+        # RAG disabled by default in tests → empty results but a valid 200 shape.
+        r = self.client.get(reverse("player-methodology-search"), {"q": "ops+"})
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("results", r.data)
+        self.assertEqual(r.data["query"], "ops+")

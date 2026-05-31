@@ -17,6 +17,7 @@ import { StatGrid } from "../components/profile/panels/StatGrid";
 import { CareerArcPanel } from "../components/profile/panels/CareerArcPanel";
 import { SparklinePanel } from "../components/profile/panels/SparklinePanel";
 import { SeasonLogPanel } from "../components/profile/panels/SeasonLogPanel";
+import { NarrativePanel } from "../components/profile/panels/NarrativePanel";
 import { SimilarPlayersPanel } from "../components/profile/panels/SimilarPlayersPanel";
 import { AwardsPanel } from "../components/profile/panels/AwardsPanel";
 import { JamesScoresPanel } from "../components/profile/panels/JamesScoresPanel";
@@ -85,6 +86,7 @@ export function ProfilePage() {
 
         <div className="col-2">
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <NarrativePanel bbrefId={player.id} />
             <CareerArcPanel
               player={player}
               color={color}

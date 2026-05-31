@@ -52,14 +52,14 @@ Scores are pool-calibrated so the median candidate is always 30 — relative, no
 
 ### Requirements
 - Python 3.14+
-- PostgreSQL 17+
+- PostgreSQL 17+ with the [`pgvector`](https://github.com/pgvector/pgvector) extension (`brew install pgvector`) — required by migrations for the methodology RAG index
 - Node.js 20+
 
 ### 1. Backend
 
 ```bash
-python3 -m venv env
-source env/bin/activate
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 createdb pca_v2
 python manage.py migrate
@@ -89,6 +89,19 @@ cd frontend && npm run dev
 
 App runs at **http://localhost:5173**, API at **http://localhost:8000/api/**.
 
+### AI features (optional)
+
+The grounded career-narrative agent and methodology search work without any keys
+— the narrative falls back to a deterministic template and search returns empty.
+To enable the live LLM/RAG paths, set:
+
+| Env var | Enables |
+|---|---|
+| `ANTHROPIC_API_KEY` | LLM-generated career narratives (`GET /api/players/{id}/narrative/`) |
+| `VOYAGE_API_KEY` | Methodology embeddings + semantic search (run `index_methodology` after setting) |
+
+`NARRATIVE_USE_TOOLS=false` switches the narrative from the tool-calling agent to a single-shot call.
+
 ---
 
 ## Data ingest
@@ -115,6 +128,13 @@ python pipeline/ingest_bref_awards.py
 ### Statcast pitch zones (2015+)
 ```bash
 python pipeline/ingest_statcast_zones.py
+```
+
+### Methodology RAG index (for the narrative agent)
+Embeds `frontend/src/methodology/*.md` into pgvector for semantic retrieval.
+Requires `VOYAGE_API_KEY`:
+```bash
+python manage.py index_methodology
 ```
 
 ### Player bio backfill

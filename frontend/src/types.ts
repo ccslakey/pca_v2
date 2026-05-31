@@ -189,6 +189,15 @@ export interface SimilarPlayersResponse {
   pitchers: SimilarPlayer[];
 }
 
+export interface NarrativeResponse {
+  text: string;
+  source: 'llm' | 'template';
+  verified: boolean;
+  model: string | null;
+  flagged?: string[];
+  generated_at: string;
+}
+
 export interface FeaturedTrioPlayer {
   bbref_id: string;
   first_name: string;
