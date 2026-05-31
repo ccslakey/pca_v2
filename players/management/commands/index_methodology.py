@@ -58,25 +58,30 @@ class Command(BaseCommand):
         if not md_files:
             raise CommandError(f"No .md files found in {doc_dir}")
 
-        total = 0
+        # Collect every chunk across all docs, then embed in ONE request. The
+        # whole corpus is a few thousand tokens, so this stays within the free
+        # tier's per-minute limits where one-request-per-doc would not. (For a
+        # much larger corpus, batch into groups and throttle to the RPM limit.)
+        records: list[tuple[str, str, int, str]] = []  # (slug, title, chunk_index, content)
         for path in md_files:
             slug = path.stem
             text = path.read_text(encoding="utf-8")
             title = _title_of(text, slug)
-            chunks = _chunk(text)
-            vectors = embeddings.embed(chunks, input_type="document")
+            for i, chunk in enumerate(_chunk(text)):
+                records.append((slug, title, i, chunk))
 
-            with transaction.atomic():
-                MethodologyChunk.objects.filter(slug=slug).delete()
-                MethodologyChunk.objects.bulk_create(
-                    [
-                        MethodologyChunk(
-                            slug=slug, title=title, chunk_index=i, content=chunk, embedding=vec
-                        )
-                        for i, (chunk, vec) in enumerate(zip(chunks, vectors))
-                    ]
-                )
-            total += len(chunks)
-            self.stdout.write(f"  {slug}: {len(chunks)} chunks")
+        vectors = embeddings.embed([r[3] for r in records], input_type="document")
 
-        self.stdout.write(self.style.SUCCESS(f"Indexed {total} chunks from {len(md_files)} docs."))
+        with transaction.atomic():
+            MethodologyChunk.objects.all().delete()
+            MethodologyChunk.objects.bulk_create([
+                MethodologyChunk(slug=slug, title=title, chunk_index=i, content=content, embedding=vec)
+                for (slug, title, i, content), vec in zip(records, vectors)
+            ])
+
+        per_doc: dict[str, int] = {}
+        for slug, *_ in records:
+            per_doc[slug] = per_doc.get(slug, 0) + 1
+        for slug, n in per_doc.items():
+            self.stdout.write(f"  {slug}: {n} chunks")
+        self.stdout.write(self.style.SUCCESS(f"Indexed {len(records)} chunks from {len(md_files)} docs."))

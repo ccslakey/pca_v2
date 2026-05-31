@@ -28,14 +28,20 @@ def _get_client() -> Any:
 
 
 def embed(texts: list[str], input_type: str = "document") -> list[list[float]]:
-    """Embed a batch of texts. `input_type` is 'document' or 'query'."""
-    result = _get_client().embed(
-        texts,
-        model=settings.EMBED_MODEL,
-        input_type=input_type,
-        output_dimension=settings.VECTOR_DIM,
-    )
-    return result.embeddings
+    """Embed a batch of texts. `input_type` is 'document' or 'query'.
+
+    The installed voyageai SDK pins output to the model's default dimension
+    (voyage-3.5-lite → 1024), which matches MethodologyChunk.embedding /
+    settings.VECTOR_DIM. `_assert_dim` guards against a model/field mismatch.
+    """
+    result = _get_client().embed(texts, model=settings.EMBED_MODEL, input_type=input_type)
+    vectors = result.embeddings
+    if vectors and len(vectors[0]) != settings.VECTOR_DIM:
+        raise ValueError(
+            f"{settings.EMBED_MODEL} returned dim {len(vectors[0])}, expected {settings.VECTOR_DIM} "
+            f"(VECTOR_DIM / MethodologyChunk.embedding). Reindex after aligning them."
+        )
+    return vectors
 
 
 def embed_query(text: str) -> list[float]:
