@@ -23,7 +23,7 @@ from stats.serializers import (
 
 from .featured import FEATURED_COMPARISONS
 from .models import Player
-from .narrative import generate_narrative
+from .narrative import get_or_generate
 from .rag import search_methodology
 from .serializers import PlayerDetailSerializer, PlayerListSerializer
 from .similarity import similar_players
@@ -49,8 +49,6 @@ _FEATURED_CACHE_KEY = "featured:v1"
 _FEATURED_CACHE_TTL = 3600  # 1 hour
 
 _AGING_CURVE_CACHE_TTL = 86_400  # 24 hours — changes only on ingest
-
-_NARRATIVE_CACHE_TTL = 86_400  # 24 hours — keyed by data version, so safe to hold
 
 
 def _build_aging_curve(role: str) -> list[dict[str, Any]]:
@@ -306,15 +304,10 @@ class PlayerViewSet(viewsets.ReadOnlyModelViewSet[Player]):
 
     @action(detail=True, url_path="narrative")
     def narrative(self, request: Request, pk: str | None = None) -> Response:
-        """Grounded career summary. Cached per player + data version so the LLM
-        cost (if any) is paid once per data refresh, not per pageview."""
+        """Grounded career summary, persisted in Postgres per player + data
+        version so the multi-call generation is paid once per data refresh."""
         player: Player = self.get_object()
-        cache_key = f"narrative:v1:{player.bbref_id}:{_get_last_updated()}"
-        data = cache.get(cache_key)
-        if data is None:
-            data = generate_narrative(player)
-            cache.set(cache_key, data, _NARRATIVE_CACHE_TTL)
-        return Response(data)
+        return Response(get_or_generate(player, _get_last_updated()))
 
     @action(detail=False, url_path="methodology_search")
     def methodology_search(self, request: Request) -> Response:

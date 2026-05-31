@@ -676,8 +676,9 @@ class TestGenerateNarrative(APITestCase):
         )
         add_batting(self.player, 1920, war=11.5, hr=54, avg=0.376, ops=1.382)
 
+    @override_settings(LLM_ENABLED=False)
     def test_no_key_uses_template(self):
-        # LLM_ENABLED defaults to False in tests — no SDK, no network.
+        # No key → deterministic template, no SDK, no network.
         result = generate_narrative(self.player)
         self.assertEqual(result["source"], "template")
         self.assertTrue(result["verified"])
@@ -707,6 +708,7 @@ class TestGenerateNarrative(APITestCase):
         self.assertTrue(result["verified"])
 
 
+@override_settings(LLM_ENABLED=False)  # template path → deterministic, no network
 class TestNarrativeEndpoint(APITestCase):
     def setUp(self):
         cache.clear()
@@ -954,3 +956,103 @@ class TestMethodologyEndpoint(APITestCase):
         self.assertEqual(r.status_code, 200)
         self.assertIn("results", r.data)
         self.assertEqual(r.data["query"], "ops+")
+
+
+# ---------------------------------------------------------------------------
+# Narrative persistence (durable cache) + pre-generation command
+# ---------------------------------------------------------------------------
+
+from io import StringIO  # noqa: E402
+
+from django.core.management.base import CommandError  # noqa: E402
+
+from players.models import PlayerNarrative  # noqa: E402
+
+
+def _fake_result(text="Babe Ruth was great.", source="llm"):
+    return {
+        "text": text, "source": source, "model": "claude-haiku-4-5-20251001",
+        "flagged": [], "trace": {"mode": "agentic", "tool_calls": []}, "generated_at": "t",
+    }
+
+
+class TestNarrativePersistence(APITestCase):
+    def setUp(self):
+        cache.clear()
+        self.player = make_player(
+            "ruthba01", "Babe", "Ruth", primary_position="RF",
+            debut=datetime.date(1914, 5, 6), final_game=datetime.date(1935, 5, 30),
+        )
+        add_batting(self.player, 1920, war=11.5, hr=54)
+
+    def test_miss_generates_and_persists(self):
+        with patch.object(narrative, "generate_narrative", return_value=_fake_result()) as m:
+            result = narrative.get_or_generate(self.player, "2026-05-31")
+        self.assertEqual(m.call_count, 1)
+        self.assertEqual(result["text"], "Babe Ruth was great.")
+        self.assertTrue(
+            PlayerNarrative.objects.filter(player=self.player, data_version="2026-05-31").exists()
+        )
+
+    def test_hit_does_not_regenerate(self):
+        with patch.object(narrative, "generate_narrative", return_value=_fake_result()) as m:
+            narrative.get_or_generate(self.player, "2026-05-31")
+            narrative.get_or_generate(self.player, "2026-05-31")
+        self.assertEqual(m.call_count, 1)  # second served from the DB
+
+    def test_new_data_version_regenerates(self):
+        with patch.object(narrative, "generate_narrative", return_value=_fake_result()) as m:
+            narrative.get_or_generate(self.player, "2026-05-31")
+            narrative.get_or_generate(self.player, "2026-06-01")
+        self.assertEqual(m.call_count, 2)
+        rows = PlayerNarrative.objects.filter(player=self.player)
+        self.assertEqual(rows.count(), 1)  # one row, overwritten in place
+        self.assertEqual(rows.get().data_version, "2026-06-01")
+
+    def test_force_regenerates_on_hit(self):
+        with patch.object(narrative, "generate_narrative", return_value=_fake_result()) as m:
+            narrative.get_or_generate(self.player, "v")
+            narrative.get_or_generate(self.player, "v", force=True)
+        self.assertEqual(m.call_count, 2)
+
+    def test_as_dict_shape(self):
+        n = PlayerNarrative.objects.create(player=self.player, text="t", source="template")
+        d = n.as_dict()
+        self.assertTrue(d["verified"])
+        for key in ("text", "source", "model", "flagged", "trace", "generated_at"):
+            self.assertIn(key, d)
+
+
+class TestNarrativeEndpointPersists(APITestCase):
+    def setUp(self):
+        cache.clear()
+        self.player = make_player(
+            "ruthba01", "Babe", "Ruth", primary_position="RF",
+            debut=datetime.date(1914, 5, 6), final_game=datetime.date(1935, 5, 30),
+        )
+        add_batting(self.player, 1920, war=11.5, hr=54)
+        self.url = reverse("player-narrative", kwargs={"pk": "ruthba01"})
+
+    def test_second_request_served_from_db(self):
+        with patch.object(narrative, "generate_narrative", return_value=_fake_result()) as m:
+            r1 = self.client.get(self.url)
+            r2 = self.client.get(self.url)
+        self.assertEqual(r1.status_code, 200)
+        self.assertEqual(r2.data["text"], "Babe Ruth was great.")
+        self.assertEqual(m.call_count, 1)  # persisted after the first request
+
+
+class TestPregenerateCommand(APITestCase):
+    def setUp(self):
+        cache.clear()
+        self.player = make_player("ruthba01", "Babe", "Ruth")
+        add_batting(self.player, 1920, war=11.5, hr=54)
+
+    def test_requires_bounding_argument(self):
+        with self.assertRaises(CommandError):
+            call_command("pregenerate_narratives")
+
+    def test_generates_for_given_ids(self):
+        with patch.object(narrative, "generate_narrative", return_value=_fake_result()):
+            call_command("pregenerate_narratives", "--bbref-ids", "ruthba01", stdout=StringIO())
+        self.assertTrue(PlayerNarrative.objects.filter(player_id="ruthba01").exists())

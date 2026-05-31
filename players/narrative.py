@@ -22,7 +22,7 @@ from django.conf import settings
 from django.utils import timezone
 
 from . import llm
-from .models import Player
+from .models import Player, PlayerNarrative
 from .similarity import similar_players
 
 logger = logging.getLogger(__name__)
@@ -316,6 +316,30 @@ def _result(
         "trace": trace or {},      # observability: tools called, calls, repairs, tokens
         "generated_at": timezone.now().isoformat(),
     }
+
+
+def get_or_generate(player: Player, data_version: str | None, force: bool = False) -> dict[str, Any]:
+    """Return a persisted narrative for (player, data_version) or generate, store,
+    and return one. The durable cache: generation is several model round-trips, so
+    we pay once per player per data refresh instead of on every profile view."""
+    if not force:
+        existing = PlayerNarrative.objects.filter(player=player, data_version=data_version).first()
+        if existing is not None:
+            return existing.as_dict()
+
+    result = generate_narrative(player)
+    obj, _ = PlayerNarrative.objects.update_or_create(
+        player=player,
+        defaults={
+            "text": result["text"],
+            "source": result["source"],
+            "model": result["model"],
+            "flagged": result["flagged"],
+            "trace": result["trace"],
+            "data_version": data_version,
+        },
+    )
+    return obj.as_dict()
 
 
 def generate_narrative(player: Player) -> dict[str, Any]:
