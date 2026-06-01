@@ -1,5 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render as rtlRender, screen } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import userEvent from '@testing-library/user-event';
 import { MetricToggle } from '../components/compare/MetricToggle';
 import { METRICS } from '../constants';
@@ -10,6 +12,17 @@ const defaultProps = {
   showGlyphs: true,
   onToggleGlyphs: () => {},
 };
+
+// MetricToggle renders MetricExplainer, which fetches via react-query, so a
+// provider must be in the tree. Retries off keeps failed fetches from hanging.
+function render(ui: ReactElement) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return rtlRender(
+    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
+  );
+}
 
 describe('MetricToggle', () => {
   it('renders a tab for every metric plus the two x-mode tabs', () => {

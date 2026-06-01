@@ -1,5 +1,9 @@
 django
 djangorestframework
+anthropic
+voyageai
+pgvector
+python-dotenv
 django-filter
 django-cors-headers
 markdown

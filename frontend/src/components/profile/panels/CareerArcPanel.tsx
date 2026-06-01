@@ -2,6 +2,7 @@ import { ParentSize } from '@visx/responsive';
 import '../panel.scss';
 import '../../compare/MetricToggle.scss';
 import { ProfileChart } from '../charts/ProfileChart';
+import { MetricExplainer } from '../../MetricExplainer';
 import { METRICS } from '../../../constants';
 import type { ChartPlayer, Metric, MetricId } from '../../../types';
 
@@ -20,6 +21,7 @@ export function CareerArcPanel({ player, color, metric, setMetric, availableMetr
         <div className="panel-title">
           Career arc
           <span className="muted">{METRICS.find(m => m.id === metric)?.full}</span>
+          <MetricExplainer metric={metric} />
         </div>
         <div className="metric-toggle" style={{ padding: 2 }}>
           {availableMetrics.map(m => (

@@ -52,14 +52,14 @@ Scores are pool-calibrated so the median candidate is always 30 — relative, no
 
 ### Requirements
 - Python 3.14+
-- PostgreSQL 17+
+- PostgreSQL 17+ with the [`pgvector`](https://github.com/pgvector/pgvector) extension (`brew install pgvector`) — required by migrations for the methodology RAG index
 - Node.js 20+
 
 ### 1. Backend
 
 ```bash
-python3 -m venv env
-source env/bin/activate
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 createdb pca_v2
 python manage.py migrate
@@ -89,6 +89,19 @@ cd frontend && npm run dev
 
 App runs at **http://localhost:5173**, API at **http://localhost:8000/api/**.
 
+### AI features (optional)
+
+The grounded career-narrative agent and methodology search work without any keys
+— the narrative falls back to a deterministic template and search returns empty.
+To enable the live LLM/RAG paths, set:
+
+| Env var | Enables |
+|---|---|
+| `ANTHROPIC_API_KEY` | LLM-generated career narratives (`GET /api/players/{id}/narrative/`) |
+| `VOYAGE_API_KEY` | Methodology embeddings + semantic search (run `index_methodology` after setting) |
+
+`NARRATIVE_USE_TOOLS=false` switches the narrative from the tool-calling agent to a single-shot call.
+
 ---
 
 ## Data ingest
@@ -115,6 +128,13 @@ python pipeline/ingest_bref_awards.py
 ### Statcast pitch zones (2015+)
 ```bash
 python pipeline/ingest_statcast_zones.py
+```
+
+### Methodology RAG index (for the narrative agent)
+Embeds `frontend/src/methodology/*.md` into pgvector for semantic retrieval.
+Requires `VOYAGE_API_KEY`:
+```bash
+python manage.py index_methodology
 ```
 
 ### Player bio backfill
@@ -158,6 +178,16 @@ cd frontend && npm test
 
 Backend tests use a temporary database and rolled-back transactions — they do not touch your dev database.
 
+### Narrative eval harness
+
+Scores the narrative agent — hallucination rate (verifier-based), tool-selection
+accuracy, and RAG hit-rate@k — over a fixed player/question sample:
+
+```bash
+python pipeline/eval_narrative.py                  # scorecard (degrades gracefully without keys)
+python pipeline/eval_narrative.py --max-hallucination 0.0   # CI gate: exit 1 if any hallucination slips through
+```
+
 ---
 
 ## Documentation
@@ -165,4 +195,5 @@ Backend tests use a temporary database and rolled-back transactions — they do 
 - [`ROADMAP.md`](ROADMAP.md) — full feature backlog, prioritized
 - [`RELEASE_ROADMAP.md`](RELEASE_ROADMAP.md) — what ships when (resume / public release thresholds)
 - [`SIMILARITY.md`](SIMILARITY.md) — similarity engine methodology
+- [`AI_FEATURES.md`](AI_FEATURES.md) — grounded narrative agent: tool calls, RAG, evals, verification
 - [`SCHEDULED_JOBS.md`](SCHEDULED_JOBS.md) — data refresh cron requirements

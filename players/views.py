@@ -23,6 +23,8 @@ from stats.serializers import (
 
 from .featured import FEATURED_COMPARISONS
 from .models import Player
+from .narrative import get_or_generate
+from .rag import search_methodology
 from .serializers import PlayerDetailSerializer, PlayerListSerializer
 from .similarity import similar_players
 
@@ -299,6 +301,20 @@ class PlayerViewSet(viewsets.ReadOnlyModelViewSet[Player]):
     @action(detail=True, url_path="similar")
     def similar(self, request: Request, pk: str | None = None) -> Response:
         return Response(similar_players(self.get_object()))
+
+    @action(detail=True, url_path="narrative")
+    def narrative(self, request: Request, pk: str | None = None) -> Response:
+        """Grounded career summary, persisted in Postgres per player + data
+        version so the multi-call generation is paid once per data refresh."""
+        player: Player = self.get_object()
+        return Response(get_or_generate(player, _get_last_updated()))
+
+    @action(detail=False, url_path="methodology_search")
+    def methodology_search(self, request: Request) -> Response:
+        """Semantic search over the methodology docs (pgvector + Voyage). Returns
+        [] when RAG is unconfigured or the corpus is unindexed."""
+        query = request.query_params.get("q", "")
+        return Response({"query": query, "results": search_methodology(query)})
 
     @action(detail=False, url_path="aging_curve")
     def aging_curve(self, request: Request) -> Response:

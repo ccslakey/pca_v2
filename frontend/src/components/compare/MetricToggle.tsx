@@ -2,6 +2,7 @@ import "./MetricToggle.scss";
 import { METRICS } from "../../constants";
 import type { MetricId, XMode } from "../../types";
 import { AnnotationGlyph } from "../AnnotationGlyph";
+import { MetricExplainer } from "../MetricExplainer";
 
 interface Props {
   metric: MetricId;
@@ -58,6 +59,7 @@ export function MetricToggle({
       </div>
 
       <div className="metric-meta">
+        <MetricExplainer metric={metric} />
         <button
           className={`glyph-toggle ${showGlyphs ? "is-active" : ""}`}
           onClick={onToggleGlyphs}
