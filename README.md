@@ -195,4 +195,5 @@ python pipeline/eval_narrative.py --max-hallucination 0.0   # CI gate: exit 1 if
 - [`ROADMAP.md`](ROADMAP.md) — full feature backlog, prioritized
 - [`RELEASE_ROADMAP.md`](RELEASE_ROADMAP.md) — what ships when (resume / public release thresholds)
 - [`SIMILARITY.md`](SIMILARITY.md) — similarity engine methodology
+- [`AI_FEATURES.md`](AI_FEATURES.md) — grounded narrative agent: tool calls, RAG, evals, verification
 - [`SCHEDULED_JOBS.md`](SCHEDULED_JOBS.md) — data refresh cron requirements
