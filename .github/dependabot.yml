@@ -1,0 +1,14 @@
+version: 2
+updates:
+  # Keep our SHA-pinned GitHub Actions current. Pinning to a commit freezes
+  # us out of upstream patch/security releases, so Dependabot watches for new
+  # versions and opens PRs that bump the SHA (and the trailing # vX.Y.Z comment).
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    # One grouped PR per week instead of a separate PR per action.
+    groups:
+      actions:
+        patterns:
+          - "*"
