@@ -1,3 +1,5 @@
+@use "../../styles/breakpoints" as bp;
+
 .metric-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 4px; }
 .metric-toggle { display: inline-flex; background: var(--bg-2); border: 1px solid var(--line); border-radius: 999px; padding: 3px; gap: 2px; }
 
@@ -89,4 +91,29 @@
   transition: opacity 150ms;
 
   &.is-hidden { opacity: 0.3; pointer-events: none; }
+}
+
+@include bp.down(bp.$bp-md) {
+  .metric-row {
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-start;
+  }
+
+  // Pills scroll within the rounded track rather than wrapping, keeping the
+  // segmented-control shape; the long metric-name suffix won't fit anyway.
+  .metric-toggle {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .metric-pill {
+    padding: 8px 12px;
+
+    .full { display: none; }
+  }
+
+  .xmode-pill { padding: 8px 12px; }
+  .glyph-toggle { padding: 7px 10px; }
+  .glyph-legend { display: none; }
 }

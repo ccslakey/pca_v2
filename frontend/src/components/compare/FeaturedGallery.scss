@@ -1,3 +1,5 @@
+@use "../../styles/breakpoints" as bp;
+
 .featured-gallery {
   margin-top: 8px;
 }
@@ -71,6 +73,11 @@
 
 .featured-card {
   flex: 0 0 260px;
+
+  // Narrower cards so a slice of the next one peeks in — scroll affordance.
+  @include bp.down(bp.$bp-sm) {
+    flex-basis: 220px;
+  }
   scroll-snap-align: start;
   display: flex;
   flex-direction: column;

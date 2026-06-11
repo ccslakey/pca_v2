@@ -1,3 +1,5 @@
+@use "../../styles/breakpoints" as bp;
+
 .search {
     position: relative;
     width: 320px;
@@ -133,4 +135,14 @@
     letter-spacing: 0.08em;
     color: var(--text-3);
     padding: 8px 8px 4px;
+}
+
+@include bp.down(bp.$bp-md) {
+    .search-input {
+        height: 40px;
+        font-size: 16px; /* <16px makes iOS Safari zoom the page on focus */
+    }
+    .search-kbd {
+        display: none; /* ⌘K hint is meaningless on touch */
+    }
 }

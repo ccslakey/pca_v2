@@ -1,3 +1,5 @@
+@use "./breakpoints" as bp;
+
 .app {
     min-height: 100vh;
     display: flex;
@@ -175,6 +177,12 @@
     display: grid;
     grid-template-columns: 2fr 1fr;
     gap: 16px;
+
+    // Columns must be able to shrink below their content's intrinsic width,
+    // or wide children (charts, nowrap badges) blow the grid out sideways.
+    > * {
+        min-width: 0;
+    }
 }
 
 .footer-note {
@@ -183,4 +191,41 @@
     font-size: 11px;
     font-family: var(--font-mono);
     padding: 6px 0 0;
+}
+
+/* ---- responsive ---- */
+
+@include bp.down(bp.$bp-lg) {
+    .col-2 {
+        grid-template-columns: 1fr;
+    }
+}
+
+@include bp.down(bp.$bp-md) {
+    .topbar {
+        flex-wrap: wrap;
+        gap: 10px 12px;
+        padding: 10px 14px;
+
+        /* Search drops to a full-width second row; row one keeps
+           brand · spacer · links · theme picker. */
+        .search {
+            order: 10;
+            flex: 1 1 100%;
+            width: auto;
+        }
+    }
+
+    .topbar-browse-link {
+        padding: 8px 12px;
+        height: auto;
+    }
+
+    .main {
+        padding: 14px 14px 28px;
+    }
+
+    .profile-main {
+        padding: 14px 14px 32px;
+    }
 }

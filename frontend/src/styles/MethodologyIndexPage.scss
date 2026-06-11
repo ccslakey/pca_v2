@@ -1,7 +1,13 @@
+@use "./breakpoints" as bp;
+
 .methodology-index {
   max-width: 860px;
   margin: 0 auto;
   padding: 48px 24px 80px;
+
+  @include bp.down(bp.$bp-md) {
+    padding: 24px 16px 64px;
+  }
 }
 
 .methodology-back {
@@ -44,7 +50,9 @@
 
 .methodology-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  // min() caps the track at the container width so viewports under ~408px
+  // don't overflow sideways.
+  grid-template-columns: repeat(auto-fill, minmax(min(360px, 100%), 1fr));
   gap: 12px;
 }
 

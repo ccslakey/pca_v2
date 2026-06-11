@@ -1,0 +1,12 @@
+// Shared responsive breakpoints. Pure SCSS module (vars + mixin only, emits no
+// CSS) — safe to `@use` from any component stylesheet. CSS custom properties
+// can't appear in media queries, hence SCSS variables.
+$bp-sm: 480px; // small phones
+$bp-md: 720px; // primary mobile breakpoint
+$bp-lg: 900px; // profile two-column stack point
+
+@mixin down($w) {
+    @media (max-width: $w) {
+        @content;
+    }
+}

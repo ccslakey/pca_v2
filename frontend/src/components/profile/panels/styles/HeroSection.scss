@@ -1,3 +1,5 @@
+@use "../../../../styles/breakpoints" as bp;
+
 .hero {
     position: relative;
     display: grid;
@@ -150,5 +152,38 @@
 
     &:hover {
         background: var(--bg-1);
+    }
+}
+
+@include bp.down(bp.$bp-md) {
+    .hero {
+        grid-template-columns: 1fr;
+        gap: 16px;
+        padding: 20px 16px;
+    }
+
+    .hero-headshot {
+        width: 120px;
+        height: 120px;
+        border-radius: 16px;
+        font-size: 48px;
+
+        &::after {
+            border-radius: 16px;
+        }
+    }
+
+    .hero-jersey {
+        top: 8px;
+        right: 10px;
+        font-size: 15px;
+    }
+
+    .hero-name {
+        font-size: 32px;
+    }
+
+    .btn {
+        padding: 10px 14px;
     }
 }

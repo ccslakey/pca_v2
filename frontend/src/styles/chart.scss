@@ -1,3 +1,5 @@
+@use "./breakpoints" as bp;
+
 /* ---- Chart card ---- */
 .chart-card {
     background: var(--bg-2);
@@ -176,5 +178,17 @@ svg.chart {
         font-size: 12px;
         color: var(--text-3);
         font-family: var(--font-mono);
+    }
+}
+
+@include bp.down(bp.$bp-md) {
+    .chart-card {
+        // keep min-height — it prevents layout shift across load states
+        padding: 12px 8px 8px;
+    }
+
+    .tooltip {
+        min-width: 0;
+        max-width: 78vw;
     }
 }

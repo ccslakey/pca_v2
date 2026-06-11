@@ -54,7 +54,7 @@ export function ProfileChart({ player, metric, width, height = 320 }: Props) {
   );
 
   const yt = useMemo(() => yTicks(yLo, yHi, metric), [yLo, yHi, metric]);
-  const xt = useMemo(() => xTicks(xDomain[0], xDomain[1]), [xDomain]);
+  const xt = useMemo(() => xTicks(xDomain[0], xDomain[1], innerW), [xDomain, innerW]);
 
   const gradId = `profile-grad-${player.id}`;
 
