@@ -205,6 +205,209 @@ def verify_numbers(text: str, allowed: set[float]) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
+# Typed verification (Route A) — bind every number to its stat
+# ---------------------------------------------------------------------------
+#
+# The flat verifier above checks a number's *provenance* (is this figure real
+# for the player?) but not its *assignment* (does it belong to the claim it's
+# attached to?), so a value that is real for one stat validates a fabricated
+# claim about another — e.g. "162 home runs" passing because 162 is the career
+# WAR. The typed path closes that: the model must declare, per number, which
+# stat it is, and each number is checked against *that stat's* value alone.
+#
+# Two layers: (1) the binding's number must match its named stat's real value;
+# (2) the prose around the number must not name a *different* stat than the
+# binding claims. Layer 2 catches a mislabeled binding — "162 home runs" with
+# 162 bound to `career_war` — which layer 1 alone would wave through.
+
+# The stat vocabulary a binding may name. Published to the model as the
+# `submit_summary` enum; `labeled_facts` produces the allowed value(s) per key.
+CLAIM_STATS: tuple[str, ...] = (
+    # career aggregates
+    "career_war", "career_war_total", "career_hr", "career_hits", "career_avg",
+    "career_ops_plus", "career_wins", "career_losses", "career_so", "career_era",
+    "career_era_plus", "peak_war", "peak_year",
+    # bio
+    "debut_year", "final_year", "birth_year", "seasons_played",
+    # season-scoped (pair with a `year` to bind to one season)
+    "season_war", "season_hr", "season_avg", "season_ops", "season_ops_plus",
+    "season_era", "season_era_plus", "season_so",
+    # other
+    "award_count", "year", "reference",
+)
+
+_SEASON_BAT = (("season_war", "war"), ("season_hr", "hr"), ("season_avg", "avg"),
+               ("season_ops", "ops"), ("season_ops_plus", "ops_plus"))
+_SEASON_PIT = (("season_war", "war"), ("season_era", "era"),
+               ("season_era_plus", "era_plus"), ("season_so", "so"))
+
+
+def labeled_facts(facts: dict[str, Any]) -> dict[Any, set[float]]:
+    """Map each stat key to the value(s) it may legitimately take. Season stats
+    are keyed both stat-wide ("season_hr") and per-season (("season_hr", 1927))
+    so a binding can be precise about the year or stay loose. This is the typed
+    replacement for `allowed_numbers`'s flat bag."""
+    m: dict[Any, set[float]] = {}
+
+    def add(key: Any, *vals: Any) -> None:
+        for v in vals:
+            if v is not None:
+                m.setdefault(key, set()).add(float(v))
+
+    add("career_war_total", facts.get("career_war_total"))
+    bio = facts.get("bio") or {}
+    add("debut_year", bio.get("debut_year"))
+    add("final_year", bio.get("final_year"))
+    add("birth_year", bio.get("birth_year"))
+    add("seasons_played", bio.get("seasons_played"))
+
+    b = facts.get("batting") or {}
+    add("career_war", b.get("career_war"))
+    add("career_hr", b.get("career_hr"))
+    add("career_hits", b.get("career_hits"))
+    add("career_avg", b.get("career_avg"))
+    add("career_ops_plus", b.get("career_ops_plus"))
+    add("peak_war", b.get("peak_war"))
+    add("peak_year", b.get("peak_year"))
+
+    p = facts.get("pitching") or {}
+    add("career_war", p.get("career_war"))  # union: "career WAR" spans both roles
+    add("career_wins", p.get("career_wins"))
+    add("career_losses", p.get("career_losses"))
+    add("career_so", p.get("career_so"))
+    add("career_era", p.get("career_era"))
+    add("career_era_plus", p.get("career_era_plus"))
+    add("peak_war", p.get("peak_war"))
+    add("peak_year", p.get("peak_year"))
+
+    for log, stats in ((facts.get("batting_log") or [], _SEASON_BAT),
+                       (facts.get("pitching_log") or [], _SEASON_PIT)):
+        for s in log:
+            y = s.get("year")
+            add("year", y)
+            for key, field in stats:
+                add(key, s.get(field))
+                if y is not None:
+                    add((key, int(y)), s.get(field))
+
+    for info in (facts.get("awards") or {}).values():
+        add("award_count", info.get("count"))
+        for y in info.get("years", []):
+            add("year", y)
+
+    d, f = bio.get("debut_year"), bio.get("final_year")
+    if d and f:
+        for y in range(int(d), int(f) + 1):
+            add("year", float(y))
+
+    return m
+
+
+def _claim_for(val: float, decimals: int, bindings: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """The binding whose declared value, at the token's precision, equals the
+    number actually written. Links a written number to the stat the model named."""
+    for bnd in bindings:
+        bv = bnd.get("value")
+        if isinstance(bv, (int, float)) and not isinstance(bv, bool):
+            if abs(round(float(bv), decimals) - val) < 5e-4:
+                return bnd
+    return None
+
+
+# Layer 2: which stats a number sitting next to a given phrase may legitimately
+# be. A keyword nearest a number whose family *excludes* the bound stat is a
+# mislabel — the number is real, but the prose says it's a different stat.
+_WAR = frozenset({"career_war", "career_war_total", "peak_war", "season_war"})
+_HR = frozenset({"career_hr", "season_hr"})
+_AVG = frozenset({"career_avg", "season_avg"})
+_OPS = frozenset({"season_ops"})
+_OPSP = frozenset({"career_ops_plus", "season_ops_plus"})
+_ERA = frozenset({"career_era", "season_era"})
+_ERAP = frozenset({"career_era_plus", "season_era_plus"})
+_SO = frozenset({"career_so", "season_so"})
+_AWARD = frozenset({"award_count"})
+
+# Ordered: '+' variants precede their bare forms so OPS+/ERA+ win the match.
+_LEXICON: tuple[tuple[Any, frozenset[str]], ...] = tuple(
+    (re.compile(pat, re.I), fam) for pat, fam in (
+        (r"home runs?|homers?|\bHRs?\b", _HR),
+        (r"\bWAR\b", _WAR),
+        (r"\bOPS\+", _OPSP),
+        (r"\bOPS\b(?!\+)", _OPS),
+        (r"\bERA\+", _ERAP),
+        (r"\bERA\b(?!\+)", _ERA),
+        (r"batting average|\baverage\b|\bavg\b|hitting", _AVG),
+        (r"strikeouts?|punchouts?|\bKs?\b", _SO),
+        (r"\bwins?\b|victories", frozenset({"career_wins"})),
+        (r"\blosses\b", frozenset({"career_losses"})),
+        (r"\bhits\b", frozenset({"career_hits"})),
+        (r"all-?stars?|\bMVPs?\b|cy young|gold gloves?|silver sluggers?|"
+         r"world series|rookie of the year|titles?|selections?", _AWARD),
+    )
+)
+
+
+def _nearest_family(text: str, start: int, end: int, left: int, right: int) -> frozenset[str] | None:
+    """The stat family of the keyword closest to the number at [start, end),
+    searching only within (left, right) so it never reads across an adjacent
+    number. Returns None when no keyword is near (ambiguous → don't flag)."""
+    best_gap: int | None = None
+    best_fam: frozenset[str] | None = None
+    for pat, fam in _LEXICON:
+        for mm in pat.finditer(text, left, right):
+            ks, ke = mm.span()
+            if ke <= start:
+                gap = start - ke
+            elif ks >= end:
+                gap = ks - end
+            else:
+                continue
+            if best_gap is None or gap < best_gap:
+                best_gap, best_fam = gap, fam
+    return best_fam
+
+
+def verify_claims(
+    text: str, bindings: list[dict[str, Any]], labeled: dict[Any, set[float]]
+) -> list[str]:
+    """Typed verification. Every number in `text` must (a) be declared by a
+    binding restating that number, (b) name a stat whose real value is that
+    number, and (c) not sit next to prose naming a different stat. Returns
+    human-readable problems; empty means fully grounded.
+
+    Unlike `verify_numbers`, the per-number check is against *one stat's* values,
+    not the union — so a real-but-wrong-stat number is rejected (b); and the
+    phrase cross-check (c) catches a number bound to the wrong stat on purpose."""
+    problems: list[str] = []
+    matches = list(_NUM_RE.finditer(text))
+    for i, m in enumerate(matches):
+        tok = m.group()
+        val, decimals = _parse_token(tok)
+        if val in _DOMAIN_SAFE:  # league-average baseline, citable unbound
+            continue
+        bnd = _claim_for(val, decimals, bindings)
+        if bnd is None:
+            problems.append(f"{tok}: no binding declares this number")
+            continue
+        stat, year = bnd.get("stat"), bnd.get("year")
+        candidates = labeled.get((stat, int(year))) if year is not None else labeled.get(stat)
+        scope = f"{stat} for {year}" if year is not None else str(stat)
+        if not candidates:
+            problems.append(f"{tok}: no retrieved data for stat '{scope}'")
+            continue
+        if not any(abs(round(c, decimals) - val) < 5e-4 for c in candidates):
+            problems.append(f"{tok}: not the {scope} value")
+            continue
+        # (c) The value is grounded for the named stat; check the prose agrees.
+        left = matches[i - 1].end() if i > 0 else 0
+        right = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+        fam = _nearest_family(text, m.start(), m.end(), left, right)
+        if fam is not None and stat not in fam:
+            problems.append(f"{tok}: reads as {'/'.join(sorted(fam))} but bound to {stat}")
+    return problems
+
+
+# ---------------------------------------------------------------------------
 # Deterministic fallback — correct by construction
 # ---------------------------------------------------------------------------
 
@@ -298,6 +501,64 @@ SYSTEM_PROMPT_TOOLS = (
     "search_methodology to describe it accurately in the project's own terms.\n\n" + _RULES
 )
 
+SYSTEM_PROMPT_TYPED = (
+    "You are a baseball analyst writing a concise, factual scouting summary of a "
+    "player's career. First call the data tools to retrieve that player's "
+    f"statistics. {_LENGTH} When the summary is ready, submit it by calling "
+    "submit_summary — do NOT send the final summary as plain text. In "
+    "submit_summary, EVERY number that appears in `text` must have a matching "
+    "entry in `bindings` giving the number and which stat it is; use the `year` "
+    "field to tie a season number to its season. A number with no binding, or "
+    "bound to a stat whose real value differs, is rejected and you must revise. "
+    "If you quote a figure from search_methodology, bind it to stat 'reference'.\n\n"
+    + _RULES
+)
+
+# Structured-submission tool: forces the model to declare a stat per number so
+# verification can check each against its own value (see verify_claims).
+SUBMIT_TOOL: dict[str, Any] = {
+    "name": "submit_summary",
+    "description": (
+        "Submit the finished scouting summary. Provide the prose in `text` and, for "
+        "EVERY number that appears in `text`, one entry in `bindings` naming the "
+        "number and which statistic it is. Numbers not declared, or bound to the "
+        "wrong stat, are rejected."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "text": {
+                "type": "string",
+                "description": "The summary prose (2-3 sentences, plain prose, no markdown).",
+            },
+            "bindings": {
+                "type": "array",
+                "description": "One entry per number appearing in `text`.",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "value": {
+                            "type": "number",
+                            "description": "The number exactly as written in the text (e.g. 714, 162.1, 0.342).",
+                        },
+                        "stat": {
+                            "type": "string",
+                            "enum": list(CLAIM_STATS),
+                            "description": "Which statistic this number is.",
+                        },
+                        "year": {
+                            "type": "integer",
+                            "description": "Optional season year, to bind a season_* number to one season.",
+                        },
+                    },
+                    "required": ["value", "stat"],
+                },
+            },
+        },
+        "required": ["text", "bindings"],
+    },
+}
+
 # Agent loop guardrails.
 _MAX_MODEL_CALLS = 8   # hard cap on round-trips to the model
 _MAX_TOOL_CALLS = 8    # hard cap on tool executions per narrative
@@ -357,6 +618,8 @@ def generate_narrative(player: Player) -> dict[str, Any]:
 
     try:
         if getattr(settings, "NARRATIVE_USE_TOOLS", True):
+            if getattr(settings, "NARRATIVE_TYPED_VERIFY", False):
+                return _generate_agentic_typed(player, facts)
             return _generate_agentic(player, facts)
         return _generate_single_shot(facts)
     except Exception:
@@ -499,4 +762,96 @@ def _generate_agentic(player: Player, facts: dict[str, Any]) -> dict[str, Any]:
         return finish(render_template(facts), "template", None, flagged=bad)
 
     # Loop budget exhausted without a verified draft.
+    return finish(render_template(facts), "template", None)
+
+
+def _generate_agentic_typed(player: Player, facts: dict[str, Any]) -> dict[str, Any]:
+    """Route A: the model gathers facts via tools, then submits its draft through
+    `submit_summary` with a typed binding per number. Each number is verified
+    against its *named* stat (`verify_claims`) over the union of data the tools
+    actually returned. On rejection the problems are fed back (bounded by
+    _MAX_REPAIRS) before falling back to the deterministic template."""
+    from . import narrative_tools
+
+    tools = narrative_tools.TOOLS + [SUBMIT_TOOL]
+    facts_cache: dict[str, Any] = {}
+    retrieved: dict[str, Any] = {}        # tool payloads merged into a facts-like shape
+    reference_numbers: set[float] = set()  # figures quoted from methodology prose
+    trace: dict[str, Any] = {
+        "mode": "agentic_typed", "model_calls": 0, "tool_calls": [],
+        "repairs": 0, "verification": None,
+    }
+    messages: list[dict[str, Any]] = [
+        {
+            "role": "user",
+            "content": f"Write a scouting summary of the player with id "
+            f"'{player.bbref_id}'. Use the data tools to gather their statistics, "
+            "then call submit_summary.",
+        }
+    ]
+
+    def finish(text: str, source: str, model: str | None, flagged: list[str] | None = None) -> dict[str, Any]:
+        trace["verification"] = "passed" if source == "llm" else "failed"
+        logger.info(
+            "narrative typed-agent player=%s source=%s model_calls=%s tools=%s repairs=%s flagged=%s",
+            player.bbref_id, source, trace["model_calls"],
+            [t["name"] for t in trace["tool_calls"]], trace["repairs"], flagged or [],
+        )
+        return _result(text, source, model, flagged=flagged, trace=trace)
+
+    for _ in range(_MAX_MODEL_CALLS):
+        resp = llm.complete(SYSTEM_PROMPT_TYPED, messages, tools=tools)
+        trace["model_calls"] += 1
+        _add_usage(trace, resp)
+        tool_uses = [b for b in resp.content if getattr(b, "type", None) == "tool_use"]
+        messages.append({"role": "assistant", "content": resp.content})
+
+        if not tool_uses:
+            # Model wrote prose instead of submitting — nudge it to use the tool.
+            messages.append({"role": "user", "content": "Submit the summary via the submit_summary tool."})
+            continue
+
+        # Run any data tools this turn, accumulating the ground truth.
+        results: list[dict[str, Any]] = []
+        for tu in (t for t in tool_uses if t.name != "submit_summary"):
+            if len(trace["tool_calls"]) >= _MAX_TOOL_CALLS:
+                out: dict[str, Any] = {"error": "tool-call budget exhausted"}
+            else:
+                out = narrative_tools.run_tool(tu.name, tu.input, facts_cache)
+                trace["tool_calls"].append({"name": tu.name, "input": tu.input})
+                if tu.name == "search_methodology":
+                    _collect_string_numbers(out, reference_numbers)
+                else:
+                    for k, v in out.items():
+                        if k != "error" and v is not None:
+                            retrieved[k] = v
+            results.append({"type": "tool_result", "tool_use_id": tu.id, "content": json.dumps(out)})
+
+        submit = next((t for t in tool_uses if t.name == "submit_summary"), None)
+        if submit is None:
+            messages.append({"role": "user", "content": results})
+            continue
+
+        # Final draft: verify each declared number against its named stat.
+        payload = submit.input or {}
+        text = payload.get("text", "")
+        bindings = payload.get("bindings") or []
+        labeled = labeled_facts(retrieved)
+        if reference_numbers:
+            labeled.setdefault("reference", set()).update(reference_numbers)
+        problems = verify_claims(text, bindings, labeled)
+        if not problems:
+            return finish(text, "llm", settings.NARRATIVE_MODEL)
+        if trace["repairs"] < _MAX_REPAIRS:
+            trace["repairs"] += 1
+            results.append({
+                "type": "tool_result", "tool_use_id": submit.id, "is_error": True,
+                "content": "Rejected. " + "; ".join(problems) +
+                ". Fix the text or bindings and call submit_summary again using only retrieved figures.",
+            })
+            messages.append({"role": "user", "content": results})
+            continue
+        return finish(render_template(facts), "template", None, flagged=problems)
+
+    # Loop budget exhausted without a verified submission.
     return finish(render_template(facts), "template", None)

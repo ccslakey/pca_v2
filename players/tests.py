@@ -595,7 +595,9 @@ from players.narrative import (  # noqa: E402
     allowed_numbers,
     build_facts,
     generate_narrative,
+    labeled_facts,
     render_template,
+    verify_claims,
     verify_numbers,
 )
 
@@ -629,6 +631,117 @@ class TestVerifyNumbers(SimpleTestCase):
     def test_integer_rounding_of_war(self):
         # 162.7 WAR may be cited as "163" — acceptable rounding to whole number.
         self.assertEqual(verify_numbers("163 career WAR", {162.7}), [])
+
+    def test_flat_verifier_cross_stat_collision_is_a_known_limitation(self):
+        """The flat verifier checks *provenance* (is the figure real for the
+        player?) not *assignment* (does it belong to this claim?). A player with
+        714 HR and 162.1 WAR has both in the set, so the fabrication "162 home
+        runs" passes because 162 round-matches the WAR value. This documents the
+        flat path's limitation; the typed path (verify_claims) closes it — see
+        TestVerifyClaims.test_cross_stat_collision_is_rejected."""
+        allowed = {714.0, 162.1}  # career HR and career WAR — both legitimate
+        self.assertEqual(verify_numbers("he hit 162 home runs", allowed), [])
+
+
+class TestVerifyClaims(SimpleTestCase):
+    """Typed verification (Route A): each number is checked against its *named*
+    stat, not a flat union — so a real-but-wrong-stat number is rejected."""
+
+    # Player with 714 HR and 162.1 career WAR; season line 1927: 60 HR.
+    LABELED = {
+        "career_hr": {714.0},
+        "career_war": {162.1},
+        "season_hr": {60.0},
+        ("season_hr", 1927): {60.0},
+        "year": {1927.0},
+    }
+
+    def test_correctly_bound_number_passes(self):
+        text = "He hit 714 home runs and compiled 162.1 WAR."
+        bindings = [
+            {"value": 714, "stat": "career_hr"},
+            {"value": 162.1, "stat": "career_war"},
+        ]
+        self.assertEqual(verify_claims(text, bindings, self.LABELED), [])
+
+    def test_cross_stat_collision_is_rejected(self):
+        # The hole the flat verifier waves through: 162 is real (it's the WAR),
+        # but bound to home runs it does not match career_hr's value → rejected.
+        text = "He hit 162 home runs."
+        bindings = [{"value": 162, "stat": "career_hr"}]
+        problems = verify_claims(text, bindings, self.LABELED)
+        self.assertEqual(len(problems), 1)
+        self.assertIn("career_hr", problems[0])
+
+    def test_undeclared_number_is_rejected(self):
+        # Every number must be declared; an unbound figure can't be grounded.
+        problems = verify_claims("He hit 73 home runs.", [], self.LABELED)
+        self.assertEqual(problems, ["73: no binding declares this number"])
+
+    def test_year_scoped_binding_enforces_the_season(self):
+        # 60 HR is real for 1927; claiming it for 1928 (no data) is rejected.
+        text = "He hit 60 home runs in 1928."
+        ok = [{"value": 60, "stat": "season_hr", "year": 1927}, {"value": 1928, "stat": "year"}]
+        # 1928 itself isn't an active year here, so it's flagged regardless;
+        # focus on the season binding: bind 60 to the wrong season.
+        wrong = [{"value": 60, "stat": "season_hr", "year": 1928}, {"value": 1928, "stat": "year"}]
+        self.assertTrue(any("season_hr for 1928" in p for p in verify_claims(text, wrong, self.LABELED)))
+        # Bound to the right season, the 60 passes (1928 still flagged separately).
+        problems = verify_claims(text, ok, self.LABELED)
+        self.assertFalse(any("season_hr" in p for p in problems))
+
+    def test_mislabeled_binding_is_caught_by_phrase_check(self):
+        # Layer 2: 162 is a real value (the WAR), and the model *declares* it as
+        # career_war — so the value check (b) passes. But the prose says "home
+        # runs", which the binding's stat contradicts → rejected.
+        text = "He hit 162 home runs."
+        bindings = [{"value": 162, "stat": "career_war"}]
+        problems = verify_claims(text, bindings, self.LABELED)
+        self.assertEqual(len(problems), 1)
+        self.assertIn("reads as", problems[0])
+        self.assertIn("career_war", problems[0])
+
+    def test_honest_binding_with_matching_prose_passes(self):
+        # Same number, but the prose and the binding agree → fine.
+        labeled = {"career_war": {162.1}}
+        text = "He compiled 162.1 WAR."
+        self.assertEqual(verify_claims(text, [{"value": 162.1, "stat": "career_war"}], labeled), [])
+
+    def test_number_with_no_nearby_keyword_is_not_flagged(self):
+        # Conservative: no stat word near the number → can't adjudicate → pass.
+        labeled = {"seasons_played": {22.0}}
+        text = "He played 22 long years."
+        self.assertEqual(verify_claims(text, [{"value": 22, "stat": "seasons_played"}], labeled), [])
+
+    def test_phrase_check_does_not_read_across_an_adjacent_number(self):
+        # 714 next to "home runs", 162.1 next to "WAR": each binds correctly and
+        # the window for one number must not borrow the other's keyword.
+        labeled = {"career_hr": {714.0}, "career_war": {162.1}}
+        text = "He hit 714 home runs and compiled 162.1 WAR."
+        bindings = [{"value": 714, "stat": "career_hr"}, {"value": 162.1, "stat": "career_war"}]
+        self.assertEqual(verify_claims(text, bindings, labeled), [])
+
+    def test_rounding_band_carries_through_both_checks(self):
+        # ".34" written for a .342 average: declared 0.342, checked at 2 places.
+        labeled = {"career_avg": {0.342}}
+        text = "a .34 hitter"
+        self.assertEqual(verify_claims(text, [{"value": 0.342, "stat": "career_avg"}], labeled), [])
+
+    def test_labeled_facts_separates_stats(self):
+        facts = {
+            "career_war_total": 162.1,
+            "bio": {"debut_year": 1914, "final_year": 1935, "seasons_played": 22},
+            "batting": {"career_war": 162.1, "career_hr": 714, "career_hits": 2873,
+                        "career_avg": 0.342, "career_ops_plus": 206, "peak_war": 14.1, "peak_year": 1923},
+            "batting_log": [{"year": 1927, "hr": 60, "war": 12.4, "avg": 0.356, "ops": 1.258, "ops_plus": 225}],
+        }
+        labeled = labeled_facts(facts)
+        self.assertEqual(labeled["career_hr"], {714.0})
+        self.assertEqual(labeled["career_war"], {162.1})
+        self.assertEqual(labeled[("season_hr", 1927)], {60.0})
+        self.assertIn(1927.0, labeled["year"])
+        # 714 lives only under career_hr — it is NOT a valid career_war value.
+        self.assertNotIn(714.0, labeled["career_war"])
 
 
 class TestNarrativeFacts(APITestCase):
@@ -858,6 +971,71 @@ class TestAgenticNarrative(APITestCase):
             result = generate_narrative(self.player)
         self.assertEqual(result["source"], "template")
         self.assertEqual(m.call_count, 8)  # _MAX_MODEL_CALLS
+
+
+@override_settings(LLM_ENABLED=True, NARRATIVE_USE_TOOLS=True, NARRATIVE_TYPED_VERIFY=True,
+                   NARRATIVE_MODEL="claude-haiku-4-5-20251001")
+class TestAgenticTypedNarrative(APITestCase):
+    """Route A: submission via submit_summary with a typed binding per number."""
+
+    def setUp(self):
+        cache.clear()
+        self.player = make_player(
+            "ruthba01", "Babe", "Ruth", primary_position="RF",
+            debut=datetime.date(1914, 5, 6), final_game=datetime.date(1935, 5, 30),
+        )
+        add_batting(self.player, 1920, war=11.5, hr=54, avg=0.376, ops=1.382)
+
+    def _totals(self):
+        return _Block("tool_use", name="get_career_totals", input={"player_id": "ruthba01"}, id="t1")
+
+    def test_correctly_bound_submission_is_served(self):
+        responses = [
+            _Resp([self._totals()]),
+            _Resp([_Block("tool_use", name="submit_summary", id="s1", input={
+                "text": "Babe Ruth hit 54 home runs and compiled 11.5 WAR.",
+                "bindings": [
+                    {"value": 54, "stat": "career_hr"},
+                    {"value": 11.5, "stat": "career_war"},
+                ],
+            })]),
+        ]
+        with patch.object(narrative.llm, "complete", side_effect=responses):
+            result = generate_narrative(self.player)
+        self.assertEqual(result["source"], "llm")
+        self.assertEqual(result["trace"]["mode"], "agentic_typed")
+        self.assertEqual(result["trace"]["verification"], "passed")
+
+    def test_cross_stat_misbinding_is_rejected_then_falls_back(self):
+        # "54 home runs" is fine, but 11.5 bound to career_hr (it's the WAR) is a
+        # cross-stat collision: rejected. One repair, also wrong → template.
+        bad = _Resp([_Block("tool_use", name="submit_summary", id="s1", input={
+            "text": "He hit 11.5 home runs.",
+            "bindings": [{"value": 11.5, "stat": "career_hr"}],
+        })])
+        responses = [_Resp([self._totals()]), bad, bad]
+        with patch.object(narrative.llm, "complete", side_effect=responses):
+            result = generate_narrative(self.player)
+        self.assertEqual(result["source"], "template")
+        self.assertEqual(result["trace"]["repairs"], 1)
+        self.assertTrue(any("career_hr" in p for p in result["flagged"]))
+
+    def test_repair_recovers_after_rejected_submission(self):
+        responses = [
+            _Resp([self._totals()]),
+            _Resp([_Block("tool_use", name="submit_summary", id="s1", input={
+                "text": "He hit 73 home runs.",  # undeclared/ungrounded
+                "bindings": [{"value": 73, "stat": "career_hr"}],
+            })]),
+            _Resp([_Block("tool_use", name="submit_summary", id="s2", input={
+                "text": "He hit 54 home runs.",
+                "bindings": [{"value": 54, "stat": "career_hr"}],
+            })]),
+        ]
+        with patch.object(narrative.llm, "complete", side_effect=responses):
+            result = generate_narrative(self.player)
+        self.assertEqual(result["source"], "llm")
+        self.assertEqual(result["trace"]["repairs"], 1)
 
 
 # ---------------------------------------------------------------------------
