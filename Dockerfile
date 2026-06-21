@@ -29,6 +29,9 @@ COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 # Collect Django admin static files (does not touch the DB)
 RUN DJANGO_DEBUG=False python manage.py collectstatic --noinput
 
+RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+USER appuser
+
 EXPOSE 8000
 
 # Migrate then start — runs on every deploy so schema stays in sync
