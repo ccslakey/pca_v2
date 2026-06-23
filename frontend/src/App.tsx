@@ -2,6 +2,8 @@ import { lazy, Suspense } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { ComparePage } from './pages/ComparePage';
+import { useIsMobile } from './utils/useIsMobile';
+import { MobileApp } from './mobile/MobileApp';
 
 // Lazy: only the landing route ships in the initial bundle. /browse and
 // /player/:id are split into their own chunks (loaded on navigation).
@@ -27,19 +29,32 @@ const queryClient = new QueryClient({
   },
 });
 
+function DesktopRoutes() {
+  return (
+    <Suspense fallback={null}>
+      <Routes>
+        <Route path="/" element={<ComparePage />} />
+        <Route path="/browse" element={<LeaderboardPage />} />
+        <Route path="/player/:bbrefId" element={<ProfilePage />} />
+        <Route path="/methodology" element={<MethodologyIndexPage />} />
+        <Route path="/methodology/:slug" element={<MethodologyArticlePage />} />
+      </Routes>
+    </Suspense>
+  );
+}
+
+function RoutedApp() {
+  // Both branches live under the one BrowserRouter, so ?compare= and
+  // /player/:id deep links resolve in either mode.
+  const isMobile = useIsMobile();
+  return isMobile ? <MobileApp /> : <DesktopRoutes />;
+}
+
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <Suspense fallback={null}>
-          <Routes>
-            <Route path="/" element={<ComparePage />} />
-            <Route path="/browse" element={<LeaderboardPage />} />
-            <Route path="/player/:bbrefId" element={<ProfilePage />} />
-            <Route path="/methodology" element={<MethodologyIndexPage />} />
-            <Route path="/methodology/:slug" element={<MethodologyArticlePage />} />
-          </Routes>
-        </Suspense>
+        <RoutedApp />
       </BrowserRouter>
     </QueryClientProvider>
   );

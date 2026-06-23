@@ -1,0 +1,134 @@
+// Compare-screen specifics (selected chips, add-search, ranked list, focus rail,
+// small-multiples grid). Scoped under the mobile shell — no media query needed.
+
+.m-compare-chips { align-items: center; }
+
+.m-pchip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 5px 6px 5px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.m-pchip-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--c, var(--accent));
+}
+.m-pchip-x {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.m-compare-add { position: relative; margin-bottom: 12px; }
+.m-compare-results {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+.m-compare-result {
+  display: block;
+  width: 100%;
+  text-align: left;
+  appearance: none;
+  border: 0;
+  border-bottom: 1px solid var(--line-soft);
+  background: transparent;
+  color: var(--text-0);
+  font-size: 14px;
+  padding: 10px 12px;
+  cursor: pointer;
+  &:last-child { border-bottom: 0; }
+  &:active { background: var(--bg-3); }
+}
+
+// ---- overlay: ranked list under the multi-line chart ----
+
+.m-rank { list-style: none; margin: 8px 0 0; padding: 0; }
+.m-rank-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 4px;
+  border-top: 1px solid var(--line-soft);
+  cursor: pointer;
+  &.is-focus { background: var(--bg-2); }
+}
+.m-rank-n { font-family: var(--font-mono); font-size: 12px; color: var(--text-3); width: 16px; }
+.m-rank-dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
+.m-rank-name { flex: 1; font-size: 14px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m-rank-val { font-family: var(--font-mono); font-size: 14px; color: var(--text-1); }
+
+// ---- focus + rail ----
+
+.m-focus-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.m-focus-name { flex: 1; font-size: 15px; font-weight: 700; }
+.m-focus-open {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.m-rail {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  margin-top: 10px;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+.m-rail-item {
+  flex: 0 0 auto;
+  width: 96px;
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  border-radius: 10px;
+  padding: 8px;
+  cursor: pointer;
+  &.is-active { border-color: var(--accent); }
+}
+.m-rail-top { display: flex; align-items: center; gap: 5px; margin-bottom: 4px; }
+.m-rail-name { font-size: 11px; font-weight: 600; color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-rail-spark { height: 28px; display: flex; align-items: center; }
+
+// ---- small multiples ----
+
+.m-multiples { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.m-multiple {
+  margin-bottom: 0;
+  padding: 10px;
+  cursor: pointer;
+}
+.m-multiple-head { display: flex; align-items: center; gap: 5px; margin-bottom: 6px; }
+.m-multiple-name {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.m-multiple-peak { font-family: var(--font-mono); font-size: 11px; color: var(--text-2); }
