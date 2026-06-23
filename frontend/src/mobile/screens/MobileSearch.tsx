@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePlayerSearch } from '../../hooks';
-import { posLabel } from '../../utils/format';
+import { initials, posLabel } from '../../utils/format';
 import { playerColor } from '../../utils/color';
 import type { PlayerSummary } from '../../types';
 
@@ -19,22 +19,19 @@ export function MobileSearch() {
   const results = data?.results ?? [];
 
   return (
-    <div className="m-screen m-search">
-      <div className="m-search-bar">
-        <input
-          className="m-search-input"
-          placeholder="Search players…"
-          value={q}
-          onChange={e => setQ(e.target.value)}
-          autoFocus
-          enterKeyHint="search"
-        />
-        {q && (
-          <button className="m-search-clear" onClick={() => setQ('')} aria-label="Clear">✕</button>
-        )}
+    <div className="m-scroll">
+      <div className="m-lb-head">
+        <h1 className="m-lb-title">Search</h1>
+        <div className="m-search">
+          <svg className="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="11" cy="11" r="7" />
+            <path d="M21 21l-4.3-4.3" />
+          </svg>
+          <input placeholder="Search players" value={q} onChange={e => setQ(e.target.value)} autoFocus enterKeyHint="search" />
+        </div>
       </div>
 
-      <div className="m-list">
+      <div className="m-lb-list">
         {q.trim().length === 0 ? (
           <div className="m-empty">Type a name to find a player.</div>
         ) : isFetching && results.length === 0 ? (
@@ -48,24 +45,27 @@ export function MobileSearch() {
             return (
               <button
                 key={p.bbref_id}
-                className="m-row"
+                className="m-lb-row"
+                style={{ ['--team-color' as string]: color }}
                 onClick={() => navigate(`/player/${p.bbref_id}`)}
               >
-                <span className="m-swatch" style={{ background: color }}>
-                  {(p.first_name[0] ?? '') + (p.last_name[0] ?? '')}
-                </span>
-                <span className="m-row-main">
-                  <span className="m-row-name">{name}</span>
-                  <span className="m-row-sub">
-                    {posLabel(p.primary_position, p.throws, false)} · {years(p)}
-                  </span>
-                </span>
-                <span className="m-row-chev">›</span>
+                <div className="m-lb-rank" />
+                <div className="m-lb-shot" style={{ background: color }}>{initials(name)}</div>
+                <div className="m-lb-info">
+                  <div className="m-lb-name">{name}</div>
+                  <div className="m-lb-meta">
+                    <span className="team-dot" style={{ background: color }} />
+                    <span>{posLabel(p.primary_position, p.throws, false)}</span>
+                    <span style={{ opacity: 0.5 }}>·</span>
+                    <span>{years(p)}</span>
+                  </div>
+                </div>
               </button>
             );
           })
         )}
       </div>
+      <div className="m-scroll-pad" />
     </div>
   );
 }

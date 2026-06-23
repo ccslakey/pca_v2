@@ -1,112 +1,118 @@
 import { useMemo } from 'react';
-import type { ChartPlayer, ChartSeason, MetricId, XMode } from '../../types';
-import { fmtMetric, isLowerBetter, peakSeason, yDomain } from '../../utils/chart';
+import type { ChartPlayer, ChartSeason, MetricId } from '../../types';
+import { fmtMetric, isLowerBetter, peakSeason } from '../../utils/chart';
 
 interface Props {
   player: ChartPlayer;
   metric: MetricId;
   color: string;
-  xMode?: XMode;
+  width?: number;
   height?: number;
 }
 
-const PAD = { top: 14, right: 14, bottom: 22, left: 30 };
+const PAD = { top: 22, right: 14, bottom: 22, left: 28 };
 
-function xOf(s: ChartSeason, xMode: XMode): number | null {
-  return xMode === 'age' ? s.age : s.season;
-}
+/** Single-line career-arc chart (by season). Plain SVG, ported from the comp's
+ *  MobileChart.jsx — grid, axes, zero line, gradient area, peak marker. */
+export function MobileChart({ player, metric, color, width = 340, height = 180 }: Props) {
+  const innerW = width - PAD.left - PAD.right;
+  const innerH = height - PAD.top - PAD.bottom;
 
-/** Single-line career chart for one player + metric. Plain SVG (no visx). */
-export function MobileChart({ player, metric, color, xMode = 'year', height = 200 }: Props) {
-  const width = 360; // viewBox units; SVG scales to container width
-
-  const pts = useMemo(() => {
-    return player.seasons
-      .map(s => ({ x: xOf(s, xMode), y: s[metric as keyof ChartSeason] as number | null }))
-      .filter((p): p is { x: number; y: number } => p.x != null && p.y != null);
-  }, [player.seasons, metric, xMode]);
+  const data = useMemo(
+    () =>
+      player.seasons
+        .filter(s => s[metric as keyof ChartSeason] != null)
+        .map(s => ({ season: s.season, v: s[metric as keyof ChartSeason] as number })),
+    [player.seasons, metric],
+  );
 
   const peak = useMemo(() => peakSeason(player.seasons, metric), [player.seasons, metric]);
 
-  if (pts.length === 0) {
-    return (
-      <div className="m-chart-empty" style={{ height }}>
-        No {metric.toUpperCase()} data
-      </div>
-    );
+  if (!data.length) {
+    return <svg className="m-chart" viewBox={`0 0 ${width} ${height}`} />;
   }
 
-  const xs = pts.map(p => p.x);
-  const [xLo, xHi] = [Math.min(...xs), Math.max(...xs)];
-  const [yLo, yHi] = yDomain(pts.map(p => p.y), metric);
+  const xs = data.map(d => d.season);
+  const x0 = Math.min(...xs);
+  const x1 = Math.max(...xs);
+  const vs = data.map(d => d.v);
+  let v0 = Math.min(...vs);
+  let v1 = Math.max(...vs);
+  if (metric === 'war') {
+    v0 = Math.min(v0, 0);
+    v1 = Math.max(v1, 5);
+  }
+  if (isLowerBetter(metric)) {
+    const swap = v0;
+    v0 = v1;
+    v1 = swap;
+  }
+  const xSpan = Math.max(1, x1 - x0);
+  const vSpan = v1 - v0 || 1;
 
-  const iw = width - PAD.left - PAD.right;
-  const ih = height - PAD.top - PAD.bottom;
+  const xOf = (s: number) => PAD.left + ((s - x0) / xSpan) * innerW;
+  const yOf = (v: number) => PAD.top + (1 - (v - v0) / vSpan) * innerH;
 
-  const sx = (x: number) => PAD.left + (xHi === xLo ? iw / 2 : ((x - xLo) / (xHi - xLo)) * iw);
-  const sy = (y: number) => PAD.top + (yHi === yLo ? ih / 2 : (1 - (y - yLo) / (yHi - yLo)) * ih);
+  const path = data
+    .map((d, i) => `${i === 0 ? 'M' : 'L'}${xOf(d.season).toFixed(1)} ${yOf(d.v).toFixed(1)}`)
+    .join(' ');
+  const baseY = PAD.top + innerH;
+  const area = `${path} L ${xOf(data[data.length - 1].season).toFixed(1)} ${baseY} L ${xOf(data[0].season).toFixed(1)} ${baseY} Z`;
 
-  const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${sx(p.x).toFixed(1)},${sy(p.y).toFixed(1)}`).join(' ');
-  const area = `${line} L${sx(pts[pts.length - 1].x).toFixed(1)},${(PAD.top + ih).toFixed(1)} L${sx(pts[0].x).toFixed(1)},${(PAD.top + ih).toFixed(1)} Z`;
+  const peakX = peak ? xOf(peak.season) : 0;
+  const peakY = peak ? yOf(peak.val) : 0;
 
-  const gradId = `mc-${player.id}-${metric}`.replace(/[^a-z0-9-]/gi, '');
-  const peakX = peak != null && xMode === 'year' ? sx(peak.season) : null;
+  const yTicks = Array.from({ length: 4 }, (_, i) => {
+    const t = i / 3;
+    return { v: v0 + t * vSpan, y: PAD.top + (1 - t) * innerH };
+  });
 
-  // Two y-axis labels (lo / hi) and the value extremes.
-  const yLabel = isLowerBetter(metric)
-    ? { topVal: yLo, botVal: yHi }
-    : { topVal: yHi, botVal: yLo };
+  const xTicks =
+    data.length <= 6
+      ? data.map(d => ({ s: d.season, x: xOf(d.season) }))
+      : [data[0], data[Math.floor(data.length / 2)], data[data.length - 1]].map(d => ({
+          s: d.season,
+          x: xOf(d.season),
+        }));
 
   return (
     <svg
       className="m-chart"
       viewBox={`0 0 ${width} ${height}`}
-      preserveAspectRatio="none"
+      style={{ ['--team-color' as string]: color }}
       role="img"
-      aria-label={`${player.name} ${metric} by ${xMode}`}
+      aria-label={`${player.name} ${metric} by season`}
     >
-      <defs>
-        <linearGradient id={gradId} x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity={0.22} />
-          <stop offset="100%" stopColor={color} stopOpacity={0} />
-        </linearGradient>
-      </defs>
-
-      {/* baseline */}
-      <line
-        x1={PAD.left} x2={width - PAD.right}
-        y1={PAD.top + ih} y2={PAD.top + ih}
-        stroke="var(--line)" strokeWidth={1}
-      />
-
-      <path d={area} fill={`url(#${gradId})`} />
-      <path d={line} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-
-      {pts.map((p, i) => (
-        <circle key={i} cx={sx(p.x)} cy={sy(p.y)} r={1.6} fill={color} />
-      ))}
-
-      {peakX != null && peak != null && (
-        <>
-          <circle cx={peakX} cy={sy(peak.val)} r={3.5} fill={color} stroke="var(--bg-1)" strokeWidth={1.5} />
-        </>
+      <g className="grid">
+        {yTicks.map((t, i) => (
+          <line key={i} x1={PAD.left} x2={PAD.left + innerW} y1={t.y} y2={t.y} />
+        ))}
+      </g>
+      <g className="axis">
+        {yTicks.map((t, i) => (
+          <text key={i} x={PAD.left - 6} y={t.y} textAnchor="end" dominantBaseline="middle">
+            {fmtMetric(metric, t.v)}
+          </text>
+        ))}
+        {xTicks.map((t, i) => (
+          <text key={i} x={t.x} y={height - 6} textAnchor="middle">
+            {String(t.s).slice(2)}
+          </text>
+        ))}
+      </g>
+      {metric === 'war' && (
+        <line className="chart-zero" x1={PAD.left} x2={PAD.left + innerW} y1={yOf(0)} y2={yOf(0)} />
       )}
-
-      {/* y extremes */}
-      <text x={4} y={PAD.top + 4} className="m-chart-axis" fill="var(--text-3)">
-        {fmtMetric(metric, yLabel.topVal)}
-      </text>
-      <text x={4} y={PAD.top + ih} className="m-chart-axis" fill="var(--text-3)">
-        {fmtMetric(metric, yLabel.botVal)}
-      </text>
-
-      {/* x extremes */}
-      <text x={PAD.left} y={height - 6} className="m-chart-axis" fill="var(--text-3)">
-        {xLo}
-      </text>
-      <text x={width - PAD.right} y={height - 6} textAnchor="end" className="m-chart-axis" fill="var(--text-3)">
-        {xHi}
-      </text>
+      <path className="area" d={area} fill={color} />
+      <path className="line" d={path} stroke={color} />
+      {peak && (
+        <g>
+          <circle className="peak-dot" cx={peakX} cy={peakY} r={4.5} />
+          <text className="peak-label" x={peakX} y={peakY - 10} textAnchor="middle">
+            peak {fmtMetric(metric, peak.val)} · '{String(peak.season).slice(2)}
+          </text>
+        </g>
+      )}
     </svg>
   );
 }

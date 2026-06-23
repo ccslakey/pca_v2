@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
-import type { ChartPlayer, ChartSeason, PlayerAward } from '../../types';
+import type { ChartPlayer, ChartSeason, MetricId, PlayerAward } from '../../types';
 import { fmtMetric } from '../../utils/chart';
+import { teamColor } from '../utils/tenures';
 import { AnnotationGlyph } from '../../components/AnnotationGlyph';
 
 interface Props {
@@ -12,18 +13,18 @@ interface Props {
   onClose: () => void;
 }
 
-const ROWS: { metric: Parameters<typeof fmtMetric>[0]; label: string }[] = [
+const ROWS: { metric: MetricId; label: string }[] = [
   { metric: 'war', label: 'WAR' },
-  { metric: 'hr', label: 'HR' },
+  { metric: 'era', label: 'ERA' },
   { metric: 'avg', label: 'AVG' },
   { metric: 'ops', label: 'OPS' },
   { metric: 'ops_plus', label: 'OPS+' },
-  { metric: 'era', label: 'ERA' },
   { metric: 'era_plus', label: 'ERA+' },
+  { metric: 'hr', label: 'HR' },
   { metric: 'so', label: 'SO' },
 ];
 
-/** Bottom sheet showing one season's detail. Tap outside or the handle to close. */
+/** Season-detail bottom sheet, ported from the comp's SeasonSheet. */
 export function SeasonSheet({ player, season, awards, team, color, onClose }: Props) {
   useEffect(() => {
     if (!season) return;
@@ -35,51 +36,56 @@ export function SeasonSheet({ player, season, awards, team, color, onClose }: Pr
   if (!season) return null;
 
   const seasonAwards = awards.filter(a => a.year === season.season);
-  const rows = ROWS.filter(r => (season[r.metric as keyof ChartSeason] as number | null) != null);
+  const cells = ROWS.filter(r => (season[r.metric as keyof ChartSeason] as number | null) != null).slice(0, 6);
 
   return (
-    <div className="m-sheet-backdrop" onClick={onClose} role="presentation">
-      <div
-        className="m-sheet"
-        onClick={e => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-label={`${player.name} ${season.season} season`}
-      >
+    <>
+      <div className="m-sheet-scrim" onClick={onClose} role="presentation" />
+      <div className="m-sheet m-fade-in" role="dialog" aria-modal="true" aria-label={`${player.name} ${season.season} season`}>
         <div className="m-sheet-handle" />
         <div className="m-sheet-head">
           <div>
-            <div className="m-sheet-year" style={{ color }}>{season.season}</div>
-            <div className="m-sheet-sub">
-              {player.name}
-              {season.age != null ? ` · Age ${season.age}` : ''}
-              {team ? ` · ${team}` : ''}
+            <div className="m-sheet-eyebrow">
+              {season.season}
+              {season.age != null ? ` · age ${season.age}` : ''}
             </div>
+            <h2 className="m-sheet-title">{player.name}</h2>
+            {team && (
+              <div className="m-sheet-team">
+                <span className="swatch" style={{ background: teamColor(team) }} />
+                {team}
+              </div>
+            )}
           </div>
-          <button type="button" className="m-sheet-close" onClick={onClose} aria-label="Close">✕</button>
+          <button className="m-sheet-close" onClick={onClose} aria-label="Close">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <path d="M6 6l12 12M18 6l-12 12" />
+            </svg>
+          </button>
         </div>
 
-        {seasonAwards.length > 0 && (
-          <div className="m-sheet-awards">
-            {seasonAwards.map(a => (
-              <span key={a.id} className="m-sheet-award" title={a.notes ?? a.kind}>
-                <AnnotationGlyph kind={a.kind} color={color} size={16} />
-              </span>
-            ))}
-          </div>
-        )}
-
         <div className="m-sheet-stats">
-          {rows.map(r => (
+          {cells.map(r => (
             <div key={r.metric} className="m-sheet-stat">
-              <span className="m-sheet-stat-label">{r.label}</span>
-              <span className="m-sheet-stat-val">
-                {fmtMetric(r.metric, season[r.metric as keyof ChartSeason] as number | null)}
-              </span>
+              <div className="lbl">{r.label}</div>
+              <div className="v">{fmtMetric(r.metric, season[r.metric as keyof ChartSeason] as number | null)}</div>
             </div>
           ))}
         </div>
+
+        {seasonAwards.length > 0 && (
+          <div className="m-sheet-notes">
+            {seasonAwards.map(a => (
+              <div key={a.id} className="m-sheet-note">
+                <span className="glyph">
+                  <AnnotationGlyph kind={a.kind} color={color} size={13} />
+                </span>
+                <span>{a.notes ?? a.kind.toUpperCase()}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-    </div>
+    </>
   );
 }
