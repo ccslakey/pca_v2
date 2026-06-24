@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { ChartPlayer, MetricId, XMode } from '../types';
-import { useChartPlayer, useFeatured } from '../hooks';
+import { useChartPlayers, useFeatured } from '../hooks';
 import { TopBar } from '../components/layout/TopBar';
 import { ChipBar } from '../components/compare/ChipBar';
 import { MetricToggle } from '../components/compare/MetricToggle';
@@ -14,35 +14,6 @@ import { PlayerBrowser } from '../components/PlayerBrowser';
 const ChartArea = lazy(() =>
   import('../components/compare/ChartArea').then(m => ({ default: m.ChartArea })),
 );
-
-interface PlayerSlot {
-  id: string;
-  player: ChartPlayer | undefined;
-  isLoading: boolean;
-}
-
-function useChartPlayers(selectedIds: string[]): PlayerSlot[] {
-  const p0 = useChartPlayer(selectedIds[0] ?? null, 0);
-  const p1 = useChartPlayer(selectedIds[1] ?? null, 1);
-  const p2 = useChartPlayer(selectedIds[2] ?? null, 2);
-  const p3 = useChartPlayer(selectedIds[3] ?? null, 3);
-  const p4 = useChartPlayer(selectedIds[4] ?? null, 4);
-  const p5 = useChartPlayer(selectedIds[5] ?? null, 5);
-  const p6 = useChartPlayer(selectedIds[6] ?? null, 6);
-  const p7 = useChartPlayer(selectedIds[7] ?? null, 7);
-  const p8 = useChartPlayer(selectedIds[8] ?? null, 8);
-  const p9 = useChartPlayer(selectedIds[9] ?? null, 9);
-
-  const all = [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9];
-
-  return useMemo(() => selectedIds.map((id, i) => ({
-    id,
-    player: all[i]?.data,
-    isLoading: all[i]?.isLoading ?? false,
-  })),
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  [selectedIds.join(','), p0.data, p1.data, p2.data, p3.data, p4.data, p5.data, p6.data, p7.data, p8.data, p9.data, p0.isLoading, p1.isLoading, p2.isLoading, p3.isLoading, p4.isLoading, p5.isLoading, p6.isLoading, p7.isLoading, p8.isLoading, p9.isLoading]);
-}
 
 export function ComparePage() {
   const [searchParams] = useSearchParams();

@@ -1,0 +1,116 @@
+// Mobile Compare — overlay layout, ported class-for-class from the design comp's
+// mobile-compare.css. (The comp's focus / small-multiples explorations are
+// intentionally omitted — overlay is the canonical Compare screen.)
+
+/* Comparison set chips (removable, horizontal scroll) */
+.m-cmp-set {
+  display: flex; gap: 8px; padding: 2px 16px 4px;
+  overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity;
+}
+.m-cmp-set::-webkit-scrollbar { display: none; }
+.m-cmp-chip {
+  display: inline-flex; align-items: center; gap: 8px; flex: none;
+  padding: 6px 8px 6px 11px; background: var(--bg-2); border: 1px solid var(--line);
+  border-radius: 999px; white-space: nowrap;
+}
+.m-cmp-chip .sw { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.m-cmp-chip .nm { font-size: 13px; font-weight: 600; letter-spacing: -0.01em; }
+.m-cmp-chip .x {
+  display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%;
+  border: none; background: transparent; color: var(--text-3); margin-left: -2px; cursor: pointer;
+}
+.m-cmp-chip .x:active { background: var(--bg-1); color: var(--text-0); }
+.m-cmp-chip.add {
+  border-style: dashed; color: var(--text-2); font-family: var(--font-mono);
+  font-size: 12px; padding: 8px 14px; cursor: pointer; background: transparent;
+}
+
+/* Add-player search (revealed by the + Add chip) */
+.m-cmp-add { position: relative; margin: 8px 16px 0; }
+.m-cmp-add input {
+  width: 100%;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 11px 12px;
+  font-size: 16px;
+  color: var(--text-0);
+  outline: none;
+}
+.m-cmp-add input::placeholder { color: var(--text-3); }
+.m-cmp-results {
+  margin-top: 6px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.m-cmp-result {
+  display: block; width: 100%; text-align: left;
+  padding: 10px 12px; background: transparent; border: 0;
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--text-0); font-size: 13.5px; font-weight: 500; cursor: pointer;
+}
+.m-cmp-result:last-child { border-bottom: 0; }
+.m-cmp-result:active { background: var(--bg-3); }
+
+/* Metric segmented control */
+.m-cmp-metric {
+  display: flex; gap: 3px; padding: 3px; margin: 12px 16px 0;
+  background: var(--bg-3); border: 1px solid var(--line); border-radius: 999px;
+}
+.m-cmp-metric button {
+  flex: 1; background: transparent; border: none; color: var(--text-3);
+  font-family: var(--font-mono); font-size: 12px; font-weight: 500; letter-spacing: 0.03em;
+  padding: 7px 4px; border-radius: 999px; transition: background 120ms, color 120ms; cursor: pointer;
+}
+.m-cmp-metric button.is-active {
+  background: var(--bg-1); color: var(--text-0);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 2px 8px rgba(0,0,0,0.3);
+}
+
+/* Chart head */
+.m-cmp-charthead {
+  display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px;
+}
+.m-cmp-charthead .t { font-size: 13px; font-weight: 600; letter-spacing: -0.005em; }
+.m-cmp-charthead .x { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-3); }
+
+/* Multi-line chart */
+svg.m-multichart { display: block; width: 100%; user-select: none; }
+.m-multichart .grid line { stroke: var(--line-soft); stroke-dasharray: 2 4; }
+.m-multichart .axis text { fill: var(--text-3); font-size: 9px; font-family: var(--font-mono); }
+.m-multichart .zero { stroke: var(--line); stroke-dasharray: 2 3; }
+.m-multichart .ln { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: opacity 160ms, stroke-width 160ms; }
+.m-multichart .ln.is-dim { opacity: 0.2; stroke-width: 1.6; }
+.m-multichart .ln.is-focus { stroke-width: 2.6; }
+.m-multichart .area { fill-opacity: 0.13; transition: opacity 160ms; }
+
+/* Legend (tap to focus) */
+.m-cmp-legend { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.m-cmp-leg {
+  display: inline-flex; align-items: center; gap: 7px; padding: 5px 10px 5px 9px;
+  background: var(--bg-3); border: 1px solid var(--line); border-radius: 999px;
+  font-size: 12px; color: var(--text-1); transition: border-color 120ms, color 120ms; cursor: pointer;
+}
+.m-cmp-leg .sw { width: 9px; height: 9px; border-radius: 50%; flex: none; box-shadow: 0 0 0 2px var(--bg-3); }
+.m-cmp-leg .v { font-family: var(--font-mono); color: var(--text-3); font-size: 11px; }
+.m-cmp-leg.is-dim { opacity: 0.45; }
+.m-cmp-leg.is-focus { border-color: rgba(255,255,255,0.22); color: var(--text-0); }
+
+/* Ranked compare list */
+.m-cmp-rank { display: flex; flex-direction: column; gap: 6px; }
+.m-cmp-rrow {
+  display: grid; grid-template-columns: 22px 1fr auto; align-items: center; gap: 11px;
+  padding: 9px 11px; background: var(--bg-2); border: 1px solid var(--line);
+  border-radius: 12px; position: relative; overflow: hidden; transition: border-color 120ms;
+  cursor: pointer; width: 100%; text-align: left; font: inherit; color: inherit;
+}
+.m-cmp-rrow::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--c); }
+.m-cmp-rrow.is-focus { border-color: rgba(255,255,255,0.2); }
+.m-cmp-rrow .rk { font-family: var(--font-mono); font-size: 12px; color: var(--text-3); text-align: center; }
+.m-cmp-rrow .nm { font-size: 13.5px; font-weight: 600; letter-spacing: -0.01em; }
+.m-cmp-rrow .mt { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-3); margin-top: 1px; }
+.m-cmp-rrow .val { text-align: right; }
+.m-cmp-rrow .val .v { font-family: var(--font-mono); font-size: 16px; font-weight: 700; letter-spacing: -0.02em; }
+.m-cmp-rrow .val .pk { font-family: var(--font-mono); font-size: 9.5px; color: var(--text-3); }

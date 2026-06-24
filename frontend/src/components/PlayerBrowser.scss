@@ -1,3 +1,5 @@
+@use "../styles/breakpoints" as bp;
+
 .player-browser {
   margin-top: 32px;
   border-top: 1px solid var(--line);
@@ -67,6 +69,7 @@
 .filter-group {
   display: flex;
   gap: 2px;
+  flex-wrap: wrap;
 }
 
 .filter-chip {
@@ -357,4 +360,53 @@
   font-size: 11px;
   font-family: var(--font-mono);
   color: var(--text-3);
+}
+
+// ---- responsive ----
+
+@include bp.down(bp.$bp-md) {
+  .browser-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  // Wide table scrolls sideways; the name column stays pinned. Cells are
+  // transparent over the page background, so pinned cells need solid
+  // backgrounds — including on hover/selected rows, whose row-level
+  // backgrounds would otherwise show the scrolled columns through.
+  .browser-table {
+    th.col-name {
+      position: sticky;
+      left: 0;
+      z-index: 3;
+      background: var(--bg-1);
+    }
+    td.col-name {
+      position: sticky;
+      left: 0;
+      z-index: 2;
+      background: var(--bg-1);
+      box-shadow: 2px 0 4px rgba(0, 0, 0, 0.25);
+    }
+    tbody tr:hover td.col-name,
+    tbody tr.is-selected td.col-name {
+      background: var(--bg-3);
+    }
+  }
+
+  // Tap targets
+  .filter-chip,
+  .page-size-btn {
+    padding: 7px 12px;
+  }
+  .era-select {
+    padding: 7px 10px;
+  }
+  .add-btn {
+    width: 34px;
+    height: 34px;
+  }
+  .page-btn {
+    padding: 8px 14px;
+  }
 }

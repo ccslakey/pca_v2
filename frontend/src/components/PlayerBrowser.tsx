@@ -308,7 +308,7 @@ export function PlayerBrowser({
               Array.from({ length: pageSize > 15 ? 15 : pageSize }).map(
                 (_, i) => (
                   <tr key={`skel-${i}`} className="skeleton-row">
-                    <td>
+                    <td className="col-name">
                       <div className="skel skel-name" />
                     </td>
                     <td>

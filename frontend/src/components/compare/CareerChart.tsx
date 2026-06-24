@@ -210,7 +210,7 @@ export function CareerChart({
   );
 
   const yt = useMemo(() => yTicks(yLo, yHi, metric), [yLo, yHi, metric]);
-  const xt = useMemo(() => xTicks(xRange[0], xRange[1]), [xRange]);
+  const xt = useMemo(() => xTicks(xRange[0], xRange[1], innerW), [xRange, innerW]);
 
   const { agingCurveSolid, agingCurveFaded } = useMemo(() => {
     if (xMode !== "age") return { agingCurveSolid: [], agingCurveFaded: [] };

@@ -55,9 +55,18 @@ export function yDomain(vals: number[], metric: MetricId): [number, number] {
 
 // ---- X-axis tick generation ----
 
-export function xTicks(lo: number, hi: number): number[] {
+export function xTicks(lo: number, hi: number, innerWidth?: number): number[] {
   const span = hi - lo;
-  const step = span > 16 ? 4 : span > 8 ? 2 : 1;
+  let step = span > 16 ? 4 : span > 8 ? 2 : 1;
+  if (innerWidth) {
+    // A 4-digit year label needs ~48px to stay legible; widen the step on
+    // narrow charts until the ticks fit.
+    const maxTicks = Math.max(2, Math.floor(innerWidth / 48));
+    for (const s of [step, 2, 4, 5, 10, 20, 25, 50]) {
+      step = Math.max(step, s);
+      if (span / step <= maxTicks) break;
+    }
+  }
   const ticks: number[] = [];
   const start = Math.ceil(lo / step) * step;
   for (let v = start; v <= hi; v += step) ticks.push(v);

@@ -1,7 +1,17 @@
+@use "../../../../styles/breakpoints" as bp;
+
 .stat-grid {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
   gap: 10px;
+
+  // .is-headline spans 2 columns, which stays valid at every count below.
+  @include bp.down(bp.$bp-lg) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  @include bp.down(bp.$bp-sm) {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 .stat-block {

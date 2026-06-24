@@ -1,7 +1,17 @@
+@use "./breakpoints" as bp;
+
 .leaderboard-main {
+  // width must be explicit: as a flex item with auto margins it would size to
+  // fit-content, and Chrome's intrinsic width for wrapped flex rows (filters)
+  // is computed as if unwrapped — blowing past the viewport on phones.
+  width: 100%;
   max-width: 1100px;
   margin: 0 auto;
   padding: 24px 24px 48px;
+
+  @include bp.down(bp.$bp-md) {
+    padding: 14px 14px 40px;
+  }
 
   .player-browser {
     border-top: none;
