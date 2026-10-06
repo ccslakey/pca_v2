@@ -12,16 +12,19 @@ Blocks Threshold 2 (release post on r/sabermetrics, Tangotiger circles, etc.). T
 
 ### Must-ship
 
-- [ ] **Error monitoring** — Sentry free tier. At 50+ users tailing logs stops working. Ship before the 20-person wave.
-  - [ ] Django: `sentry-sdk`, init only when `SENTRY_DSN` is set, 10% trace sampling, `send_default_pii=False`, `before_send` strips headers/cookies/body/IP and allowlists query params
-  - [ ] React: `@sentry/react`, same scrubbing on events + breadcrumbs, top-level error boundary; DSN baked in at build via `VITE_SENTRY_DSN`
+- [ ] **Error monitoring** — Sentry free tier. At 50+ users tailing logs stops working. Ship before the 20-person wave. Code in PR #13, keys set on Railway; check off after deploy + a verified test error.
+  - [x] Django: `sentry-sdk`, init only when `SENTRY_DSN` is set, 10% trace sampling, `send_default_pii=False`, `before_send` strips headers/cookies/body/IP and allowlists query params
+  - [x] React: `@sentry/react`, same scrubbing on events + breadcrumbs, top-level error boundary; DSN baked in at build via `VITE_SENTRY_DSN`
+  - [ ] Sentry project setting: *Prevent Storing of IP Addresses*
   - [ ] Source-map upload (`@sentry/vite-plugin`, needs `SENTRY_AUTH_TOKEN` at build) — nice-to-have
-- [ ] **Analytics** — PostHog (cloud free tier). Without page-view + popular-comparison telemetry, every post-launch decision is vibes. Ship before the 5-person wave.
-  - [ ] Cookieless mode (server-side daily-rotating hash, nothing stored on device → no consent banner), never `identify()`, "discard client IP" on in project settings
-  - [ ] Same URL scrubbing as Sentry: allowlist `compare` + `utm_source/medium/campaign`; referrer reduced to domain
-  - [ ] Event taxonomy doc (`event_name`, properties, where it fires); tracking off in dev/tests
-  - [ ] Events: compare created (player count, player IDs), metric/axis/award toggles, profile opened, similar-player click-through, leaderboard filter/sort, narrative viewed + 👍/👎
-  - [ ] Server-side: narrative latency, tokens, cost, error rate (counts only — never prompt/output text)
+- [ ] **Analytics** — PostHog (cloud free tier). Without page-view + popular-comparison telemetry, every post-launch decision is vibes. Ship before the 5-person wave. Code in PR #13, keys set on Railway; check off after deploy + verified events.
+  - [x] Cookieless mode (server-side daily-rotating hash, nothing stored on device → no consent banner), never `identify()`
+  - [ ] PostHog project settings: *Discard client IP data* + *Cookieless server hash mode* (cookieless events are dropped without it)
+  - [x] Same URL scrubbing as Sentry: allowlisted query params; referrer reduced to origin
+  - [x] Event taxonomy doc — [`ANALYTICS.md`](ANALYTICS.md); tracking off in dev/tests
+  - [x] Events: compare add/remove, featured trio, metric/axis/award toggles, similar-player click-through, leaderboard filter/sort, narrative trace expanded, saved players; profile views via `$pageview`
+  - [ ] Narrative 👍/👎 feedback (needs UI)
+  - [x] Server-side: `narrative_served` with cache hit, latency, tokens, model/tool calls, repairs (counts only — never prompt/output text)
   - [ ] One dashboard (traffic + sources, core engagement, top compared players, narrative health); screenshot into `WRITEUP.md`
   - [ ] Short privacy note on the site
 - [ ] **Mobile layout** — previously deferred, but the friends-and-family wave will open links on phones. Minimum: usable single-column profile + compare page that doesn't break. Sabermetric audience still expected on desktop, so the bar is "doesn't embarrass," not "feature parity."
@@ -161,7 +164,7 @@ Not scheduled. Pulled into "Now" when the slot opens.
 - Code quality refactor: glyph redesign, ProfilePage split into panels, CSS modularization (SCSS)
 - Cached similarity aggregation queries (LocMemCache, 1h)
 - README cleanup matching live app
-- GitHub Actions CI: lint + `pytest` + frontend build on push
+- GitHub Actions CI: lint + `pytest` + frontend build on push (fixed in PR #13: `players/tests.py` was silently skipped because `pytest.ini` overrode the `pyproject.toml` test pattern)
 - Performance pass: page-load timing, prefetch on hover for leaderboard rows, no skeleton flicker, no jank when switching metrics
 
 ---
