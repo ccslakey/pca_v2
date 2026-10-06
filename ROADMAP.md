@@ -12,8 +12,18 @@ Blocks Threshold 2 (release post on r/sabermetrics, Tangotiger circles, etc.). T
 
 ### Must-ship
 
-- [ ] **Analytics** — Plausible or Umami (not GA). Without page-view + popular-comparison telemetry, every post-launch decision is vibes. ~30 min setup. Ship before the 5-person wave.
 - [ ] **Error monitoring** — Sentry free tier. At 50+ users tailing logs stops working. Ship before the 20-person wave.
+  - [ ] Django: `sentry-sdk`, init only when `SENTRY_DSN` is set, 10% trace sampling, `send_default_pii=False`, `before_send` strips headers/cookies/body/IP and allowlists query params
+  - [ ] React: `@sentry/react`, same scrubbing on events + breadcrumbs, top-level error boundary; DSN baked in at build via `VITE_SENTRY_DSN`
+  - [ ] Source-map upload (`@sentry/vite-plugin`, needs `SENTRY_AUTH_TOKEN` at build) — nice-to-have
+- [ ] **Analytics** — PostHog (cloud free tier). Without page-view + popular-comparison telemetry, every post-launch decision is vibes. Ship before the 5-person wave.
+  - [ ] Cookieless mode (server-side daily-rotating hash, nothing stored on device → no consent banner), never `identify()`, "discard client IP" on in project settings
+  - [ ] Same URL scrubbing as Sentry: allowlist `compare` + `utm_source/medium/campaign`; referrer reduced to domain
+  - [ ] Event taxonomy doc (`event_name`, properties, where it fires); tracking off in dev/tests
+  - [ ] Events: compare created (player count, player IDs), metric/axis/award toggles, profile opened, similar-player click-through, leaderboard filter/sort, narrative viewed + 👍/👎
+  - [ ] Server-side: narrative latency, tokens, cost, error rate (counts only — never prompt/output text)
+  - [ ] One dashboard (traffic + sources, core engagement, top compared players, narrative health); screenshot into `WRITEUP.md`
+  - [ ] Short privacy note on the site
 - [ ] **Mobile layout** — previously deferred, but the friends-and-family wave will open links on phones. Minimum: usable single-column profile + compare page that doesn't break. Sabermetric audience still expected on desktop, so the bar is "doesn't embarrass," not "feature parity."
 - [ ] **OG images** — see [Social preview images](#social-preview-images-open-graph) below. Not for virality — for the case when *you* post a comparison to Twitter / Bluesky / LinkedIn during the hiring push. Preview being a real chart vs. a generic card is what makes a hiring manager click. Cache rendered PNGs hard; rate-limit the endpoint.
 - [ ] **Engineering write-up** — short post (blog, expanded README section, or LinkedIn) walking through the similarity engine, era adjustments, and methodology tradeoffs. Sabermetric-leaning hiring managers absorb depth from prose much faster than by clicking around a UI; this is probably the single highest-leverage *hiring* signal you can add beyond what's already shipped. (SEO is deferred — see Distribution playbook — since this project is for hiring, not anonymous Google traffic.)

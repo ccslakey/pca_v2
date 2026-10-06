@@ -4,6 +4,10 @@ WORKDIR /app/frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 COPY frontend/ ./
+# Railway passes service variables as build args when declared here. The
+# browser DSN is public by design (it can only submit events).
+ARG VITE_SENTRY_DSN
+ARG VITE_SENTRY_ENVIRONMENT
 RUN npm run build
 
 # ── Stage 2: Python runtime ────────────────────────────────────────────────────
