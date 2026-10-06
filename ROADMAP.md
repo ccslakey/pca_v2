@@ -8,7 +8,7 @@ Live at: https://pcav2-production.up.railway.app
 
 ## Now — finish before public launch
 
-Blocks Threshold 2 (release post on r/sabermetrics, Tangotiger circles, etc.). Threshold 1 — "live URL that holds up to a 60-second skim" — shipped. Most of the original Threshold 2 list (methodology page, missing-data honesty, aging curve, percentile rankings, performance pass, CI, scheduled jobs) is done — see `Shipped`. What's left is observability, mobile, and the items that make the launch *spread*.
+Blocks Threshold 2 (release post on r/sabermetrics, Tangotiger circles, etc.). Threshold 1 — "live URL that holds up to a 60-second skim" — shipped. Most of the original Threshold 2 list (methodology page, missing-data honesty, aging curve, percentile rankings, performance pass, CI, scheduled jobs) is done — see `Shipped`. What's left is observability and the items that make the launch *spread*.
 
 ### Must-ship
 
@@ -27,7 +27,6 @@ Blocks Threshold 2 (release post on r/sabermetrics, Tangotiger circles, etc.). T
   - [x] Server-side: `narrative_served` with cache hit, latency, tokens, model/tool calls, repairs (counts only — never prompt/output text)
   - [ ] One dashboard (traffic + sources, core engagement, top compared players, narrative health); screenshot into `WRITEUP.md`
   - [ ] Short privacy note on the site
-- [ ] **Mobile layout** — previously deferred, but the friends-and-family wave will open links on phones. Minimum: usable single-column profile + compare page that doesn't break. Sabermetric audience still expected on desktop, so the bar is "doesn't embarrass," not "feature parity."
 - [ ] **OG images** — see [Social preview images](#social-preview-images-open-graph) below. Not for virality — for the case when *you* post a comparison to Twitter / Bluesky / LinkedIn during the hiring push. Preview being a real chart vs. a generic card is what makes a hiring manager click. Cache rendered PNGs hard; rate-limit the endpoint.
 - [ ] **Engineering write-up** — short post (blog, expanded README section, or LinkedIn) walking through the similarity engine, era adjustments, and methodology tradeoffs. Sabermetric-leaning hiring managers absorb depth from prose much faster than by clicking around a UI; this is probably the single highest-leverage *hiring* signal you can add beyond what's already shipped. (SEO is deferred — see Distribution playbook — since this project is for hiring, not anonymous Google traffic.)
 - [ ] **Career rate-stat slash line in the hero** — career AVG/OBP/SLG/OPS (or ERA/WHIP/K9 for pitchers) computed from existing totals. People expect this on a player page; absence reads as incomplete.
@@ -102,7 +101,6 @@ Not scheduled. Pulled into "Now" when the slot opens.
 
 - **Newsletter / weekly content** — that's a job, not a portfolio feature
 - **Accounts / login** — kills bounce, adds DB schema, adds spam vector
-- **AI features ("explain this player")** — dilutes the methodology positioning that is the actual edge with this audience
 - **Notifications / email captures** — friction without proportional value
 - **Comments / community features** — moderation cost, low signal
 - **Platoon splits (vs LHP/RHP)** — needs more granular data
@@ -144,6 +142,16 @@ Not scheduled. Pulled into "Now" when the slot opens.
 - ProfilePageSkeleton for full-page loading state
 - Staleness disclosure footer
 - Missing-data honesty: explicit "no Statcast data before 2015" treatment on pitch-zone panel and any other coverage-gapped panels (no more empty silent panels)
+
+### Mobile
+- Dedicated mobile shell below 720px matching the design comp: compare (up to 5 players), profile, leaders, search, and saved/followed players (localStorage)
+- Shared router, so `?compare=` and `/player/:id` deep links work in both layouts
+
+### AI career summary
+- Grounded "scouting report" on each profile, written by a tool-using agent and verified number-by-number against the player's data; falls back to a deterministic template on verification failure or with no API key — see [`AI_FEATURES.md`](AI_FEATURES.md)
+- Tool calls, methodology RAG (pgvector + Voyage) powering inline metric explainers, agentic verify→repair loop, typed number-binding verification
+- Eval harness (hallucination / tool / RAG metrics); narratives persisted in Postgres per data version
+- Provenance badge + "how this was generated" agent trace in the profile panel
 
 ### Browse / discovery
 - Leaderboard page: position, era, WAR filters; sortable; award badge tooltips
