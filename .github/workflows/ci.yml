@@ -47,7 +47,7 @@ jobs:
         run: python manage.py migrate
 
       - name: Test
-        run: pytest players/ pipeline/ -v --tb=short
+        run: pytest players/ pipeline/ pca_backend/ -v --tb=short
 
   frontend:
     runs-on: ubuntu-latest

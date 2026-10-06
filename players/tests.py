@@ -842,6 +842,18 @@ class TestNarrativeEndpoint(APITestCase):
         r = self.client.get(reverse("player-narrative", kwargs={"pk": "nobody00"}))
         self.assertEqual(r.status_code, 404)
 
+    def test_captures_narrative_served_without_text(self):
+        with patch("players.narrative.analytics.capture") as capture:
+            self.client.get(self.url)
+            self.client.get(self.url)
+        (first_event, first), (second_event, second) = [c.args for c in capture.call_args_list]
+        self.assertEqual((first_event, second_event), ("narrative_served", "narrative_served"))
+        self.assertFalse(first["cached"])
+        self.assertIn("latency_ms", first)
+        self.assertTrue(second["cached"])
+        for props in (first, second):
+            self.assertNotIn("text", props)
+
 
 # ---------------------------------------------------------------------------
 # Tool-calling agent (step 2)

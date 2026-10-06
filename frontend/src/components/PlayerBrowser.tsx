@@ -4,6 +4,7 @@ import { useLeaderboard } from "../hooks";
 import type { LeaderboardFilters, LeaderboardPlayer } from "../types";
 import { PLAYER_COLORS, MAX_PLAYERS } from "../constants";
 import { posLabel } from "../utils/format";
+import { track } from "../analytics";
 import "./PlayerBrowser.scss";
 
 // ---- constants ----
@@ -177,7 +178,14 @@ export function PlayerBrowser({
 
   const { data, isFetching } = useLeaderboard(filters);
 
+  const surface = standalone ? "leaderboard_page" : "compare_page";
+
   function handleSort(col: string) {
+    track("leaderboard_sorted", {
+      sort: col,
+      order: sort === col && order === "desc" ? "asc" : "desc",
+      surface,
+    });
     if (sort === col) {
       setOrder((o) => (o === "desc" ? "asc" : "desc"));
     } else {
@@ -187,7 +195,8 @@ export function PlayerBrowser({
     setPage(1);
   }
 
-  function handleFilter<T>(setter: (v: T) => void, value: T) {
+  function handleFilter<T>(filter: string, setter: (v: T) => void, value: T, trackedValue: unknown = value) {
+    track("leaderboard_filtered", { filter, value: trackedValue, surface });
     setter(value);
     setPage(1);
   }
@@ -249,7 +258,7 @@ export function PlayerBrowser({
             <button
               key={o.value}
               className={`filter-chip ${pos === o.value ? "is-active" : ""}`}
-              onClick={() => handleFilter(setPos, o.value)}
+              onClick={() => handleFilter("pos", setPos, o.value)}
             >
               {o.label}
             </button>
@@ -258,7 +267,7 @@ export function PlayerBrowser({
         <select
           className="era-select"
           value={eraIdx}
-          onChange={(e) => handleFilter(setEraIdx, Number(e.target.value))}
+          onChange={(e) => handleFilter("era", setEraIdx, Number(e.target.value), ERA_PRESETS[Number(e.target.value)].label)}
         >
           {ERA_PRESETS.map((ep, i) => (
             <option key={i} value={i}>
@@ -272,7 +281,7 @@ export function PlayerBrowser({
             <button
               key={w.value}
               className={`filter-chip ${minWar === w.value ? "is-active" : ""}`}
-              onClick={() => handleFilter(setMinWar, w.value)}
+              onClick={() => handleFilter("min_war", setMinWar, w.value)}
             >
               {w.label}
             </button>

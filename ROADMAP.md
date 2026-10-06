@@ -8,13 +8,25 @@ Live at: https://pcav2-production.up.railway.app
 
 ## Now — finish before public launch
 
-Blocks Threshold 2 (release post on r/sabermetrics, Tangotiger circles, etc.). Threshold 1 — "live URL that holds up to a 60-second skim" — shipped. Most of the original Threshold 2 list (methodology page, missing-data honesty, aging curve, percentile rankings, performance pass, CI, scheduled jobs) is done — see `Shipped`. What's left is observability, mobile, and the items that make the launch *spread*.
+Blocks Threshold 2 (release post on r/sabermetrics, Tangotiger circles, etc.). Threshold 1 — "live URL that holds up to a 60-second skim" — shipped. Most of the original Threshold 2 list (methodology page, missing-data honesty, aging curve, percentile rankings, performance pass, CI, scheduled jobs) is done — see `Shipped`. What's left is observability and the items that make the launch *spread*.
 
 ### Must-ship
 
-- [ ] **Analytics** — Plausible or Umami (not GA). Without page-view + popular-comparison telemetry, every post-launch decision is vibes. ~30 min setup. Ship before the 5-person wave.
-- [ ] **Error monitoring** — Sentry free tier. At 50+ users tailing logs stops working. Ship before the 20-person wave.
-- [ ] **Mobile layout** — previously deferred, but the friends-and-family wave will open links on phones. Minimum: usable single-column profile + compare page that doesn't break. Sabermetric audience still expected on desktop, so the bar is "doesn't embarrass," not "feature parity."
+- [ ] **Error monitoring** — Sentry free tier. At 50+ users tailing logs stops working. Ship before the 20-person wave. Code in PR #13, keys set on Railway; check off after deploy + a verified test error.
+  - [x] Django: `sentry-sdk`, init only when `SENTRY_DSN` is set, 10% trace sampling, `send_default_pii=False`, `before_send` strips headers/cookies/body/IP and allowlists query params
+  - [x] React: `@sentry/react`, same scrubbing on events + breadcrumbs, top-level error boundary; DSN baked in at build via `VITE_SENTRY_DSN`
+  - [ ] Sentry project setting: *Prevent Storing of IP Addresses*
+  - [ ] Source-map upload (`@sentry/vite-plugin`, needs `SENTRY_AUTH_TOKEN` at build) — nice-to-have
+- [ ] **Analytics** — PostHog (cloud free tier). Without page-view + popular-comparison telemetry, every post-launch decision is vibes. Ship before the 5-person wave. Code in PR #13, keys set on Railway; check off after deploy + verified events.
+  - [x] Cookieless mode (server-side daily-rotating hash, nothing stored on device → no consent banner), never `identify()`
+  - [ ] PostHog project settings: *Discard client IP data* + *Cookieless server hash mode* (cookieless events are dropped without it)
+  - [x] Same URL scrubbing as Sentry: allowlisted query params; referrer reduced to origin
+  - [x] Event taxonomy doc — [`ANALYTICS.md`](ANALYTICS.md); tracking off in dev/tests
+  - [x] Events: compare add/remove, featured trio, metric/axis/award toggles, similar-player click-through, leaderboard filter/sort, narrative trace expanded, saved players; profile views via `$pageview`
+  - [ ] Narrative 👍/👎 feedback (needs UI)
+  - [x] Server-side: `narrative_served` with cache hit, latency, tokens, model/tool calls, repairs (counts only — never prompt/output text)
+  - [ ] One dashboard (traffic + sources, core engagement, top compared players, narrative health); screenshot into `WRITEUP.md`
+  - [ ] Short privacy note on the site
 - [ ] **OG images** — see [Social preview images](#social-preview-images-open-graph) below. Not for virality — for the case when *you* post a comparison to Twitter / Bluesky / LinkedIn during the hiring push. Preview being a real chart vs. a generic card is what makes a hiring manager click. Cache rendered PNGs hard; rate-limit the endpoint.
 - [ ] **Engineering write-up** — short post (blog, expanded README section, or LinkedIn) walking through the similarity engine, era adjustments, and methodology tradeoffs. Sabermetric-leaning hiring managers absorb depth from prose much faster than by clicking around a UI; this is probably the single highest-leverage *hiring* signal you can add beyond what's already shipped. (SEO is deferred — see Distribution playbook — since this project is for hiring, not anonymous Google traffic.)
 - [ ] **Career rate-stat slash line in the hero** — career AVG/OBP/SLG/OPS (or ERA/WHIP/K9 for pitchers) computed from existing totals. People expect this on a player page; absence reads as incomplete.
@@ -89,7 +101,6 @@ Not scheduled. Pulled into "Now" when the slot opens.
 
 - **Newsletter / weekly content** — that's a job, not a portfolio feature
 - **Accounts / login** — kills bounce, adds DB schema, adds spam vector
-- **AI features ("explain this player")** — dilutes the methodology positioning that is the actual edge with this audience
 - **Notifications / email captures** — friction without proportional value
 - **Comments / community features** — moderation cost, low signal
 - **Platoon splits (vs LHP/RHP)** — needs more granular data
@@ -132,6 +143,16 @@ Not scheduled. Pulled into "Now" when the slot opens.
 - Staleness disclosure footer
 - Missing-data honesty: explicit "no Statcast data before 2015" treatment on pitch-zone panel and any other coverage-gapped panels (no more empty silent panels)
 
+### Mobile
+- Dedicated mobile shell below 720px matching the design comp: compare (up to 5 players), profile, leaders, search, and saved/followed players (localStorage)
+- Shared router, so `?compare=` and `/player/:id` deep links work in both layouts
+
+### AI career summary
+- Grounded "scouting report" on each profile, written by a tool-using agent and verified number-by-number against the player's data; falls back to a deterministic template on verification failure or with no API key — see [`AI_FEATURES.md`](AI_FEATURES.md)
+- Tool calls, methodology RAG (pgvector + Voyage) powering inline metric explainers, agentic verify→repair loop, typed number-binding verification
+- Eval harness (hallucination / tool / RAG metrics); narratives persisted in Postgres per data version
+- Provenance badge + "how this was generated" agent trace in the profile panel
+
 ### Browse / discovery
 - Leaderboard page: position, era, WAR filters; sortable; award badge tooltips
 
@@ -151,7 +172,7 @@ Not scheduled. Pulled into "Now" when the slot opens.
 - Code quality refactor: glyph redesign, ProfilePage split into panels, CSS modularization (SCSS)
 - Cached similarity aggregation queries (LocMemCache, 1h)
 - README cleanup matching live app
-- GitHub Actions CI: lint + `pytest` + frontend build on push
+- GitHub Actions CI: lint + `pytest` + frontend build on push (fixed in PR #13: `players/tests.py` was silently skipped because `pytest.ini` overrode the `pyproject.toml` test pattern)
 - Performance pass: page-load timing, prefetch on hover for leaderboard rows, no skeleton flicker, no jank when switching metrics
 
 ---

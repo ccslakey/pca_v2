@@ -4,6 +4,8 @@ from pathlib import Path
 import dj_database_url
 from dotenv import load_dotenv
 
+from pca_backend.observability import init_sentry
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Load a local .env (gitignored) for dev. No-op in production, where Railway
@@ -165,6 +167,11 @@ VOYAGE_API_KEY = os.environ.get('VOYAGE_API_KEY', '')
 EMBED_MODEL = os.environ.get('EMBED_MODEL', 'voyage-3.5-lite')
 VECTOR_DIM = 1024  # voyage-3.5-lite default output dimension; must match the model field
 RAG_ENABLED = bool(VOYAGE_API_KEY)
+
+# --- Error monitoring ---
+# No-op unless SENTRY_DSN is set, so dev and tests never report.
+
+init_sentry()
 
 # --- DRF ---
 

@@ -10,5 +10,7 @@ markdown
 pybaseball
 psycopg2-binary
 gunicorn
+sentry-sdk[django]
+posthog
 whitenoise
 dj-database-url
