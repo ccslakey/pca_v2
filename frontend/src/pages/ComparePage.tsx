@@ -10,6 +10,7 @@ import { PlayerCardSkeleton } from '../components/compare/PlayerCardSkeleton';
 import { ChartSkeleton } from '../components/compare/ChartSkeleton';
 import { FeaturedGallery } from '../components/compare/FeaturedGallery';
 import { PlayerBrowser } from '../components/PlayerBrowser';
+import { track } from '../analytics';
 
 const ChartArea = lazy(() =>
   import('../components/compare/ChartArea').then(m => ({ default: m.ChartArea })),
@@ -69,12 +70,35 @@ export function ComparePage() {
     setYearRange(fullRange);
   }, [fullRange[0], fullRange[1]]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function addPlayer(id: string) {
+  function addPlayer(id: string, source: 'search' | 'browser') {
+    if (selectedIds.includes(id)) return;
+    track('compare_player_added', { player_id: id, player_count: selectedIds.length + 1, source, surface: 'desktop' });
     setSelectedIds(prev => prev.includes(id) ? prev : [...prev, id]);
   }
 
   function removePlayer(id: string) {
+    track('compare_player_removed', { player_id: id, player_count: selectedIds.length - 1, surface: 'desktop' });
     setSelectedIds(prev => prev.filter(x => x !== id));
+  }
+
+  function selectFeatured(ids: string[]) {
+    track('featured_comparison_selected', { player_ids: ids, surface: 'desktop' });
+    setSelectedIds(ids);
+  }
+
+  function changeMetric(m: MetricId) {
+    track('chart_metric_changed', { metric: m, page: 'compare', surface: 'desktop' });
+    setMetric(m);
+  }
+
+  function changeXMode(mode: XMode) {
+    track('compare_axis_changed', { x_mode: mode });
+    setXMode(mode);
+  }
+
+  function toggleGlyphs() {
+    track('award_glyphs_toggled', { visible: !showGlyphs });
+    setShowGlyphs(v => !v);
   }
 
   const isEmpty       = selectedIds.length === 0;
@@ -82,7 +106,7 @@ export function ComparePage() {
 
   return (
     <div className="app">
-      <TopBar selectedIds={selectedIds} onSelect={addPlayer} />
+      <TopBar selectedIds={selectedIds} onSelect={id => addPlayer(id, 'search')} />
 
       <div className="main">
       <ChipBar
@@ -91,7 +115,7 @@ export function ComparePage() {
         setHoverPlayerId={setHoverPlayerId}
         onRemove={removePlayer}
       />
-        <MetricToggle metric={metric} onChange={setMetric} xMode={xMode} onXModeChange={setXMode} showGlyphs={showGlyphs} onToggleGlyphs={() => setShowGlyphs(v => !v)} />
+        <MetricToggle metric={metric} onChange={changeMetric} xMode={xMode} onXModeChange={changeXMode} showGlyphs={showGlyphs} onToggleGlyphs={toggleGlyphs} />
 
         <div className="chart-card">
           {isEmpty ? (
@@ -138,9 +162,9 @@ export function ComparePage() {
           )}
         </div>
 
-        <FeaturedGallery onSelect={setSelectedIds} />
+        <FeaturedGallery onSelect={selectFeatured} />
 
-        <PlayerBrowser selectedIds={selectedIds} onSelect={addPlayer} />
+        <PlayerBrowser selectedIds={selectedIds} onSelect={id => addPlayer(id, 'browser')} />
 
         <p className="footer-note">
           Data: Baseball Reference · All WAR values are bWAR

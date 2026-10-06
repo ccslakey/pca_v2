@@ -5,8 +5,10 @@ import './globals.scss';
 import { App } from './App';
 import { ThemeProvider } from './themes/ThemeContext';
 import { initSentry } from './observability';
+import { initAnalytics } from './analytics';
 
 initSentry();
+initAnalytics();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

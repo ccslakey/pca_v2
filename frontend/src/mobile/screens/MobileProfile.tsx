@@ -14,6 +14,7 @@ import { playerColor, colorTint } from '../../utils/color';
 import { initials } from '../../utils/format';
 import { deriveTenures } from '../utils/tenures';
 import { useSavedPlayers } from '../hooks/useSavedPlayers';
+import { track } from '../../analytics';
 import { MobileChart } from '../components/MobileChart';
 import { SeasonSheet } from '../components/SeasonSheet';
 import { AnnotationGlyph } from '../../components/AnnotationGlyph';
@@ -148,7 +149,7 @@ export function MobileProfile() {
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14" /></svg>
               Compare
             </button>
-            <button className={`m-btn ${saved ? 'is-primary' : ''}`} onClick={() => toggle({ bbref_id: player.id, name: player.name, pos: player.pos })}>
+            <button className={`m-btn ${saved ? 'is-primary' : ''}`} onClick={() => { track('player_saved_toggled', { player_id: player.id, saved: !saved }); toggle({ bbref_id: player.id, name: player.name, pos: player.pos }); }}>
               {saved ? '✓ Following' : '+ Follow'}
             </button>
           </div>
@@ -205,7 +206,7 @@ export function MobileProfile() {
         <div className="m-card">
           <div className="m-chart-tabs">
             {availableMetrics.map(m => (
-              <button key={m.id} className={`m-chart-tab ${metric === m.id ? 'is-active' : ''}`} onClick={() => setMetric(m.id)}>
+              <button key={m.id} className={`m-chart-tab ${metric === m.id ? 'is-active' : ''}`} onClick={() => { track('chart_metric_changed', { metric: m.id, page: 'profile', surface: 'mobile' }); setMetric(m.id); }}>
                 {m.label}
               </button>
             ))}
@@ -347,7 +348,7 @@ export function MobileProfile() {
               <span className="m-section-action">swipe →</span>
             </div>
             <div className="m-comp-row">
-              {similarList.map(sp => {
+              {similarList.map((sp, i) => {
                 const c = playerColor(sp.bbref_id);
                 const name = `${sp.first_name} ${sp.last_name}`;
                 return (
@@ -355,7 +356,10 @@ export function MobileProfile() {
                     key={sp.bbref_id}
                     className="m-comp-card"
                     style={{ ['--accent-color' as string]: c }}
-                    onClick={() => navigate(`/player/${sp.bbref_id}`)}
+                    onClick={() => {
+                      track('similar_player_clicked', { from_player_id: player.id, to_player_id: sp.bbref_id, similarity: sp.similarity, rank: i + 1, surface: 'mobile' });
+                      navigate(`/player/${sp.bbref_id}`);
+                    }}
                   >
                     <div className="m-comp-head">
                       <div className="m-comp-shot" style={{ background: c }}>{initials(name)}</div>

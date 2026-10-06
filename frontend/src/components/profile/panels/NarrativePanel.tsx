@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Sparkle, ShieldCheck, CaretRight } from "@phosphor-icons/react";
 import { useNarrative } from "../../../hooks";
 import { Skeleton } from "../../Skeleton";
+import { track } from "../../../analytics";
 
 interface Props {
   bbrefId: string;
@@ -68,7 +69,10 @@ export function NarrativePanel({ bbrefId }: Props) {
             <div className="narrative-trace">
               <button
                 className="narrative-trace-toggle"
-                onClick={() => setShowTrace((s) => !s)}
+                onClick={() => {
+                  if (!showTrace) track("narrative_trace_expanded", { player_id: bbrefId });
+                  setShowTrace((s) => !s);
+                }}
                 aria-expanded={showTrace}
               >
                 <CaretRight size={11} weight="bold" className={showTrace ? "open" : ""} />

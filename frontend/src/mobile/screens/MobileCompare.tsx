@@ -4,6 +4,7 @@ import { useChartPlayers, usePlayerSearch, useFeatured } from '../../hooks';
 import type { ChartPlayer, MetricId } from '../../types';
 import { fmtMetric, isLowerBetter, peakSeason, sumMetric } from '../../utils/chart';
 import { MobileMultiChart } from '../components/MobileMultiChart';
+import { track } from '../../analytics';
 
 const METRIC_OPTS: { id: MetricId; label: string }[] = [
   { id: 'war', label: 'WAR' },
@@ -54,11 +55,15 @@ export function MobileCompare() {
   const { data: search } = usePlayerSearch(query.trim());
 
   function addPlayer(id: string) {
+    if (!selectedIds.includes(id) && selectedIds.length < 5) {
+      track('compare_player_added', { player_id: id, player_count: selectedIds.length + 1, source: 'search', surface: 'mobile' });
+    }
     setSelectedIds(prev => (prev.includes(id) || prev.length >= 5 ? prev : [...prev, id]));
     setQuery('');
     setAdding(false);
   }
   function removePlayer(id: string) {
+    track('compare_player_removed', { player_id: id, player_count: selectedIds.length - 1, surface: 'mobile' });
     setSelectedIds(prev => prev.filter(x => x !== id));
     if (focusId === id) setFocusId(null);
   }
@@ -132,7 +137,7 @@ export function MobileCompare() {
         {/* Metric switch */}
         <div className="m-cmp-metric">
           {METRIC_OPTS.map(m => (
-            <button key={m.id} className={metric === m.id ? 'is-active' : ''} onClick={() => setMetric(m.id)}>
+            <button key={m.id} className={metric === m.id ? 'is-active' : ''} onClick={() => { track('chart_metric_changed', { metric: m.id, page: 'compare', surface: 'mobile' }); setMetric(m.id); }}>
               {m.label}
             </button>
           ))}

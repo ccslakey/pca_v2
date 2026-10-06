@@ -3,12 +3,14 @@ import { Link } from "react-router-dom";
 import { playerColor } from "../../../utils/color";
 import { initials, posLabel } from "../../../utils/format";
 import type { SimilarPlayersResponse } from "../../../types";
+import { track } from "../../../analytics";
 
 interface Props {
+  fromId: string;
   similar: SimilarPlayersResponse;
 }
 
-export function SimilarPlayersPanel({ similar }: Props) {
+export function SimilarPlayersPanel({ fromId, similar }: Props) {
   const isTwoWay = similar.batters.length > 0 && similar.pitchers.length > 0;
   return (
     <div className="panel">
@@ -27,13 +29,22 @@ export function SimilarPlayersPanel({ similar }: Props) {
           <div key={label}>
             {isTwoWay && <div className="similar-role-label">{label}</div>}
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              {list.map((p) => {
+              {list.map((p, i) => {
                 const c = playerColor(p.bbref_id);
                 return (
                   <Link
                     key={p.bbref_id}
                     to={`/player/${p.bbref_id}`}
                     className="comp-row"
+                    onClick={() =>
+                      track("similar_player_clicked", {
+                        from_player_id: fromId,
+                        to_player_id: p.bbref_id,
+                        similarity: p.similarity,
+                        rank: i + 1,
+                        surface: "desktop",
+                      })
+                    }
                   >
                     <div className="comp-shot" style={{ background: c }}>
                       {initials(`${p.first_name} ${p.last_name}`)}

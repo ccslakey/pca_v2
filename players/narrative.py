@@ -16,10 +16,13 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time
 from typing import Any
 
 from django.conf import settings
 from django.utils import timezone
+
+from pca_backend import analytics
 
 from . import llm
 from .models import Player, PlayerNarrative
@@ -590,9 +593,27 @@ def get_or_generate(player: Player, data_version: str | None, force: bool = Fals
     if not force:
         existing = PlayerNarrative.objects.filter(player=player, data_version=data_version).first()
         if existing is not None:
+            analytics.capture('narrative_served', {'player_id': player.bbref_id, 'cached': True, 'source': existing.source})
             return existing.as_dict()
 
+    started = time.monotonic()
     result = generate_narrative(player)
+    trace = result["trace"]
+    analytics.capture('narrative_served', {
+        'player_id': player.bbref_id,
+        'cached': False,
+        'source': result["source"],
+        'model': result["model"],
+        'mode': trace.get("mode"),
+        'latency_ms': round((time.monotonic() - started) * 1000),
+        'model_calls': trace.get("model_calls"),
+        'tool_calls': len(trace.get("tool_calls", [])),
+        'repairs': trace.get("repairs"),
+        'flagged_count': len(result["flagged"]),
+        'input_tokens': trace.get("input_tokens", 0),
+        'output_tokens': trace.get("output_tokens", 0),
+        'cache_read_tokens': trace.get("cache_read_tokens", 0),
+    })
     obj, _ = PlayerNarrative.objects.update_or_create(
         player=player,
         defaults={

@@ -24,6 +24,7 @@ import { JamesScoresPanel } from "../components/profile/panels/JamesScoresPanel"
 import { PitchZone } from "../components/profile/charts/PitchZone";
 import { ProfilePageSkeleton } from "../components/profile/ProfilePageSkeleton";
 import { TopBar } from "../components/layout/TopBar";
+import { track } from "../analytics";
 
 export function ProfilePage() {
   const { bbrefId } = useParams<{ bbrefId: string }>();
@@ -91,7 +92,10 @@ export function ProfilePage() {
               player={player}
               color={color}
               metric={metric}
-              setMetric={setMetric}
+              setMetric={(m) => {
+                track("chart_metric_changed", { metric: m, page: "profile", surface: "desktop" });
+                setMetric(m);
+              }}
               availableMetrics={availableMetrics}
             />
             <SparklinePanel
@@ -111,7 +115,7 @@ export function ProfilePage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {similar &&
               (similar.batters.length > 0 || similar.pitchers.length > 0) && (
-                <SimilarPlayersPanel similar={similar} />
+                <SimilarPlayersPanel fromId={player.id} similar={similar} />
               )}
 
             {(player.isBatter || player.isPitcher) && (

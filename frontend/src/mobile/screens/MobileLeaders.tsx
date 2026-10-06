@@ -4,6 +4,7 @@ import { useLeaderboard } from '../../hooks';
 import type { LeaderboardFilters, LeaderboardPlayer } from '../../types';
 import { initials, posLabel } from '../../utils/format';
 import { playerColor } from '../../utils/color';
+import { track } from '../../analytics';
 
 const POSITIONS = ['All', 'P', '1B', '2B', '3B', 'SS', 'OF', 'DH', 'C'];
 
@@ -78,7 +79,7 @@ export function MobileLeaders() {
           <span className="lbl-key">Sort</span>
         </span>
         {SORTS.map(s => (
-          <button key={s.key} className={`m-chip ${sort === s.key ? 'is-active' : ''}`} onClick={() => setSort(s.key)}>
+          <button key={s.key} className={`m-chip ${sort === s.key ? 'is-active' : ''}`} onClick={() => { track('leaderboard_sorted', { sort: s.key, order: 'desc', surface: 'mobile' }); setSort(s.key); }}>
             {s.label}
           </button>
         ))}
@@ -88,7 +89,7 @@ export function MobileLeaders() {
           <span className="lbl-key">Pos</span>
         </span>
         {POSITIONS.map(p => (
-          <button key={p} className={`m-chip ${pos === p ? 'is-active' : ''}`} onClick={() => setPos(p)}>
+          <button key={p} className={`m-chip ${pos === p ? 'is-active' : ''}`} onClick={() => { track('leaderboard_filtered', { filter: 'pos', value: p, surface: 'mobile' }); setPos(p); }}>
             {p}
           </button>
         ))}
