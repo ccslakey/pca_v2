@@ -15,12 +15,15 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "pca_backend.settings")
 
+from unittest.mock import patch
+
 from django.test import SimpleTestCase
 
 from pipeline.eval_narrative import (
     faithfulness,
     format_scorecard,
     hallucination_rate,
+    make_judge,
     rag_hit_rate,
     run_eval,
     tool_selection_accuracy,
@@ -105,6 +108,14 @@ class TestFaithfulness(SimpleTestCase):
             raise RuntimeError("API down")
         f = faithfulness([({"text": "a"}, {})], judge=bad)
         self.assertEqual((f["n"], f["mean"], f["scores"]), (0, None, [None]))
+
+    def test_judge_parses_score_and_rejects_garbage(self):
+        with patch("pipeline.eval_narrative.llm.complete_text", side_effect=["4", "N/A"]) as m:
+            judge = make_judge("claude-haiku-4-5-20251001")
+            self.assertEqual(judge("text", {}), 4)
+            with self.assertRaises(ValueError):
+                judge("text", {})
+        self.assertEqual(m.call_args.kwargs["model"], "claude-haiku-4-5-20251001")
 
     def test_threaded_scores_stay_aligned(self):
         samples = [({"text": str(i)}, {}) for i in range(1, 6)]

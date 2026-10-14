@@ -31,6 +31,7 @@ import json
 import os
 import random
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Callable
 
@@ -169,9 +170,21 @@ _JUDGE_PROMPT = (
 )
 
 
-def _default_judge(text: str, facts: dict[str, Any]) -> int:
-    out = llm.complete_text(_JUDGE_PROMPT, f"FACTS:\n{json.dumps(facts)}\n\nSUMMARY:\n{text}", max_tokens=8)
-    return int("".join(c for c in out if c.isdigit())[:1] or "0")
+def make_judge(model: str | None = None) -> Callable[[str, dict[str, Any]], int]:
+    """LLM judge on `model` (default NARRATIVE_MODEL). Pin it when comparing
+    narrative models so the grader stays fixed across runs."""
+    def judge(text: str, facts: dict[str, Any]) -> int:
+        out = llm.complete_text(
+            _JUDGE_PROMPT, f"FACTS:\n{json.dumps(facts)}\n\nSUMMARY:\n{text}", max_tokens=8, model=model,
+        )
+        digits = [c for c in out if c in "12345"]
+        if not digits:  # unparseable — skipped by faithfulness(), never scored 0
+            raise ValueError(f"unparseable judge reply: {out!r}")
+        return int(digits[0])
+    return judge
+
+
+_default_judge = make_judge()
 
 
 # --- Orchestration ---------------------------------------------------------
@@ -190,7 +203,13 @@ def run_eval(
     """Run all metrics and assemble a scorecard. Inject `narrate`/`retrieve`/
     `judge` for offline testing; defaults call the real agent and retriever.
     `runs` holds one row per player for drilling into failures."""
-    results = _map(narrate, player_ids, workers)
+    def timed(pid: str) -> tuple[dict[str, Any], int]:
+        started = time.monotonic()
+        result = narrate(pid)
+        return result, round((time.monotonic() - started) * 1000)
+
+    timed_results = _map(timed, player_ids, workers)
+    results = [r for r, _ in timed_results]
     llm_enabled = bool(getattr(settings, "LLM_ENABLED", False))
 
     scorecard: dict[str, Any] = {
@@ -225,9 +244,14 @@ def run_eval(
             "tools": [t["name"] for t in r.get("trace", {}).get("tool_calls", [])],
             "flagged": r.get("flagged", []),
             "faithfulness": judged.get(pid),
+            "incomplete": r.get("trace", {}).get("incomplete"),
+            "latency_ms": ms,
+            "input_tokens": r.get("trace", {}).get("input_tokens", 0),
+            "output_tokens": r.get("trace", {}).get("output_tokens", 0),
+            "cache_read_tokens": r.get("trace", {}).get("cache_read_tokens", 0),
             "text": r.get("text"),
         }
-        for pid, r in zip(player_ids, results)
+        for pid, (r, ms) in zip(player_ids, timed_results)
     ]
     return scorecard
 
@@ -277,6 +301,7 @@ def main() -> None:
     parser.add_argument("--k", type=int, default=3, help="top-k for RAG hit-rate.")
     parser.add_argument("--json", action="store_true", help="Emit the scorecard as JSON.")
     parser.add_argument("--faithfulness", action="store_true", help="Run the LLM-judge metric (needs a key).")
+    parser.add_argument("--judge-model", default=None, help="Model for the judge (default NARRATIVE_MODEL).")
     parser.add_argument(
         "--max-hallucination", type=float, default=None,
         help="CI gate: exit 1 if hallucination rate exceeds this (e.g. 0.0).",
@@ -296,7 +321,7 @@ def main() -> None:
         print("No sample players found in the database — ingest data first.", file=sys.stderr)
         sys.exit(2)
 
-    judge = _default_judge if (args.faithfulness and getattr(settings, "LLM_ENABLED", False)) else None
+    judge = make_judge(args.judge_model) if (args.faithfulness and getattr(settings, "LLM_ENABLED", False)) else None
     scorecard = run_eval(player_ids, k=args.k, judge=judge, workers=args.workers)
     runs = scorecard.pop("runs")
 
