@@ -111,7 +111,12 @@ def build_facts(player: Player) -> dict[str, Any]:
     if pit:
         ip_outs = sum(s["ip_outs"] or 0 for s in pit)
         er = sum(s["earned_runs"] or 0 for s in pit)
-        era_num = sum((s["era_plus"] or 0) * (s["ip_outs"] or 0) for s in pit if s["era_plus"] is not None)
+        # Career ERA+ = league-expected ER / actual ER. A season's expected ER is
+        # ERA+ * ER / 100, so this is the ER-weighted mean of seasonal ERA+ —
+        # not the IP-weighted mean, which inflates low-ERA seasons (Rivera: 225 vs 205).
+        era_rated = [s for s in pit if s["era_plus"] is not None and s["earned_runs"]]
+        era_num = sum(s["era_plus"] * s["earned_runs"] for s in era_rated)
+        era_den = sum(s["earned_runs"] for s in era_rated)
         peak_war, peak_year = _peak(pit)
         facts["pitching"] = {
             "career_war": round(sum(s["war"] or 0 for s in pit), 1),
@@ -121,7 +126,7 @@ def build_facts(player: Player) -> dict[str, Any]:
             "career_losses": sum(s["losses"] or 0 for s in pit),
             "career_so": sum(s["strikeouts"] or 0 for s in pit),
             "career_era": round(er * 27.0 / ip_outs, 2) if ip_outs else None,
-            "career_era_plus": round(era_num / ip_outs) if ip_outs else None,
+            "career_era_plus": round(era_num / era_den) if era_den else None,
         }
         facts["pitching_log"] = [
             {

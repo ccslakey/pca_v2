@@ -89,12 +89,13 @@ def _load_pit_agg() -> tuple[dict, dict, dict]:
     }
     era_num: dict[str, float] = {}
     era_den: dict[str, int]   = {}
-    for r in PitchingSeason.objects.values("player_id", "era_plus", "ip_outs"):
-        if r["era_plus"] is None or not r["ip_outs"]:
+    # Career ERA+ is the earned-run-weighted mean of seasonal ERA+ (see narrative.build_facts).
+    for r in PitchingSeason.objects.values("player_id", "era_plus", "earned_runs"):
+        if r["era_plus"] is None or not r["earned_runs"]:
             continue
         pid = r["player_id"]
-        era_num[pid] = era_num.get(pid, 0.0) + r["era_plus"] * r["ip_outs"]
-        era_den[pid] = era_den.get(pid, 0)   + r["ip_outs"]
+        era_num[pid] = era_num.get(pid, 0.0) + r["era_plus"] * r["earned_runs"]
+        era_den[pid] = era_den.get(pid, 0)   + r["earned_runs"]
 
     result = (pit_totals, era_num, era_den)
     cache.set("sim_pit_agg", result, timeout=_CACHE_TTL)

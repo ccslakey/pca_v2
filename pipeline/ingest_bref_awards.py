@@ -2,7 +2,6 @@
 pipeline/ingest_bref_awards.py
 
 Scrapes Baseball Reference award pages and loads into the PlayerAward model.
-Also updates Player.asg_games / asg_first / asg_last from the All-Star registers.
 
 Sources and kind values
 -----------------------
@@ -22,8 +21,8 @@ Grid pages (2 pages each):
   ss        /awards/silver_slugger_{al,nl}.shtml
   all_mlb   /awards/all_mlb.shtml          (single page, 1st/2nd team in league col)
 
-All-Star career totals (2 pages, updates Player fields — no PlayerAward rows):
-  asg       /allstar/bat-register.shtml + /allstar/pitch-register.shtml
+All-Star selections (~95 pages, one per game):
+  asg       /allstar/ index → each game page's full roster (incl. non-playing selections)
 
 World Series rosters (~120 pages — longest scrape):
   ws        /postseason/ index → winning team page per year
@@ -108,7 +107,7 @@ def known_player_ids() -> set[str]:
 
 def bbref_from_href(href: str) -> str | None:
     """Extract bbref_id from a player page href like /players/r/ruthba01.shtml."""
-    m = re.search(r"/players/[a-z]/([a-z0-9]+)\.shtml$", href)
+    m = re.search(r"/players/[a-z]/([^/]+)\.shtml$", href)
     return m.group(1) if m else None
 
 
@@ -500,9 +499,11 @@ def scrape_postseason_mvp(
 # Scraper: All-Star game per-year rosters
 #
 # Fetches /allstar/ index to collect all game page URLs (1933–present),
-# then scrapes each game page for NL/AL batting and pitching tables
-# (embedded in HTML comments). One PlayerAward(kind='asg') row per
-# player per year per league. Idempotency is per-year.
+# then scrapes each game page's roster section (div_lineups: starters and
+# reserves, including selections who didn't play) plus the NL/AL batting and
+# pitching box scores, all embedded in HTML comments. One
+# PlayerAward(kind='asg') row per player per year per league. Idempotency is
+# per game page — 1959–1962 had two games a year.
 # ---------------------------------------------------------------------------
 
 ASG_TABLES = [
@@ -534,7 +535,7 @@ def parse_asg_index(session: BRefSession) -> list[tuple[int, str]]:
             continue
         games.append((int(year_txt), BREF + link["href"]))
 
-    return games
+    return sorted(set(games))
 
 
 def scrape_asg_game(
@@ -544,12 +545,31 @@ def scrape_asg_game(
     dry_run: bool,
     verbose: bool,
 ) -> int:
-    """Parse one All-Star game page and return count of awards written."""
-    seen: set[tuple[str, str]] = set()  # (bbref_id, league) — dedupe batting+pitching tables
+    """Parse one All-Star game page and return count of awards written.
+
+    The box scores only list players who appeared in the game, so the roster
+    section is the source of truth for selections; box scores are a backstop."""
+    seen: set[tuple[str, str]] = set()  # (bbref_id, league) — dedupe roster + box-score tables
     count = 0
+
+    def record(bbref_id: str, league: str) -> None:
+        nonlocal count
+        if not bbref_id or (bbref_id, league) in seen:
+            return
+        seen.add((bbref_id, league))
+        if upsert_award(bbref_id, year, "asg", known_ids, league=league, dry_run=dry_run, verbose=verbose):
+            count += 1
 
     for comment in soup.find_all(string=lambda s: isinstance(s, Comment)):
         csoup = BeautifulSoup(comment, "lxml")
+        if csoup.find(id="div_lineups"):
+            # One box per league, headed "NL All-Stars" / "AL All-Stars".
+            for box in csoup.select("#div_lineups div.data_grid_box"):
+                m = re.match(r"(AL|NL)\b", box.get_text(" ", strip=True))
+                if not m:
+                    continue
+                for link in box.find_all("a", href=lambda h: h and "/players/" in h):
+                    record(bbref_from_href(link["href"]) or "", m.group(1))
         for table_id, league in ASG_TABLES:
             table = csoup.find("table", id=table_id)
             if table is None:
@@ -560,12 +580,7 @@ def scrape_asg_game(
                 player_cell = tr.find(attrs={"data-append-csv": True})
                 if not player_cell:
                     continue
-                bbref_id = player_cell.get("data-append-csv", "").strip()
-                if not bbref_id or (bbref_id, league) in seen:
-                    continue
-                seen.add((bbref_id, league))
-                if upsert_award(bbref_id, year, "asg", known_ids, league=league, dry_run=dry_run, verbose=verbose):
-                    count += 1
+                record(player_cell.get("data-append-csv", "").strip(), league)
 
     return count
 
@@ -581,8 +596,9 @@ def scrape_allstar(
     print(f"  asg: {len(games)} game pages found")
 
     total = 0
-    for year, url in sorted(games):
-        source_key = f"bref_awards_asg_{year}"
+    for year, url in games:
+        # Keyed by game page, not year: 1959–1962 each had two games.
+        source_key = f"bref_awards_asg_{url.rsplit('/', 1)[-1].removesuffix('.shtml')}"
         if not force and not dry_run and already_ingested(source_key):
             if verbose:
                 print(f"    [{year}] already ingested, skipping")
@@ -616,8 +632,10 @@ def scrape_allstar(
 #      bbref_ids from the standard batting + pitching tables.
 #   3. Bulk-create PlayerAward(kind='ws') for each player found.
 #
-# Idempotency: one IngestionLog key per WS year so --force can re-run
-# individual years without re-scraping the full set.
+# Idempotency: one IngestionLog key per (year, winning team). BRef's index
+# lists the Negro League World Series (1924–27, 1942–48) as "World Series" rows
+# too, so a year can have two winners — a per-year key skipped whichever sorted
+# second (e.g. the 1927 Yankees).
 # ---------------------------------------------------------------------------
 
 
@@ -651,7 +669,7 @@ def parse_ws_winners(session: BRefSession) -> list[tuple[int, str]]:
         team_url = BREF + team_link["href"]
         winners.append((year, team_url))
 
-    return winners
+    return sorted(set(winners))
 
 
 def scrape_team_roster(soup: BeautifulSoup) -> set[str]:
@@ -682,8 +700,9 @@ def scrape_world_series(
     print(f"  ws: {len(winners)} World Series found")
 
     total = 0
-    for year, team_url in sorted(winners):
-        source_key = f"bref_awards_ws_{year}"
+    for year, team_url in winners:
+        team = team_url.rstrip("/").split("/")[-2]  # /teams/NYY/1927.shtml → NYY
+        source_key = f"bref_awards_ws_{year}_{team}"
         if not force and not dry_run and already_ingested(source_key):
             if verbose:
                 print(f"    [{year}] already ingested, skipping")
@@ -695,6 +714,12 @@ def scrape_world_series(
             soup = BeautifulSoup(resp.content, "lxml")
             roster = scrape_team_roster(soup)
             roster &= known_ids  # only players in our DB
+            # ws rows have league=NULL, which unique_together doesn't constrain,
+            # so ignore_conflicts alone won't stop a re-run from duplicating them.
+            roster -= set(
+                PlayerAward.objects.filter(kind="ws", year=year, player_id__in=roster)
+                .values_list("player_id", flat=True)
+            )
 
             if not dry_run:
                 awards = [PlayerAward(player_id=bid, year=year, kind="ws", league=None, notes=None) for bid in roster]
