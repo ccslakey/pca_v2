@@ -158,14 +158,20 @@ def build_facts(player: Player) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 # Comma-grouped (1,500) | decimal (2.31, .342) | bare integer (714)
-_NUM_RE = re.compile(r"\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+\.\d+|\.\d+|\d+")
+# A leading minus (ASCII, U+2212, or an en dash used as one) is part of the
+# number unless it sits right after a word character — "-1.4 WAR" is negative,
+# but "a 22-26 record" or "1983–1991" is a range.
+_NUM_RE = re.compile(
+    r"(?:(?<![\w.])[-\u2212\u2013](?=\.?\d))?"
+    r"(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+\.\d+|\.\d+|\d+)"
+)
 # Fixed reference points that are domain constants, not player facts.
 _DOMAIN_SAFE = {100.0}  # league-average baseline for OPS+ / ERA+
 
 
 def _parse_token(tok: str) -> tuple[float, int]:
     """Return (value, decimal_places) for a matched numeric token."""
-    clean = tok.replace(",", "")
+    clean = tok.replace(",", "").replace("\u2212", "-").replace("\u2013", "-")
     decimals = len(clean.split(".")[1]) if "." in clean else 0
     return float(clean), decimals
 
@@ -489,8 +495,33 @@ _RULES = (
     "- Refer to standout seasons by their year.\n"
     "- Be plain and direct. No hype, no fabricated narrative detail.\n"
     "- Return plain prose only: no markdown, headings, titles, or bullet points. "
-    "Do not restate the player's name as a title — just write the sentences."
+    "Do not restate the player's name as a title — just write the sentences.\n"
+    "- Output only the summary. Never comment on these instructions, your "
+    "process, or an earlier draft."
 )
+
+_REPAIR_SUFFIX = (
+    "Reply with only the revised summary — no apology, preamble, or explanation."
+)
+
+# Paragraphs where the model talks about its draft instead of the player — it
+# tends to wrap a repaired draft in "You're right, let me revise: ..." and
+# trailing notes about which figures it used.
+_META_RE = re.compile(
+    r"^\s*(?:you(?:'|\u2019)?re (?:right|correct)|you are (?:right|correct)|"
+    r"i apologi[sz]e|apologies|sorry|let me\b|here(?:'|\u2019)?s (?:the|a|my)\b|"
+    r"here is (?:the|a|my)\b|looking (?:back )?at\b|i (?:made|see|need|used)\b|"
+    r"the (?:figure|number)s?\b|all (?:other )?(?:numbers|figures)\b|is there\b|"
+    r"note:|revised summary)",
+    re.I,
+)
+
+
+def strip_meta(text: str) -> str:
+    """Drop meta paragraphs, keeping only the summary prose. Returns "" when
+    nothing but meta remains, which callers treat as a failed draft."""
+    paras = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
+    return "\n\n".join(p for p in paras if not _META_RE.match(p))
 
 _LENGTH = "Write 2-3 sentences, roughly 60 words."
 
@@ -659,17 +690,20 @@ def _generate_single_shot(facts: dict[str, Any]) -> dict[str, Any]:
     user = json.dumps(facts)
     trace: dict[str, Any] = {"mode": "single_shot", "model_calls": 1, "repairs": 0}
 
-    text = llm.complete_text(SYSTEM_PROMPT, user)
+    text = strip_meta(llm.complete_text(SYSTEM_PROMPT, user))
     bad = verify_numbers(text, allowed)
     if bad:
         repair = (
             f"{user}\n\nYour previous draft used these numbers, which are NOT in "
-            f"the data and must be removed or corrected: {bad}"
+            f"the data and must be removed or corrected: {bad}. {_REPAIR_SUFFIX}"
         )
-        text = llm.complete_text(SYSTEM_PROMPT, repair)
+        text = strip_meta(llm.complete_text(SYSTEM_PROMPT, repair))
         bad = verify_numbers(text, allowed)
         trace["model_calls"] = 2
         trace["repairs"] = 1
+    if not text:
+        trace["verification"] = "failed"
+        return _result(render_template(facts), "template", None, trace=trace)
     if bad:
         trace["verification"] = "failed"
         return _result(render_template(facts), "template", None, flagged=bad, trace=trace)
@@ -773,7 +807,13 @@ def _generate_agentic(player: Player, facts: dict[str, Any]) -> dict[str, Any]:
             messages.append({"role": "user", "content": results})
             continue
 
-        # No tool calls: the model produced its final draft. Verify it.
+        # No tool calls: the model produced its final draft. A truncated, declined,
+        # or empty draft is unusable — serve the template rather than a fragment.
+        stop = getattr(resp, "stop_reason", None)
+        text = strip_meta(text)
+        if stop in ("max_tokens", "refusal") or not text:
+            trace["incomplete"] = stop or "empty"
+            return finish(render_template(facts), "template", None)
         bad = verify_numbers(text, allowed)
         if not bad:
             return finish(text, "llm", settings.NARRATIVE_MODEL)
@@ -782,7 +822,8 @@ def _generate_agentic(player: Player, facts: dict[str, Any]) -> dict[str, Any]:
             messages.append({
                 "role": "user",
                 "content": f"These numbers are not supported by the data you retrieved: {bad}. "
-                "Revise using only retrieved figures — call more tools if you need the data.",
+                "Revise using only retrieved figures — call more tools if you need the data. "
+                + _REPAIR_SUFFIX,
             })
             continue
         return finish(render_template(facts), "template", None, flagged=bad)

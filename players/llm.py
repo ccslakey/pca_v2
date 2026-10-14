@@ -33,18 +33,20 @@ def complete(
     system: str,
     messages: list[dict[str, Any]],
     tools: list[dict[str, Any]] | None = None,
-    max_tokens: int = 400,
+    max_tokens: int | None = None,
+    model: str | None = None,
 ) -> Any:
     """
     Low-level call returning the raw Anthropic response object (content blocks
     intact) — used by the tool-calling loop in step 2. The system prompt is
     sent as a cacheable block; with tools attached the tool definitions sit in
     the same cached prefix, so repeated turns in the agent loop only pay for
-    the growing message tail.
+    the growing message tail. `model` / `max_tokens` default to the
+    NARRATIVE_MODEL / NARRATIVE_MAX_TOKENS settings.
     """
     kwargs: dict[str, Any] = {
-        "model": settings.NARRATIVE_MODEL,
-        "max_tokens": max_tokens,
+        "model": model or settings.NARRATIVE_MODEL,
+        "max_tokens": max_tokens or settings.NARRATIVE_MAX_TOKENS,
         "system": [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
         "messages": messages,
     }
@@ -53,7 +55,7 @@ def complete(
     return _get_client().messages.create(**kwargs)
 
 
-def complete_text(system: str, user: str, max_tokens: int = 400) -> str:
+def complete_text(system: str, user: str, max_tokens: int | None = None, model: str | None = None) -> str:
     """Single-shot convenience used by step 1: returns concatenated text blocks."""
-    resp = complete(system, [{"role": "user", "content": user}], max_tokens=max_tokens)
+    resp = complete(system, [{"role": "user", "content": user}], max_tokens=max_tokens, model=model)
     return "".join(block.text for block in resp.content if getattr(block, "type", None) == "text").strip()

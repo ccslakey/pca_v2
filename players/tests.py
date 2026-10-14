@@ -597,6 +597,7 @@ from players.narrative import (  # noqa: E402
     generate_narrative,
     labeled_facts,
     render_template,
+    strip_meta,
     verify_claims,
     verify_numbers,
 )
@@ -641,6 +642,32 @@ class TestVerifyNumbers(SimpleTestCase):
         TestVerifyClaims.test_cross_stat_collision_is_rejected."""
         allowed = {714.0, 162.1}  # career HR and career WAR — both legitimate
         self.assertEqual(verify_numbers("he hit 162 home runs", allowed), [])
+
+    def test_negative_value_matches_signed_fact(self):
+        self.assertEqual(verify_numbers("finished with -1.4 career WAR", {-1.4}), [])
+        self.assertEqual(verify_numbers("a career \u22120.6 WAR", {-0.6}), [])  # U+2212 minus
+
+    def test_sign_error_is_flagged(self):
+        # Writing 1.4 when the real figure is -1.4 is a wrong claim, not rounding.
+        self.assertEqual(verify_numbers("finished with 1.4 career WAR", {-1.4}), ["1.4"])
+
+    def test_hyphenated_ranges_are_not_negative(self):
+        allowed = {22.0, 26.0, 1983.0, 1991.0}
+        self.assertEqual(verify_numbers("a 22-26 record from 1983\u20131991", allowed), [])
+
+
+class TestStripMeta(SimpleTestCase):
+    def test_drops_preamble_and_trailing_notes(self):
+        text = ("You're right\u2014I apologize. Looking at the data, WAR is -1.4.\n\n"
+                "He finished with -1.4 career WAR.\n\n"
+                "All other numbers are exact figures from the career totals.")
+        self.assertEqual(strip_meta(text), "He finished with -1.4 career WAR.")
+
+    def test_plain_summary_untouched(self):
+        self.assertEqual(strip_meta("Babe Ruth hit 714 home runs."), "Babe Ruth hit 714 home runs.")
+
+    def test_meta_only_is_empty(self):
+        self.assertEqual(strip_meta("Here's the revised summary:"), "")
 
 
 class TestVerifyClaims(SimpleTestCase):
@@ -814,6 +841,12 @@ class TestGenerateNarrative(APITestCase):
         self.assertEqual(m.call_count, 2)  # initial draft + one repair attempt
 
     @override_settings(LLM_ENABLED=True, NARRATIVE_USE_TOOLS=False)
+    def test_empty_output_falls_back_to_template(self):
+        with patch.object(narrative.llm, "complete_text", return_value=""):
+            result = generate_narrative(self.player)
+        self.assertEqual(result["source"], "template")
+
+    @override_settings(LLM_ENABLED=True, NARRATIVE_USE_TOOLS=False)
     def test_api_error_falls_back_to_template(self):
         with patch.object(narrative.llm, "complete_text", side_effect=RuntimeError("boom")):
             result = generate_narrative(self.player)
@@ -874,8 +907,9 @@ class _Block:
 
 
 class _Resp:
-    def __init__(self, content):
+    def __init__(self, content, stop_reason=None):
         self.content = content
+        self.stop_reason = stop_reason
 
 
 class TestNarrativeTools(APITestCase):
@@ -959,6 +993,43 @@ class TestAgenticNarrative(APITestCase):
             result = generate_narrative(self.player)
         self.assertEqual(result["source"], "llm")
         self.assertEqual(result["trace"]["repairs"], 1)
+
+    @override_settings(LLM_ENABLED=True, NARRATIVE_USE_TOOLS=True)
+    def test_repair_preamble_is_not_served(self):
+        responses = [
+            _Resp([_Block("tool_use", name="get_career_totals", input={"player_id": "ruthba01"}, id="t1")]),
+            _Resp([_Block("text", text="He hit 73 home runs.")]),
+            _Resp([_Block("text", text="You're right. Let me revise:\n\n"
+                                       "He compiled 11.5 WAR with 54 home runs.")]),
+        ]
+        with patch.object(narrative.llm, "complete", side_effect=responses):
+            result = generate_narrative(self.player)
+        self.assertEqual(result["source"], "llm")
+        self.assertEqual(result["text"], "He compiled 11.5 WAR with 54 home runs.")
+
+    @override_settings(LLM_ENABLED=True, NARRATIVE_USE_TOOLS=True)
+    def test_negative_war_is_grounded(self):
+        add_batting(self.player, 1921, war=-12.9, hr=0, avg=0.1, ops=0.2)  # career WAR -1.4
+        responses = [
+            _Resp([_Block("tool_use", name="get_career_totals", input={"player_id": "ruthba01"}, id="t1")]),
+            _Resp([_Block("text", text="He finished with -1.4 career WAR.")]),
+        ]
+        with patch.object(narrative.llm, "complete", side_effect=responses):
+            result = generate_narrative(self.player)
+        self.assertEqual(result["source"], "llm")
+        self.assertEqual(result["trace"]["repairs"], 0)
+
+    @override_settings(LLM_ENABLED=True, NARRATIVE_USE_TOOLS=True)
+    def test_truncated_or_refused_draft_falls_back(self):
+        for stop in ("max_tokens", "refusal"):
+            responses = [
+                _Resp([_Block("tool_use", name="get_career_totals", input={"player_id": "ruthba01"}, id="t1")]),
+                _Resp([_Block("text", text="He compiled 11.5 WAR with")], stop_reason=stop),
+            ]
+            with patch.object(narrative.llm, "complete", side_effect=responses):
+                result = generate_narrative(self.player)
+            self.assertEqual(result["source"], "template")
+            self.assertEqual(result["trace"]["incomplete"], stop)
 
     @override_settings(LLM_ENABLED=True, NARRATIVE_USE_TOOLS=True)
     def test_trace_records_tool_calls(self):
