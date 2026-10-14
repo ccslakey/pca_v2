@@ -27,9 +27,10 @@ from pipeline.eval_narrative import (
 )
 
 
-def _res(mode, flagged=None, tools=None, source="llm", text="x"):
+def _res(mode, flagged=None, tools=None, source="llm", text="x", repairs=0):
     trace = {} if mode is None else {
         "mode": mode,
+        "repairs": repairs,
         "tool_calls": [{"name": t, "input": {}} for t in (tools or [])],
     }
     return {"text": text, "source": source, "flagged": flagged or [], "trace": trace}
@@ -46,14 +47,24 @@ def _retrieve(query, k=3):
 class TestHallucinationRate(SimpleTestCase):
     def test_counts_only_llm_attempts(self):
         results = [
-            _res("agentic", flagged=["999"]),          # caught
+            _res("agentic", flagged=["999"], source="template", repairs=1),  # caught, fell back
             _res("agentic", tools=["get_career_totals"]),
             _res("single_shot"),
             _res(None, source="template"),             # no-key template — not an attempt
         ]
         hr = hallucination_rate(results)
-        self.assertEqual((hr["n"], hr["caught"]), (3, 1))
+        self.assertEqual((hr["n"], hr["caught"], hr["fell_back"]), (3, 1, 1))
         self.assertAlmostEqual(hr["rate"], 1 / 3)
+
+    def test_repaired_draft_counts_as_caught(self):
+        # The verifier rejected the first draft but the repair passed: served as
+        # LLM text with nothing flagged, yet it still hallucinated.
+        hr = hallucination_rate([_res("agentic", repairs=1), _res("agentic")])
+        self.assertEqual((hr["n"], hr["caught"], hr["fell_back"]), (2, 1, 0))
+
+    def test_typed_mode_is_an_attempt(self):
+        hr = hallucination_rate([_res("agentic_typed", repairs=1), _res("agentic_typed")])
+        self.assertEqual((hr["n"], hr["caught"]), (2, 1))
 
     def test_no_attempts_is_zero(self):
         hr = hallucination_rate([_res(None, source="template")])
@@ -69,6 +80,10 @@ class TestToolSelection(SimpleTestCase):
         ]
         ts = tool_selection_accuracy(results)
         self.assertEqual((ts["n"], ts["ok"], ts["rate"]), (2, 1, 0.5))
+
+    def test_typed_mode_is_agentic(self):
+        ts = tool_selection_accuracy([_res("agentic_typed", tools=["get_career_totals"])])
+        self.assertEqual((ts["n"], ts["ok"]), (1, 1))
 
 
 class TestRagHitRate(SimpleTestCase):
@@ -87,9 +102,14 @@ class TestFaithfulness(SimpleTestCase):
 
     def test_judge_errors_are_skipped(self):
         def bad(text, facts):
-            raise ValueError("nope")
+            raise RuntimeError("API down")
         f = faithfulness([({"text": "a"}, {})], judge=bad)
-        self.assertEqual((f["n"], f["mean"]), (0, None))
+        self.assertEqual((f["n"], f["mean"], f["scores"]), (0, None, [None]))
+
+    def test_threaded_scores_stay_aligned(self):
+        samples = [({"text": str(i)}, {}) for i in range(1, 6)]
+        f = faithfulness(samples, judge=lambda t, fa: int(t), workers=3)
+        self.assertEqual(f["scores"], [1, 2, 3, 4, 5])
 
 
 class TestRunEval(SimpleTestCase):
@@ -108,6 +128,20 @@ class TestRunEval(SimpleTestCase):
         self.assertEqual(sc["tool_selection"]["rate"], 1.0)
         self.assertEqual(sc["rag_hit_rate"]["hits"], 1)
         self.assertEqual(sc["faithfulness"]["mean"], 5.0)
+        self.assertEqual([r["faithfulness"] for r in sc["runs"]], [5, 5])
+        self.assertEqual(sc["runs"][0]["tools"], ["get_career_totals"])
+
+    def test_untraced_results_count_as_llm_errors(self):
+        with self.settings(LLM_ENABLED=True):
+            sc = run_eval(
+                ["p1", "p2"],
+                narrate=lambda pid: _res(None, source="template") if pid == "p1" else _res("agentic"),
+                retrieve=_retrieve,
+                rag_cases=[],
+                workers=2,
+            )
+        self.assertEqual(sc["llm_errors"], 1)
+        self.assertEqual([r["player_id"] for r in sc["runs"]], ["p1", "p2"])
 
     def test_format_scorecard_smoke(self):
         sc = run_eval(
