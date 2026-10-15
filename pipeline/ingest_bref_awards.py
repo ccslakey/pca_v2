@@ -536,7 +536,7 @@ def scrape_allstar(
 #
 # Strategy:
 #   1. Fetch /postseason/ index → extract (year, winning_team_page_url)
-#      for every World Series row.
+#      for every World Series row with a winner.
 #   2. For each winner, fetch /teams/{ABBREV}/{YEAR}.shtml and collect all
 #      bbref_ids from the standard batting + pitching tables.
 #   3. Bulk-create PlayerAward(kind='ws') for each player found.
@@ -549,10 +549,6 @@ def scrape_allstar(
 
 
 def parse_ws_winners(session: BRefSession) -> list[tuple[int, str]]:
-    """
-    Returns [(year, team_page_url)] for every World Series in BRef history.
-    BRef always lists the winning team first in WS rows.
-    """
     url = f"{BREF}/postseason/"
     print(f"  ws index: {url}")
     resp = fetch_with_retry(session, url)
@@ -571,8 +567,8 @@ def parse_ws_winners(session: BRefSession) -> list[tuple[int, str]]:
         if not year_m:
             continue
         year = int(year_m.group(1))
-        # First /teams/ link = winning team season page
-        team_link = tr.find("a", href=lambda h: h and "/teams/" in h)
+        # BRef bolds the winning team; tied series (1885, 1890) have no bold team.
+        team_link = tr.select_one('strong a[href*="/teams/"]')
         if not team_link:
             continue
         team_url = BREF + team_link["href"]

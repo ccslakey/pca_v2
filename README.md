@@ -139,7 +139,7 @@ python manage.py index_methodology
 ### Player bio backfill
 Birth dates and debut/final game are populated from Lahman's People.csv:
 ```bash
-python pipeline/backfill_player_bio.py
+python pipeline/backfill_player_bio.py --people-csv ~/Downloads/People.csv
 ```
 
 ---
