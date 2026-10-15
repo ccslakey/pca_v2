@@ -23,10 +23,6 @@ export function TopBar({ selectedIds, onSelect, hideSearch }: Props) {
           <div className="brand-mark" />
           <span className="brand-name">Career Arc Visualizer</span>
         </div>
-        {/*<span className="topbar-meta">
-          <span className="dot" />
-          Baseball Reference
-        </span>*/}
       </div>
       <Link to="/browse" className="topbar-browse-link">
         Browse Players
