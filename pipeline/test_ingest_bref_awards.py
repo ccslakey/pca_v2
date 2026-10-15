@@ -19,6 +19,7 @@ from django.test import SimpleTestCase, TestCase
 
 from pipeline.ingest_bref_awards import (
     bbref_from_href,
+    parse_ws_winners,
     scrape_allstar,
     scrape_asg_game,
     scrape_world_series,
@@ -83,6 +84,24 @@ class TestScrapeAllstarKeys(TestCase):
         self.assertEqual(fetch.call_count, 2)
         self.assertTrue(IngestionLog.objects.filter(source="bref_awards_asg_1962-allstar-game-2").exists())
         self.assertEqual(PlayerAward.objects.filter(player_id="aaronha01", kind="asg", year=1962).count(), 1)
+
+
+FIXTURES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures")
+
+
+class TestParseWsWinners(SimpleTestCase):
+    def test_credits_bolded_winner_and_skips_ties(self):
+        with open(os.path.join(FIXTURES, "bref_postseason_index.html"), "rb") as f:
+            page = MagicMock(content=f.read())
+        with patch("pipeline.ingest_bref_awards.fetch_with_retry", return_value=page):
+            winners = parse_ws_winners(MagicMock())
+        self.assertEqual(winners, [
+            (1884, "https://www.baseball-reference.com/teams/PRO/1884.shtml"),
+            (1892, "https://www.baseball-reference.com/teams/BSN/1892.shtml"),
+            (1927, "https://www.baseball-reference.com/teams/CAG/1927.shtml"),
+            (1927, "https://www.baseball-reference.com/teams/NYY/1927.shtml"),
+            (2025, "https://www.baseball-reference.com/teams/LAD/2025.shtml"),
+        ])
 
 
 def _team_page(ids):
