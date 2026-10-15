@@ -1,15 +1,7 @@
 from __future__ import annotations
 
-import os
-import sys
 import unittest
 from unittest.mock import MagicMock, patch
-
-# Ensure project root is on sys.path so Django apps are importable when
-# running this file directly (pytest-django handles DJANGO_SETTINGS_MODULE
-# via conftest.py, but direct invocation needs it set explicitly).
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'pca_backend.settings')
 
 import requests
 from django.test import TestCase
@@ -747,7 +739,3 @@ class TestIngestFieldingPage(TestCase):
 
         self.assertEqual(rows, 1)
         self.assertFalse(FieldingSeason.objects.filter(player_id='troutmi01').exists())
-
-
-if __name__ == '__main__':
-    unittest.main()
