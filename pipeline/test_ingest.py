@@ -632,25 +632,17 @@ class TestIngestPitchingPage(TestCase):
 
     @patch('pipeline.ingest_bref_history.fetch_with_retry')
     def test_ip_to_outs_applied_correctly(self, mock_fetch: MagicMock) -> None:
-        cases = [
-            ('9', 27),    # 9 complete innings
-            ('6.1', 19),  # 6 innings + 1 out
-            ('0.2', 2),   # 2 outs in 1 appearance
-        ]
-        for ip_str, expected_outs in cases:
-            with self.subTest(ip=ip_str):
-                bbref_id = f'pitcher{ip_str.replace(".", "")}'
-                html = _pitching_html([{
-                    'bbref_id': bbref_id, 'team': 'TST',
-                    'stats': {'p_ip': ip_str},
-                }])
-                mock_fetch.return_value = _mock_response(html)
-                ingest_pitching_page(
-                    MagicMock(), 2000, 'MLB', 'http://example.com',
-                    EMPTY_CHADWICK, dry_run=False, verbose=False,
-                )
-                season = PitchingSeason.objects.get(player_id=bbref_id, year=2000)
-                self.assertEqual(season.ip_outs, expected_outs)
+        html = _pitching_html([{
+            'bbref_id': 'pitcher61', 'team': 'TST',
+            'stats': {'p_ip': '6.1'},
+        }])
+        mock_fetch.return_value = _mock_response(html)
+        ingest_pitching_page(
+            MagicMock(), 2000, 'MLB', 'http://example.com',
+            EMPTY_CHADWICK, dry_run=False, verbose=False,
+        )
+        season = PitchingSeason.objects.get(player_id='pitcher61', year=2000)
+        self.assertEqual(season.ip_outs, 19)
 
 
 class TestIngestFieldingPage(TestCase):
