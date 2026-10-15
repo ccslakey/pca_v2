@@ -5,7 +5,6 @@ exclude = [
     ".venv",
     "env",
     "node_modules",
-    "pipeline/explore_*.py",
 ]
 
 [tool.ruff.lint]
