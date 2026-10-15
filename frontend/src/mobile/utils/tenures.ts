@@ -24,8 +24,6 @@ export function deriveTenures(
   batting: BattingSeason[],
   pitching: PitchingSeason[],
 ): Tenure[] {
-  // One team per year — prefer the stint with the most games when a year has
-  // multiple rows (trades). Pitching rows count for pitchers; batting otherwise.
   const byYear = new Map<number, { team: string; games: number }>();
 
   const consider = (year: number, team: string | null, games: number | null) => {

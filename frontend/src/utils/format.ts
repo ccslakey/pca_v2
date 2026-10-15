@@ -1,4 +1,3 @@
-/** Convert primary_position + throws to a display label, e.g. "RHP", "LHP", "CF". */
 export function posLabel(
   primaryPosition: string | null,
   throws: string | null,
@@ -12,9 +11,8 @@ export function posLabel(
   return primaryPosition ?? (isPitcher ? "P" : "B");
 }
 
-/** Format a war_percentile as "top 3.2%" or "top 24%" depending on magnitude. */
 export function fmtPercentile(topPct: number): string {
-  if (topPct < 0.1) return "top <0.1%"; // toFixed(1) would show "0.0"
+  if (topPct < 0.1) return "top <0.1%";
   return topPct <= 10
     ? `top ${topPct.toFixed(1)}%`
     : `top ${Math.round(topPct)}%`;

@@ -102,7 +102,6 @@ export function ThemePicker() {
         aria-haspopup="listbox"
         aria-expanded={open}
       >
-        {/* not sure if we will include these */}
         <span className="tp-trigger-swatches" aria-hidden="true">
           {triggerSwatches.map((c, i) => (
             <span

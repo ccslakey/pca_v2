@@ -32,10 +32,6 @@ POS_EMBEDDING: dict[str, tuple[float, float]] = {
 }
 
 
-# ---------------------------------------------------------------------------
-# Aggregate loaders (cached)
-# ---------------------------------------------------------------------------
-
 def _load_bat_agg() -> tuple[dict, dict, dict, dict]:
     cached = cache.get("sim_bat_agg")
     if cached is not None:
@@ -102,10 +98,6 @@ def _load_pit_agg() -> tuple[dict, dict, dict]:
     return result
 
 
-# ---------------------------------------------------------------------------
-# Feature vectors
-# ---------------------------------------------------------------------------
-
 def _batter_vec(
     pid: str,
     bat_totals: dict,
@@ -144,13 +136,9 @@ def _pitcher_vec(
     k9         = so / (ip / 27) if ip > 0 else 6.0
     sp_pct     = gs / g if g > 0 else 0.0
     relief_app = max(g - gs, 1)
-    saves_rate = saves / relief_app if gs < g else 0.0  # 0 for pure starters
+    saves_rate = saves / relief_app if gs < g else 0.0
     return [war, peak, era_plus, k9, sp_pct, saves_rate]
 
-
-# ---------------------------------------------------------------------------
-# Scoring (pure maths — no Django)
-# ---------------------------------------------------------------------------
 
 def _rank_pool(
     target_pid: str,
@@ -187,10 +175,6 @@ def _rank_pool(
 
     return [(pid, round(100 * math.exp(-k * d))) for d, pid in scored[:8]]
 
-
-# ---------------------------------------------------------------------------
-# DB hydration
-# ---------------------------------------------------------------------------
 
 def _hydrate(
     ranked: list[tuple[str, int]],
@@ -230,10 +214,6 @@ def _hydrate(
             break
     return results
 
-
-# ---------------------------------------------------------------------------
-# Public entry point
-# ---------------------------------------------------------------------------
 
 def similar_players(player: Player) -> dict:
     pid = player.bbref_id

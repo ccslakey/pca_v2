@@ -155,7 +155,6 @@ export function MobileProfile() {
           </div>
         </div>
 
-        {/* Headline stat cards */}
         <div className="m-stat-row">
           <div className="m-stat-card is-headline">
             <div className="lbl">Career WAR</div>
@@ -194,7 +193,6 @@ export function MobileProfile() {
           </div>
         </div>
 
-        {/* Career arc chart */}
         <div className="m-section">
           <div className="m-section-title">Career arc <span className="muted">by season</span></div>
           <span className="m-section-action">
@@ -228,7 +226,6 @@ export function MobileProfile() {
           <MobileChart player={player} metric={metric} color={color} width={340} height={180} />
         </div>
 
-        {/* Team timeline */}
         {tlSpan && (
           <>
             <div className="m-section">
@@ -264,7 +261,6 @@ export function MobileProfile() {
           </>
         )}
 
-        {/* Season log */}
         <div className="m-section">
           <div className="m-section-title">Season log <span className="muted">{player.seasons.length} seasons</span></div>
           <span className="m-section-action">tap a row</span>
@@ -314,7 +310,6 @@ export function MobileProfile() {
           </div>
         </div>
 
-        {/* Awards */}
         <div className="m-section">
           <div className="m-section-title">Awards &amp; milestones <span className="muted">{awards.length}</span></div>
         </div>
@@ -340,7 +335,6 @@ export function MobileProfile() {
           </div>
         </div>
 
-        {/* Similar players */}
         {similarList.length > 0 && (
           <>
             <div className="m-section">

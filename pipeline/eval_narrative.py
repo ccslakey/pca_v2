@@ -1,29 +1,3 @@
-"""
-Evaluation harness for the grounded narrative agent (step 5).
-
-Runs the agent over a fixed sample of players and the methodology retriever over
-labeled questions, and reports a scorecard:
-
-  - hallucination_rate   — fraction of LLM runs whose first draft the verifier
-                           rejected, whether the repair then passed or the run fell
-                           back to the template. Deterministic, no judge needed;
-                           this is the headline safety metric.
-  - tool_selection       — fraction of agent runs that called the required tools.
-  - rag_hit_rate@k       — fraction of labeled questions whose expected doc is in
-                           the top-k retrieved chunks.
-  - faithfulness         — optional LLM-as-judge score (1-5) of how well each
-                           summary is supported by its facts; skipped without a key.
-
-The metric functions are pure and take injected `narrate` / `retrieve` / `judge`
-callables, so the suite is fully testable offline (see pipeline/test_eval_narrative.py).
-Run for real (needs ANTHROPIC_API_KEY, plus an indexed corpus for RAG):
-
-    python pipeline/eval_narrative.py
-    python pipeline/eval_narrative.py --max-hallucination 0.0   # CI gate
-    python pipeline/eval_narrative.py --sample 200 --workers 4 --faithfulness --out eval.json
-
-Run from the project root.
-"""
 from __future__ import annotations
 
 import argparse
@@ -41,16 +15,13 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "pca_backend.settings")
 django.setup()
 
-from django.conf import settings  # noqa: E402
+from django.conf import settings
 
-from players import llm  # noqa: E402
-from players.models import Player  # noqa: E402
-from players.narrative import build_facts, generate_narrative  # noqa: E402
-from players.rag import search_methodology  # noqa: E402
+from players import llm
+from players.models import Player
+from players.narrative import build_facts, generate_narrative
+from players.rag import search_methodology
 
-# --- Labeled fixtures ------------------------------------------------------
-
-# Well-known players spanning eras and roles; filtered to those present in the DB.
 SAMPLE_PLAYERS: list[str] = [
     "ruthba01", "mayswi01", "aaronha01", "bondsba01", "troutmi01",
     "koufasa01", "johnswa01", "maddugr01", "riverma01", "mantmi01",
@@ -67,11 +38,9 @@ RAG_CASES: list[tuple[str, str]] = [
     ("how are the hall of fame scores computed", "james-scores"),
 ]
 
-REQUIRED_TOOLS = {"get_career_totals"}  # the minimum an agent run should call
+REQUIRED_TOOLS = {"get_career_totals"}
 
-MIN_SAMPLE_SEASONS = 5  # --sample draws from careers at least this long
-
-# --- Metric functions (pure; operate on result dicts) ----------------------
+MIN_SAMPLE_SEASONS = 5
 
 
 LLM_MODES = ("agentic", "agentic_typed", "single_shot")
@@ -152,14 +121,10 @@ def faithfulness(
 
 
 def _map(fn: Callable[[Any], Any], items: list[Any], workers: int = 1) -> list[Any]:
-    """Order-preserving map; threaded when workers > 1 (model calls are I/O-bound)."""
     if workers <= 1:
         return [fn(x) for x in items]
     with ThreadPoolExecutor(max_workers=workers) as pool:
         return list(pool.map(fn, items))
-
-
-# --- Default live wiring ---------------------------------------------------
 
 
 def _default_narrate(bbref_id: str) -> dict[str, Any]:
@@ -191,9 +156,6 @@ def make_judge(model: str | None = None) -> Callable[[str, dict[str, Any]], int]
 _default_judge = make_judge()
 
 
-# --- Orchestration ---------------------------------------------------------
-
-
 def run_eval(
     player_ids: list[str],
     narrate: Callable[[str], dict[str, Any]] = _default_narrate,
@@ -204,9 +166,6 @@ def run_eval(
     facts_for: Callable[[str], dict[str, Any]] | None = None,
     workers: int = 1,
 ) -> dict[str, Any]:
-    """Run all metrics and assemble a scorecard. Inject `narrate`/`retrieve`/
-    `judge` for offline testing; defaults call the real agent and retriever.
-    `runs` holds one row per player for drilling into failures."""
     def timed(pid: str) -> tuple[dict[str, Any], int]:
         started = time.monotonic()
         result = narrate(pid)
@@ -261,8 +220,6 @@ def run_eval(
 
 
 def sample_players(n: int, seed: int = 0) -> list[str]:
-    """A seeded random sample of players whose careers span at least
-    MIN_SAMPLE_SEASONS seasons — long enough for a summary to make real claims."""
     pool = sorted(
         pid
         for pid, debut, final in Player.objects.filter(debut__isnull=False, final_game__isnull=False)

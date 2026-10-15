@@ -37,7 +37,6 @@
 .featured-scroll-wrap {
   position: relative;
 
-  // Right-edge fade — signals "more content over there"
   &::after {
     content: '';
     position: absolute;
@@ -58,7 +57,6 @@
   scroll-snap-type: x proximity;
   padding: 4px 4px 8px;
 
-  // Visible-but-quiet scrollbar — extra scroll affordance
   scrollbar-width: thin;
   scrollbar-color: var(--line) transparent;
 
@@ -74,7 +72,6 @@
 .featured-card {
   flex: 0 0 260px;
 
-  // Narrower cards so a slice of the next one peeks in — scroll affordance.
   @include bp.down(bp.$bp-sm) {
     flex-basis: 220px;
   }

@@ -11,8 +11,8 @@ exclude = [
 [tool.ruff.lint]
 select = ["E", "F", "I"]
 ignore = [
-    "E501",  # line length not enforced
-    "E701",  # multiple statements on one line — existing style
+    "E501",
+    "E701",
 ]
 
 [tool.ruff.lint.per-file-ignores]

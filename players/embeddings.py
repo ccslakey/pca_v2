@@ -1,16 +1,3 @@
-"""
-Mockable embedding seam (local ONNX model via fastembed).
-
-Embeddings are computed in-process by a small open model (settings.EMBED_MODEL,
-BAAI/bge-small-en-v1.5: 384-dim, quantized ONNX, ~65 MB), so retrieval needs no
-API key and has no rate limit or network dependency. The Docker image bakes the
-model files in at build time (FASTEMBED_CACHE_PATH, HF_HUB_OFFLINE); elsewhere
-the first call downloads them once. As with `llm.py`, the import and model load
-are lazy and tests monkeypatch `embed` / `embed_query`, so nothing loads a model
-until something actually embeds.
-
-Each process holds one copy of the model (~225 MB resident), loaded on first use.
-"""
 from __future__ import annotations
 
 import os
@@ -20,7 +7,7 @@ from typing import Any
 from django.conf import settings
 
 _model: Any = None
-_lock = threading.Lock()  # gunicorn runs threaded workers; load the model once
+_lock = threading.Lock()
 
 
 def _get_model() -> Any:
@@ -32,7 +19,7 @@ def _get_model() -> Any:
                 # it must be off before the runtime initializes (the Docker image
                 # also sets this).
                 os.environ.setdefault("ORT_DISABLE_TELEMETRY", "1")
-                from fastembed import TextEmbedding  # lazy: heavy import, only needed to embed
+                from fastembed import TextEmbedding
 
                 _model = TextEmbedding(settings.EMBED_MODEL)
     return _model

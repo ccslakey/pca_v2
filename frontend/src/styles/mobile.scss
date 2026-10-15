@@ -1,9 +1,3 @@
-// Mobile shell styles — a faithful port of the design comp's styles-mobile.css
-// (class-for-class). Rendered only inside <MobileApp/> (below 720px). The only
-// changes from the comp: the fixed 402×874 artboard becomes a full-viewport
-// shell, and the comp's hard-coded iOS insets become env(safe-area-inset-*).
-// Tokens (--bg-*, --text-*, --line, --accent, --font-*) come from the live theme.
-
 .m-app {
   position: relative;
   width: 100%;
@@ -36,7 +30,6 @@
 }
 .m-scroll::-webkit-scrollbar { display: none; }
 
-/* ── Top bar (collapses on scroll) ── */
 .m-topbar {
   position: sticky;
   top: 0;
@@ -93,7 +86,6 @@
   flex: none;
 }
 
-/* ── Brand (leaderboard / compare top) ── */
 .m-brand {
   display: flex;
   align-items: center;
@@ -122,7 +114,6 @@
 .m-brand .name { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
 .m-brand .name .sub { color: var(--text-2); font-weight: 400; margin-left: 4px; font-size: 13px; }
 
-/* ── Leaderboard ── */
 .m-lb-head {
   padding: 18px 16px 14px;
   display: flex; flex-direction: column; gap: 14px;
@@ -294,7 +285,6 @@
   text-transform: uppercase;
 }
 
-/* ── Profile hero ── */
 .m-hero {
   position: relative;
   padding: 14px 16px 18px;
@@ -395,7 +385,6 @@
   font-weight: 600;
 }
 
-/* ── Horizontal stat cards ── */
 .m-stat-row {
   display: flex;
   gap: 8px;
@@ -454,7 +443,6 @@
   margin-top: 1px;
 }
 
-/* ── Section header ── */
 .m-section {
   padding: 18px 16px 10px;
   display: flex;
@@ -497,7 +485,6 @@
   padding: 14px;
 }
 
-/* ── Chart area ── */
 .m-chart-tabs {
   display: flex;
   gap: 4px;
@@ -567,7 +554,6 @@ svg.m-chart { display: block; width: 100%; user-select: none; }
 .m-chart .peak-dot { fill: var(--team-color); stroke: var(--bg-2); stroke-width: 2; }
 .m-chart .peak-label { font-family: var(--font-mono); font-size: 10px; fill: var(--text-1); }
 
-/* ── Team timeline ── */
 .m-timeline { margin-top: 4px; }
 .m-timeline .tl-row {
   display: grid;
@@ -609,7 +595,6 @@ svg.m-chart { display: block; width: 100%; user-select: none; }
   padding: 0 2px;
 }
 
-/* ── Season log ── */
 .m-seasons { display: flex; flex-direction: column; }
 .m-season {
   display: grid;
@@ -685,7 +670,6 @@ svg.m-chart { display: block; width: 100%; user-select: none; }
   border: 1px solid var(--line);
 }
 
-/* ── Awards ── */
 .m-awards { display: flex; flex-direction: column; gap: 5px; }
 .m-award {
   display: grid;
@@ -710,7 +694,6 @@ svg.m-chart { display: block; width: 100%; user-select: none; }
 .m-award.is-injury { background: color-mix(in oklch, var(--bg-3), #f87171 8%); border-color: rgba(248,113,113,0.18); }
 .m-award.is-injury .label { color: #fca5a5; }
 
-/* ── Similar players carousel ── */
 .m-comp-row {
   display: flex;
   gap: 10px;
@@ -799,7 +782,6 @@ svg.m-chart { display: block; width: 100%; user-select: none; }
   border: 1px solid var(--line);
 }
 
-/* ── Bottom tab bar ── */
 .m-tabbar {
   position: absolute;
   left: 12px; right: 12px;
@@ -839,7 +821,6 @@ svg.m-chart { display: block; width: 100%; user-select: none; }
 
 .m-scroll-pad { height: 96px; }
 
-/* ── Bottom sheet (season detail) ── */
 .m-sheet-scrim {
   position: absolute;
   inset: 0;

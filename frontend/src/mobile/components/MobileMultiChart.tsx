@@ -11,9 +11,6 @@ interface Props {
 
 const PAD = { t: 18, r: 12, b: 22, l: 26 };
 
-/** Overlaid multi-line career-arc chart aligned by AGE. Ported from the comp's
- *  MobileMultiChart (overlay mode): grid, axes, zero line, dim/focus lines, and
- *  a gradient area + peak marker on the focused line. */
 export function MobileMultiChart({ players, metric, focusId, height = 188 }: Props) {
   const W = 320;
   const H = height;
@@ -92,7 +89,6 @@ export function MobileMultiChart({ players, metric, focusId, height = 188 }: Pro
       {metric === 'war' && lo < 0 && (
         <line className="zero" x1={PAD.l} x2={PAD.l + iw} y1={yOf(0)} y2={yOf(0)} />
       )}
-      {/* area under the focused line only */}
       {focusSeries && (
         <path
           className="area"
@@ -100,7 +96,6 @@ export function MobileMultiChart({ players, metric, focusId, height = 188 }: Pro
           fill={focusSeries.color}
         />
       )}
-      {/* lines */}
       {series.map(s => {
         const isFocus = focusId === s.id;
         const dim = focusId && !isFocus;
@@ -113,7 +108,6 @@ export function MobileMultiChart({ players, metric, focusId, height = 188 }: Pro
           />
         );
       })}
-      {/* peak marker on focused line */}
       {focusSeries && peak && (
         <g>
           <circle cx={xOf(peak.x)} cy={yOf(peak.v)} r={4} fill={focusSeries.color} stroke="var(--bg-2)" strokeWidth={2} />

@@ -67,7 +67,6 @@ export function initSentry(): void {
     },
     integrations: [Sentry.browserTracingIntegration()],
     tracesSampleRate: 0.1,
-    // Same-origin API calls carry trace headers so frontend and Django spans join up.
     tracePropagationTargets: [/^\/api\//],
     beforeSend: scrubEvent,
     beforeSendTransaction: scrubEvent,

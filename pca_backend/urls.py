@@ -8,7 +8,6 @@ _INDEX = Path(__file__).resolve().parent.parent / 'frontend' / 'dist' / 'index.h
 
 
 def spa_index(request, **kwargs):
-    """Serve the React SPA for any non-API, non-admin path (client-side routing)."""
     if _INDEX.exists():
         return FileResponse(open(_INDEX, 'rb'), content_type='text/html')
     return HttpResponse(
@@ -21,7 +20,6 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('players.urls')),
     path('api/', include('stats.urls')),
-    # Catchall — must be last; whitenoise handles /assets/*, /favicon.ico, etc. above this
     path('<path:path>', spa_index),
     path('', spa_index),
 ]

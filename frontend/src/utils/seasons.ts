@@ -13,7 +13,6 @@ function ageAtMidSeason(season: number, birthDate: string): number {
   return age;
 }
 
-/** Merge batting + pitching season arrays into ChartSeason[] (one entry per year). */
 export function mergeSeasons(batting: BattingSeason[], pitching: PitchingSeason[], birthDate: string | null): ChartSeason[] {
   // _pitchingSO is tracked separately so NL pitchers (who have batting seasons with hr=0)
   // still show pitching strikeouts rather than their negligible batting strikeout totals.
@@ -25,7 +24,6 @@ export function mergeSeasons(batting: BattingSeason[], pitching: PitchingSeason[
     if (existing) {
       existing.war = round1((existing.war ?? 0) + (s.war ?? 0));
       existing.hr  = (existing.hr ?? 0) + (s.home_runs ?? 0);
-      // keep rate stats from the stint with more plate appearances
       if (pa > existing._battingPA) {
         existing.avg      = s.batting_avg;
         existing.ops      = s.ops;
@@ -57,7 +55,6 @@ export function mergeSeasons(batting: BattingSeason[], pitching: PitchingSeason[
     const ip = s.ip_outs ?? 0;
     if (existing) {
       existing.war = round1((existing.war ?? 0) + (s.war ?? 0));
-      // ERA / ERA+: keep from the stint with most ip_outs
       if (ip > existing._pitchingIP) {
         existing.era      = s.era;
         existing.era_plus = ip >= 30 ? s.era_plus : null;

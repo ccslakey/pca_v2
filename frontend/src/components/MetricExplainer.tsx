@@ -7,14 +7,11 @@ import { METRIC_QUERIES } from "../constants";
 import { Skeleton } from "./Skeleton";
 import type { MetricId } from "../types";
 
-/** Inline "?" affordance that retrieves the methodology doc explaining a metric
- *  (semantic search over the docs). Renders nothing for metrics we don't document. */
 export function MetricExplainer({ metric }: { metric: MetricId }) {
   const query = METRIC_QUERIES[metric] ?? null;
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLSpanElement>(null);
 
-  // Only fetch once the popover is opened.
   const { data, isLoading } = useMethodologySearch(open ? query : null);
 
   useEffect(() => {

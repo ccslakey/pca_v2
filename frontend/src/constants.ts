@@ -22,18 +22,17 @@ export const METRIC_QUERIES: Partial<Record<MetricId, string>> = {
   era_plus: 'what does ERA+ mean and how is it calculated',
 };
 
-/** 10 vibrant, perceptually distinct colors at consistent oklch chroma — matches design palette. */
 export const PLAYER_COLORS = [
-  '#22d3ee', // cyan
-  '#f59e0b', // amber
-  '#e879f9', // magenta
-  '#a3e635', // lime
-  '#a78bfa', // violet
-  '#fb923c', // orange
-  '#2dd4bf', // teal
-  '#fb7185', // rose
-  '#60a5fa', // sky
-  '#facc15', // yellow
+  '#22d3ee',
+  '#f59e0b',
+  '#e879f9',
+  '#a3e635',
+  '#a78bfa',
+  '#fb923c',
+  '#2dd4bf',
+  '#fb7185',
+  '#60a5fa',
+  '#facc15',
 ] as const;
 
 export const MAX_PLAYERS = 10;

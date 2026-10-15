@@ -7,8 +7,6 @@ from .percentiles import war_percentile
 
 
 class PlayerListSerializer(serializers.ModelSerializer[Player]):
-    """Compact serializer for search results and autocomplete."""
-
     class Meta:
         model = Player
         fields = [
@@ -33,8 +31,6 @@ class JamesScoreSerializer(serializers.ModelSerializer[JamesScore]):
 
 
 class PlayerDetailSerializer(serializers.ModelSerializer[Player]):
-    """Full player profile including all bio fields."""
-
     james_score = JamesScoreSerializer(read_only=True)
     war_percentile = serializers.SerializerMethodField()
 

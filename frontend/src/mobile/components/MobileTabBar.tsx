@@ -8,7 +8,6 @@ interface Tab {
   match: (path: string) => boolean;
 }
 
-// Icons ported from the comp's TabBar (Leaders · Compare · Search · Saved).
 const TABS: Tab[] = [
   {
     to: '/browse',
@@ -23,7 +22,6 @@ const TABS: Tab[] = [
   {
     to: '/',
     label: 'Compare',
-    // Compare owns the landing and the player-profile drill-in.
     match: p => p === '/' || p.startsWith('/player'),
     icon: (
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

@@ -1,8 +1,3 @@
-// Mobile Compare — overlay layout, ported class-for-class from the design comp's
-// mobile-compare.css. (The comp's focus / small-multiples explorations are
-// intentionally omitted — overlay is the canonical Compare screen.)
-
-/* Comparison set chips (removable, horizontal scroll) */
 .m-cmp-set {
   display: flex; gap: 8px; padding: 2px 16px 4px;
   overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity;
@@ -25,7 +20,6 @@
   font-size: 12px; padding: 8px 14px; cursor: pointer; background: transparent;
 }
 
-/* Add-player search (revealed by the + Add chip) */
 .m-cmp-add { position: relative; margin: 8px 16px 0; }
 .m-cmp-add input {
   width: 100%;
@@ -54,7 +48,6 @@
 .m-cmp-result:last-child { border-bottom: 0; }
 .m-cmp-result:active { background: var(--bg-3); }
 
-/* Metric segmented control */
 .m-cmp-metric {
   display: flex; gap: 3px; padding: 3px; margin: 12px 16px 0;
   background: var(--bg-3); border: 1px solid var(--line); border-radius: 999px;
@@ -69,14 +62,12 @@
   box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 2px 8px rgba(0,0,0,0.3);
 }
 
-/* Chart head */
 .m-cmp-charthead {
   display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px;
 }
 .m-cmp-charthead .t { font-size: 13px; font-weight: 600; letter-spacing: -0.005em; }
 .m-cmp-charthead .x { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-3); }
 
-/* Multi-line chart */
 svg.m-multichart { display: block; width: 100%; user-select: none; }
 .m-multichart .grid line { stroke: var(--line-soft); stroke-dasharray: 2 4; }
 .m-multichart .axis text { fill: var(--text-3); font-size: 9px; font-family: var(--font-mono); }
@@ -86,7 +77,6 @@ svg.m-multichart { display: block; width: 100%; user-select: none; }
 .m-multichart .ln.is-focus { stroke-width: 2.6; }
 .m-multichart .area { fill-opacity: 0.13; transition: opacity 160ms; }
 
-/* Legend (tap to focus) */
 .m-cmp-legend { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
 .m-cmp-leg {
   display: inline-flex; align-items: center; gap: 7px; padding: 5px 10px 5px 9px;
@@ -98,7 +88,6 @@ svg.m-multichart { display: block; width: 100%; user-select: none; }
 .m-cmp-leg.is-dim { opacity: 0.45; }
 .m-cmp-leg.is-focus { border-color: rgba(255,255,255,0.22); color: var(--text-0); }
 
-/* Ranked compare list */
 .m-cmp-rank { display: flex; flex-direction: column; gap: 6px; }
 .m-cmp-rrow {
   display: grid; grid-template-columns: 22px 1fr auto; align-items: center; gap: 11px;

@@ -7,7 +7,6 @@ import remarkGfm from "remark-gfm";
 import { ARTICLES, getArticle } from "../methodology/articles";
 import { TopBar } from "../components/layout/TopBar";
 
-// All markdown imported at build time — live in the methodology chunk.
 const RAW_MD = import.meta.glob("../methodology/*.md", {
   query: "?raw",
   import: "default",
@@ -27,7 +26,6 @@ function slugify(text: string): string {
     .replace(/(^-|-$)/g, "");
 }
 
-// Extract h2 headings from markdown for the sidebar TOC.
 function extractHeadings(md: string): { id: string; text: string }[] {
   return Array.from(md.matchAll(/^## (.+)$/gm)).map((m) => ({
     text: m[1].trim(),
@@ -35,7 +33,6 @@ function extractHeadings(md: string): { id: string; text: string }[] {
   }));
 }
 
-// Custom renderers: add id to h2 so TOC anchor links work.
 const MD_COMPONENTS: Components = {
   h2({ children }) {
     const text =

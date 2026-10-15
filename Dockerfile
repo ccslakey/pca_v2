@@ -1,4 +1,3 @@
-# ── Stage 1: build the React frontend ─────────────────────────────────────────
 FROM node:20-alpine AS frontend-build
 WORKDIR /app/frontend
 COPY frontend/package.json frontend/package-lock.json ./
@@ -12,7 +11,6 @@ ARG VITE_POSTHOG_KEY
 ARG VITE_POSTHOG_HOST
 RUN npm run build
 
-# ── Stage 2: Python runtime ────────────────────────────────────────────────────
 FROM python:3.14-slim
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
 WORKDIR /app
@@ -22,7 +20,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python deps first (better layer caching)
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
@@ -35,13 +32,10 @@ RUN python -c "from fastembed import TextEmbedding; TextEmbedding('${EMBED_MODEL
     && chmod -R a+rX /opt/fastembed
 ENV HF_HUB_OFFLINE=1
 
-# Copy source
 COPY . .
 
-# Copy built React bundle from stage 1
 COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 
-# Collect Django admin static files (does not touch the DB)
 RUN DJANGO_DEBUG=False python manage.py collectstatic --noinput
 
 RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
@@ -49,7 +43,6 @@ USER appuser
 
 EXPOSE 8000
 
-# Migrate then start — runs on every deploy so schema stays in sync
 CMD sh -c "python manage.py migrate --noinput && \
     gunicorn pca_backend.wsgi:application \
     --bind 0.0.0.0:${PORT:-8000} \

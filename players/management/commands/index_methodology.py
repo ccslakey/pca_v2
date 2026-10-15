@@ -1,12 +1,3 @@
-"""
-Chunk, embed, and store the methodology docs for semantic retrieval.
-
-    python manage.py index_methodology
-
-Reads frontend/src/methodology/*.md, splits each into ~120-word chunks on
-paragraph boundaries, embeds them with the local model, and upserts into
-MethodologyChunk. Re-running is safe — each doc's chunks are replaced wholesale.
-"""
 from __future__ import annotations
 
 import re
@@ -19,17 +10,15 @@ from django.db import transaction
 from players import embeddings
 from players.models import MethodologyChunk
 
-_TARGET_WORDS = 120  # approximate chunk size; docs are short so a few chunks each
+_TARGET_WORDS = 120
 
 
 def _title_of(text: str, slug: str) -> str:
-    """First markdown H1, else a title-cased slug."""
     m = re.search(r"^#\s+(.+)$", text, re.MULTILINE)
     return m.group(1).strip() if m else slug.replace("-", " ").title()
 
 
 def _chunk(text: str) -> list[str]:
-    """Group paragraphs into ~_TARGET_WORDS windows, keeping paragraphs intact."""
     paras = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
     chunks: list[str] = []
     buf: list[str] = []
@@ -58,7 +47,6 @@ class Command(BaseCommand):
         if not md_files:
             raise CommandError(f"No .md files found in {doc_dir}")
 
-        # Collect every chunk across all docs, then embed them in one batch.
         records: list[tuple[str, str, int, str]] = []  # (slug, title, chunk_index, content)
         for path in md_files:
             slug = path.stem

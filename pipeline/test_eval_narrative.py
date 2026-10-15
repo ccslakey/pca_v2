@@ -1,12 +1,3 @@
-"""
-Tests for pipeline/eval_narrative.py.
-
-The metric functions are pure and `run_eval` takes injected callables, so the
-whole suite runs offline with no keys, no model calls, and no database.
-
-Run from project root:
-    python -m pytest pipeline/test_eval_narrative.py -v
-"""
 from __future__ import annotations
 
 import os
@@ -50,7 +41,7 @@ def _retrieve(query, k=3):
 class TestHallucinationRate(SimpleTestCase):
     def test_counts_only_llm_attempts(self):
         results = [
-            _res("agentic", flagged=["999"], source="template", repairs=1),  # caught, fell back
+            _res("agentic", flagged=["999"], source="template", repairs=1),
             _res("agentic", tools=["get_career_totals"]),
             _res("single_shot"),
             _res(None, source="template"),             # no-key template — not an attempt
@@ -60,8 +51,6 @@ class TestHallucinationRate(SimpleTestCase):
         self.assertAlmostEqual(hr["rate"], 1 / 3)
 
     def test_repaired_draft_counts_as_caught(self):
-        # The verifier rejected the first draft but the repair passed: served as
-        # LLM text with nothing flagged, yet it still hallucinated.
         hr = hallucination_rate([_res("agentic", repairs=1), _res("agentic")])
         self.assertEqual((hr["n"], hr["caught"], hr["fell_back"]), (2, 1, 0))
 

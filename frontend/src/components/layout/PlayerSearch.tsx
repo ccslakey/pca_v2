@@ -36,7 +36,6 @@ export function PlayerSearch({ selectedIds, onSelect, maxPlayers }: Props) {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // ⌘K shortcut
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {

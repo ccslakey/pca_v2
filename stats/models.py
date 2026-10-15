@@ -4,23 +4,12 @@ from players.models import Player
 
 
 class BattingSeason(models.Model):
-    """
-    Season-level batting stats scraped from BRef standard batting pages.
-    One row per player / year / team stint.
-
-    Columns available on BRef vary by era — pre-1950s stats like SF, IBB,
-    GIDP may be null even when the player record itself exists.
-
-    Acronym rule: 3+ letter acronyms kept (rbi, ibb, hbp, gidp, ops, war).
-    1–2 letter abbreviations use full names.
-    """
     player = models.ForeignKey(Player, on_delete=models.CASCADE, related_name='batting_seasons')
     year   = models.SmallIntegerField(db_index=True)
     stint  = models.SmallIntegerField(default=1)
     team   = models.CharField(max_length=4)
     league = models.CharField(max_length=3, null=True)
 
-    # Counting stats
     games            = models.SmallIntegerField(null=True)
     plate_appearances = models.IntegerField(null=True)
     at_bats          = models.IntegerField(null=True)
@@ -34,14 +23,13 @@ class BattingSeason(models.Model):
     caught_stealing  = models.SmallIntegerField(null=True)
     walks            = models.SmallIntegerField(null=True)
     strikeouts       = models.SmallIntegerField(null=True)
-    ibb              = models.SmallIntegerField(null=True)   # tracked ~1955+
+    ibb              = models.SmallIntegerField(null=True)
     hbp              = models.SmallIntegerField(null=True)
     sacrifice_hits   = models.SmallIntegerField(null=True)
-    sacrifice_flies  = models.SmallIntegerField(null=True)   # tracked ~1954+
+    sacrifice_flies  = models.SmallIntegerField(null=True)
     gidp             = models.SmallIntegerField(null=True)
     total_bases      = models.SmallIntegerField(null=True)
 
-    # Rate / advanced stats (BRef computes and includes on the standard page)
     batting_avg  = models.FloatField(null=True)
     on_base_pct  = models.FloatField(null=True)
     slugging_pct = models.FloatField(null=True)
@@ -61,23 +49,12 @@ class BattingSeason(models.Model):
 
 
 class PitchingSeason(models.Model):
-    """
-    Season-level pitching stats scraped from BRef standard pitching pages.
-    One row per player / year / team stint.
-
-    ip_outs stores innings pitched as total outs recorded (IP × 3, with
-    fractional innings converted: "6.1" → 19, "6.2" → 20).
-
-    Acronym rule: 3+ letter acronyms kept (era, ibb, hbp, sho, bfp, gidp, fip, war).
-    sacrifice_hits against omitted — not present on BRef standard pitching page.
-    """
     player = models.ForeignKey(Player, on_delete=models.CASCADE, related_name='pitching_seasons')
     year   = models.SmallIntegerField(db_index=True)
     stint  = models.SmallIntegerField(default=1)
     team   = models.CharField(max_length=4)
     league = models.CharField(max_length=3, null=True)
 
-    # Counting stats
     wins            = models.SmallIntegerField(null=True)
     losses          = models.SmallIntegerField(null=True)
     games           = models.SmallIntegerField(null=True)
@@ -101,7 +78,6 @@ class PitchingSeason(models.Model):
     sacrifice_flies = models.SmallIntegerField(null=True)
     gidp            = models.SmallIntegerField(null=True)
 
-    # Rate / advanced stats (BRef includes on the standard page)
     era                  = models.FloatField(null=True)
     era_plus             = models.SmallIntegerField(null=True)
     fip                  = models.FloatField(null=True)
@@ -125,11 +101,6 @@ class PitchingSeason(models.Model):
 
 
 class FieldingSeason(models.Model):
-    """
-    Season-level standard fielding stats scraped from BRef.
-    One row per player / year / team stint, preserving the raw compact
-    positions string for later decoding.
-    """
     player = models.ForeignKey(Player, on_delete=models.CASCADE, related_name='fielding_seasons')
     year   = models.SmallIntegerField(db_index=True)
     stint  = models.SmallIntegerField(default=1)
@@ -176,7 +147,6 @@ class FieldingSeason(models.Model):
 
 
 class FieldingPositionToken(models.Model):
-    """Decoded token from a BRef compact positions string."""
     fielding_season = models.ForeignKey(
         FieldingSeason,
         on_delete=models.CASCADE,
@@ -203,11 +173,6 @@ class FieldingPositionToken(models.Model):
 
 
 class PlayerAward(models.Model):
-    """
-    One row per award instance. Career milestones like HOF use the induction
-    year; All-Star career totals are stored on the Player model instead.
-    """
-
     class Kind(models.TextChoices):
         MVP       = 'mvp',       'Most Valuable Player'
         CY        = 'cy',        'Cy Young Award'
@@ -272,7 +237,6 @@ class StatcastZoneBucket(models.Model):
 
 
 class IngestionLog(models.Model):
-    """Tracks completed ingestion runs to allow safe re-runs."""
     source       = models.CharField(max_length=50)   # e.g. 'bref_batting_MLB_2023'
     rows_loaded  = models.IntegerField(default=0)
     completed_at = models.DateTimeField(auto_now_add=True)
@@ -284,15 +248,6 @@ class IngestionLog(models.Model):
 
 
 class JamesScore(models.Model):
-    """
-    Precomputed Bill James Hall of Fame scores per player.
-    Refresh with `python manage.py compute_james_scores`.
-
-    Three scores per role:
-      - black_ink: weighted points for league-leading finishes
-      - gray_ink:  1 point per top-10 finish across many categories
-      - hof_monitor: composite predictor (100 = likely HOF, 130+ = lock)
-    """
     player = models.OneToOneField(Player, on_delete=models.CASCADE, related_name='james_score')
 
     black_ink_bat   = models.SmallIntegerField(default=0)

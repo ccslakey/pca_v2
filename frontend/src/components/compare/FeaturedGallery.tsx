@@ -53,8 +53,6 @@ export function FeaturedGallery({ onSelect }: Props) {
   const { data } = useFeatured();
   const trios = data?.trios ?? [];
 
-  // Header chrome renders eagerly (h2 is the LCP element — paint it before the
-  // API resolves). Cards render as skeletons until data arrives.
   return (
     <div className="featured-gallery">
       <div className="featured-gallery-header">

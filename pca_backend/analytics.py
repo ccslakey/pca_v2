@@ -18,7 +18,7 @@ client = Posthog(
     _key or 'disabled',
     host=os.environ.get('POSTHOG_HOST', 'https://us.i.posthog.com'),
     disabled=not _key,
-    enable_exception_autocapture=False,  # Sentry owns errors
+    enable_exception_autocapture=False,
     privacy_mode=True,
 )
 atexit.register(client.shutdown)

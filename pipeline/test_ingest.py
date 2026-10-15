@@ -1,10 +1,3 @@
-"""
-Tests for pipeline/ingest_bref_history.py.
-
-Run from project root:
-    python -m pytest pipeline/test_ingest.py -v
-"""
-
 from __future__ import annotations
 
 import os
@@ -47,12 +40,8 @@ from stats.models import (
 )
 from stats.positions import parse_bref_positions
 
-# ---------------------------------------------------------------------------
-# HTML fixture builders
-# ---------------------------------------------------------------------------
 
 def _batting_html(rows: list[dict], in_comment: bool = False) -> bytes:
-    """Build minimal BRef-style batting table HTML bytes."""
     tr_parts: list[str] = []
     for r in rows:
         cells = [
@@ -74,7 +63,6 @@ def _batting_html(rows: list[dict], in_comment: bool = False) -> bytes:
 
 
 def _pitching_html(rows: list[dict], in_comment: bool = False) -> bytes:
-    """Build minimal BRef-style pitching table HTML bytes."""
     tr_parts: list[str] = []
     for r in rows:
         cells = [
@@ -96,7 +84,6 @@ def _pitching_html(rows: list[dict], in_comment: bool = False) -> bytes:
 
 
 def _fielding_html(rows: list[dict], in_comment: bool = False) -> bytes:
-    """Build minimal BRef-style fielding table HTML bytes."""
     tr_parts: list[str] = []
     for r in rows:
         cells = [
@@ -129,10 +116,6 @@ CHADWICK_WITH_RUTH: dict = {
     'ruthba01': {'mlbam_id': 1234, 'fangraphs_id': 5678, 'retro_id': 'ruth001'},
 }
 
-
-# ---------------------------------------------------------------------------
-# Pure function tests — no DB, no network
-# ---------------------------------------------------------------------------
 
 class TestIpToOuts(unittest.TestCase):
 
@@ -335,10 +318,6 @@ class TestExtractTable(unittest.TestCase):
         self.assertTrue(df.empty)
 
 
-# ---------------------------------------------------------------------------
-# Network / retry tests — no DB
-# ---------------------------------------------------------------------------
-
 class TestFetchWithRetry(unittest.TestCase):
 
     def test_success_on_first_attempt(self) -> None:
@@ -392,10 +371,6 @@ class TestFetchWithRetry(unittest.TestCase):
 
         self.assertEqual(mock_session.get.call_count, 3)
 
-
-# ---------------------------------------------------------------------------
-# DB tests — use Django TestCase for transaction isolation
-# ---------------------------------------------------------------------------
 
 class TestUpsertPlayer(TestCase):
 
@@ -541,7 +516,6 @@ class TestIngestBattingPage(TestCase):
         html = _batting_html([{
             'bbref_id': 'ansonca01', 'name': 'Cap Anson', 'team': 'CHN',
             'stats': {'b_games': '82', 'b_hr': '7'},
-            # b_ibb and b_sf deliberately absent
         }])
         mock_fetch.return_value = _mock_response(html)
 

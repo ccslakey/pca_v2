@@ -100,8 +100,6 @@
     justify-content: flex-start;
   }
 
-  // Pills scroll within the rounded track rather than wrapping, keeping the
-  // segmented-control shape; the long metric-name suffix won't fit anyway.
   .metric-toggle {
     max-width: 100%;
     overflow-x: auto;

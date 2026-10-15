@@ -23,7 +23,7 @@
     padding: 5px 6px 5px 10px;
 
     @include bp.down(bp.$bp-md) {
-        padding: 7px 8px 7px 12px; // ~36px tall tap target
+        padding: 7px 8px 7px 12px;
     }
     background: var(--bg-2);
     border: 1px solid var(--line);

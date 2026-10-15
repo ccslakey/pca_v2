@@ -69,7 +69,6 @@ const AWARD_LABELS: Partial<Record<AwardKind, string>> = {
   postmvp: "Postseason MVP",
 };
 
-/** Split a season array into consecutive segments, with gap pairs between them. */
 function splitSegments(
   pts: ChartSeason[],
   getX: (s: ChartSeason) => number | null,
@@ -93,7 +92,6 @@ function splitSegments(
   return { segments, gaps };
 }
 
-/** Top-priority chart annotation for a player in a given year, null if none. */
 function topAnnotation(
   awards: PlayerAward[],
   year: number,
@@ -290,7 +288,6 @@ export function CareerChart({
   return (
     <div style={{ position: "relative" }}>
       <svg className="chart" viewBox={`0 0 ${width} ${height}`}>
-        {/* Transparent overlay to capture mouse events across the full chart area */}
         <rect
           x={MARGIN.left}
           y={MARGIN.top}

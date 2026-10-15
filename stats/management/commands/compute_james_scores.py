@@ -25,10 +25,6 @@ from django.db import transaction
 from players.models import Player
 from stats.models import BattingSeason, JamesScore, PitchingSeason, PlayerAward
 
-# ---------------------------------------------------------------------------
-# Black Ink / Gray Ink categories
-# ---------------------------------------------------------------------------
-
 # (key, weight) — weight = points awarded for leading the league
 BAT_BLACK_INK_CATEGORIES = [
     ("hr", 4), ("rbi", 4), ("ba", 4),
@@ -37,7 +33,6 @@ BAT_BLACK_INK_CATEGORIES = [
     ("g", 1), ("ab", 1), ("triples", 1),
 ]
 
-# Categories ranked for Gray Ink (1 pt per top-10 finish)
 BAT_GRAY_INK_CATEGORIES = [
     "hr", "rbi", "ba", "r", "h", "slg", "obp",
     "doubles", "triples", "bb", "sb", "g", "ab", "ops", "tb",
@@ -54,17 +49,13 @@ PIT_GRAY_INK_CATEGORIES = [
     "w", "era", "so", "ip", "whip", "gs", "cg", "sho", "g", "sv",
 ]
 
-# Rate stats: only qualified players (≥502 PA / ≥162 IP) eligible
 RATE_BAT_CATEGORIES = {"ba", "obp", "slg", "ops"}
 RATE_PIT_CATEGORIES = {"era", "whip"}
 LOWER_IS_BETTER     = {"era", "whip"}
 
 QUAL_PA      = 502
-QUAL_IP_OUTS = 162 * 3  # 486 outs ≈ 162 IP
+QUAL_IP_OUTS = 162 * 3
 
-# ---------------------------------------------------------------------------
-# Aggregation: combine stints into one full-season row per (player, year)
-# ---------------------------------------------------------------------------
 
 def _aggregate_batting() -> dict[tuple[int, str | None], dict[str, dict]]:
     """Return {(year, league): {player_id: full-season totals}}."""
@@ -172,10 +163,6 @@ def _aggregate_pitching() -> dict[tuple[int, str | None], dict[str, dict]]:
     return by_year
 
 
-# ---------------------------------------------------------------------------
-# Black / Gray Ink scoring
-# ---------------------------------------------------------------------------
-
 def _ink_scores(
     annual: dict[tuple[int, str | None], dict[str, dict]],
     black_categories: list[tuple[str, int]],
@@ -208,7 +195,6 @@ def _rank_for_category(
     qual_threshold: int,
     rate_categories: set[str],
 ) -> list[tuple[str, float]]:
-    """Return [(pid, value)] sorted best→worst, qualifier-filtered for rate stats."""
     pairs: list[tuple[str, float]] = []
     is_rate = cat in rate_categories
     for pid, row in players.items():
@@ -225,10 +211,6 @@ def _rank_for_category(
     return pairs
 
 
-# ---------------------------------------------------------------------------
-# HOF Monitor — Batters
-# ---------------------------------------------------------------------------
-
 def _hof_monitor_batter(
     career: dict,
     seasons: list[dict],
@@ -244,20 +226,16 @@ def _hof_monitor_batter(
         elif ba >= 0.315: pts += 25
         elif ba >= 0.300: pts += 10
 
-    # --- Hits (career milestones) ---
     h = career["h"]
     if h >= 3500:    pts += 50
     elif h >= 3000:  pts += 30
     elif h >= 2500:  pts += 10
 
-    # --- 200-hit seasons (cap at 3 = 9 pts) ---
     pts += 3 * min(3, sum(1 for s in seasons if s["h"] >= 200))
 
-    # --- Doubles, triples ---
     if career["doubles"] >= 600: pts += 50
     if career["triples"] >= 175: pts += 40
 
-    # --- Home runs ---
     hr = career["hr"]
     if hr >= 600:    pts += 100
     elif hr >= 500:  pts += 75
@@ -266,40 +244,32 @@ def _hof_monitor_batter(
     elif hr >= 250:  pts += 10
     elif hr >= 200:  pts += 5
 
-    # --- 50+ HR / 40+ HR seasons ---
     pts += 5 * sum(1 for s in seasons if s["hr"] >= 50)
     pts += 1 * sum(1 for s in seasons if s["hr"] >= 40 and s["hr"] < 50)
 
-    # --- RBI ---
     rbi = career["rbi"]
     if rbi >= 1850:  pts += 70
     elif rbi >= 1500: pts += 40
     elif rbi >= 1250: pts += 20
 
-    # --- 100 RBI seasons (cap at 5) ---
     pts += min(5, sum(1 for s in seasons if s["rbi"] >= 100))
 
-    # --- Runs ---
     r = career["r"]
     if r >= 1750:    pts += 20
     elif r >= 1500:  pts += 10
 
-    # --- 100 R seasons (cap at 5) ---
     pts += min(5, sum(1 for s in seasons if s["r"] >= 100))
 
-    # --- Stolen bases ---
     sb = career["sb"]
     if sb >= 600:    pts += 25
     elif sb >= 300:  pts += 5
 
-    # --- Awards ---
     pts += 8 * awards.get("mvp", 0)
-    pts += min(16, 2 * awards.get("asg", 0))           # 2 pts each, cap at 16
-    pts += min(16, 2 * awards.get("gg", 0))             # 2 pts each, cap at 16
+    pts += min(16, 2 * awards.get("asg", 0))
+    pts += min(16, 2 * awards.get("gg", 0))
     pts += 3 * awards.get("bat_title", 0)               # batting titles (overlap with BA bonus)
-    pts += 6 if awards.get("ws", 0) > 0 else 0          # WS championship: flat 6
+    pts += 6 if awards.get("ws", 0) > 0 else 0
 
-    # --- Position bonus (defensive difficulty) ---
     if primary_position == "C":
         pts += 60
     elif primary_position in {"2B", "SS", "3B"}:
@@ -308,10 +278,6 @@ def _hof_monitor_batter(
     return pts
 
 
-# ---------------------------------------------------------------------------
-# HOF Monitor — Pitchers
-# ---------------------------------------------------------------------------
-
 def _hof_monitor_pitcher(
     career: dict,
     seasons: list[dict],
@@ -319,7 +285,6 @@ def _hof_monitor_pitcher(
 ) -> int:
     pts = 0
 
-    # --- Wins ---
     w = career["w"]
     if w >= 300:    pts += 100
     elif w >= 275:  pts += 50
@@ -335,7 +300,6 @@ def _hof_monitor_pitcher(
             elif era <= 3.00:  pts += 25
             elif era <= 3.25:  pts += 15
 
-    # --- Strikeouts ---
     so = career["so"]
     if so >= 3000:    pts += 50
     elif so >= 2500:  pts += 30
@@ -348,7 +312,6 @@ def _hof_monitor_pitcher(
     elif sv >= 400:  pts += 30
     elif sv >= 300:  pts += 15
 
-    # --- 20-win seasons ---
     pts += 4 * sum(1 for s in seasons if s["w"] >= 20)
 
     # --- Career win pct (requires real workload) ---
@@ -358,18 +321,13 @@ def _hof_monitor_pitcher(
         if win_pct >= 0.625: pts += 25
         elif win_pct >= 0.575: pts += 10
 
-    # --- Awards ---
     pts += 8 * awards.get("cy", 0)
-    pts += 25 * awards.get("mvp", 0)                  # pitcher MVPs are huge
-    pts += min(15, 3 * awards.get("asg", 0))          # cap All-Star at 15
+    pts += 25 * awards.get("mvp", 0)
+    pts += min(15, 3 * awards.get("asg", 0))
     pts += 6 if awards.get("ws", 0) > 0 else 0
 
     return pts
 
-
-# ---------------------------------------------------------------------------
-# Career totals + per-season list
-# ---------------------------------------------------------------------------
 
 def _batter_career_and_seasons(
     annual: dict[tuple[int, str | None], dict[str, dict]],
@@ -431,22 +389,13 @@ def _pitcher_career_and_seasons(
     return career, seasons
 
 
-# ---------------------------------------------------------------------------
-# Awards lookup
-# ---------------------------------------------------------------------------
-
 def _awards_per_player() -> dict[str, dict[str, int]]:
-    """Return {player_id: {kind: count}}."""
     out: dict[str, dict[str, int]] = defaultdict(dict)
     for r in PlayerAward.objects.values("player_id", "kind"):
         d = out[r["player_id"]]
         d[r["kind"]] = d.get(r["kind"], 0) + 1
     return out
 
-
-# ---------------------------------------------------------------------------
-# Command
-# ---------------------------------------------------------------------------
 
 class Command(BaseCommand):
     help = "Compute Bill James HOF Monitor + Black Ink + Gray Ink for every player."
@@ -486,7 +435,6 @@ class Command(BaseCommand):
         for pid, c in pit_career.items():
             hof_pit[pid] = _hof_monitor_pitcher(c, pit_seasons[pid], awards.get(pid, {}))
 
-        # Combine all player ids that have any score
         all_pids = set(bat_career) | set(pit_career)
 
         self.stdout.write(f"Persisting scores for {len(all_pids):,} players...")
