@@ -1,7 +1,7 @@
 django
 djangorestframework
 anthropic
-voyageai
+fastembed
 pgvector
 python-dotenv
 django-filter

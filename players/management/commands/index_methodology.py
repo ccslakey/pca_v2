@@ -4,7 +4,7 @@ Chunk, embed, and store the methodology docs for semantic retrieval.
     python manage.py index_methodology
 
 Reads frontend/src/methodology/*.md, splits each into ~120-word chunks on
-paragraph boundaries, embeds them with Voyage, and upserts into
+paragraph boundaries, embeds them with the local model, and upserts into
 MethodologyChunk. Re-running is safe — each doc's chunks are replaced wholesale.
 """
 from __future__ import annotations
@@ -51,17 +51,14 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         if not getattr(settings, "RAG_ENABLED", False):
-            raise CommandError("VOYAGE_API_KEY is not set — cannot embed. Set it and retry.")
+            raise CommandError("RAG is disabled (RAG_ENABLED=false) — nothing to index.")
 
         doc_dir = Path(settings.BASE_DIR) / "frontend" / "src" / "methodology"
         md_files = sorted(doc_dir.glob("*.md"))
         if not md_files:
             raise CommandError(f"No .md files found in {doc_dir}")
 
-        # Collect every chunk across all docs, then embed in ONE request. The
-        # whole corpus is a few thousand tokens, so this stays within the free
-        # tier's per-minute limits where one-request-per-doc would not. (For a
-        # much larger corpus, batch into groups and throttle to the RPM limit.)
+        # Collect every chunk across all docs, then embed them in one batch.
         records: list[tuple[str, str, int, str]] = []  # (slug, title, chunk_index, content)
         for path in md_files:
             slug = path.stem

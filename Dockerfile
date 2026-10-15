@@ -26,6 +26,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Bake the RAG embedding model into the image so containers never download it
+# at runtime. Must match settings.EMBED_MODEL; readable by the non-root user.
+ARG EMBED_MODEL=BAAI/bge-small-en-v1.5
+ENV FASTEMBED_CACHE_PATH=/opt/fastembed
+RUN python -c "from fastembed import TextEmbedding; TextEmbedding('${EMBED_MODEL}')" \
+    && chmod -R a+rX /opt/fastembed
+ENV HF_HUB_OFFLINE=1
+
 # Copy source
 COPY . .
 

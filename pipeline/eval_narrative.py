@@ -16,7 +16,7 @@ labeled questions, and reports a scorecard:
 
 The metric functions are pure and take injected `narrate` / `retrieve` / `judge`
 callables, so the suite is fully testable offline (see pipeline/test_eval_narrative.py).
-Run for real (needs ANTHROPIC_API_KEY, and VOYAGE_API_KEY + an indexed corpus):
+Run for real (needs ANTHROPIC_API_KEY, plus an indexed corpus for RAG):
 
     python pipeline/eval_narrative.py
     python pipeline/eval_narrative.py --max-hallucination 0.0   # CI gate
@@ -113,17 +113,21 @@ def rag_hit_rate(
     k: int = 3,
 ) -> dict[str, Any]:
     """Fraction of questions whose expected doc appears in the top-k results.
-    (With one relevant doc per query this is recall@k / hit-rate.)"""
+    (With one relevant doc per query this is recall@k / hit-rate.) `empty`
+    counts queries that returned nothing at all — retrieval failing or RAG off,
+    not a ranking miss — so a broken embedder can't pass for poor relevance."""
     hits = 0
     misses: list[str] = []
+    empty = 0
     for query, expected in cases:
-        slugs = {r["slug"] for r in retrieve(query, k=k)}
-        if expected in slugs:
+        results = retrieve(query, k=k)
+        empty += not results
+        if expected in {r["slug"] for r in results}:
             hits += 1
         else:
             misses.append(expected)
     n = len(cases)
-    return {"n": n, "hits": hits, "rate": (hits / n) if n else 0.0, "k": k, "misses": misses}
+    return {"n": n, "hits": hits, "rate": (hits / n) if n else 0.0, "k": k, "misses": misses, "empty": empty}
 
 
 def faithfulness(
@@ -280,7 +284,7 @@ def format_scorecard(sc: dict[str, Any]) -> str:
         f"  tool selection    : {sc['tool_selection']['rate']:.1%} "
         f"({sc['tool_selection']['ok']}/{sc['tool_selection']['n']} called {sorted(REQUIRED_TOOLS)})",
         f"  rag hit_rate@{sc['rag_hit_rate']['k']}    : {sc['rag_hit_rate']['rate']:.1%} "
-        f"({sc['rag_hit_rate']['hits']}/{sc['rag_hit_rate']['n']})",
+        f"({sc['rag_hit_rate']['hits']}/{sc['rag_hit_rate']['n']}, {sc['rag_hit_rate']['empty']} empty)",
     ]
     if "faithfulness" in sc:
         f = sc["faithfulness"]

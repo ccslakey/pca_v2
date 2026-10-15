@@ -149,7 +149,7 @@ Not scheduled. Pulled into "Now" when the slot opens.
 
 ### AI career summary
 - Grounded "scouting report" on each profile, written by a tool-using agent and verified number-by-number against the player's data; falls back to a deterministic template on verification failure or with no API key — see [`AI_FEATURES.md`](AI_FEATURES.md)
-- Tool calls, methodology RAG (pgvector + Voyage) powering inline metric explainers, agentic verify→repair loop, typed number-binding verification
+- Tool calls, methodology RAG (pgvector + local fastembed embeddings) powering inline metric explainers, agentic verify→repair loop, typed number-binding verification
 - Eval harness (hallucination / tool / RAG metrics); narratives persisted in Postgres per data version
 - Provenance badge + "how this was generated" agent trace in the profile panel
 

@@ -164,12 +164,13 @@ NARRATIVE_USE_TOOLS = os.environ.get('NARRATIVE_USE_TOOLS', 'true').lower() == '
 # Off by default: it changes the model contract and only applies on the tool path.
 NARRATIVE_TYPED_VERIFY = os.environ.get('NARRATIVE_TYPED_VERIFY', 'false').lower() == 'true'
 
-# Methodology RAG. Embeddings come from Voyage AI (Anthropic has no embeddings
-# API); retrieval degrades to empty results when no key is configured.
-VOYAGE_API_KEY = os.environ.get('VOYAGE_API_KEY', '')
-EMBED_MODEL = os.environ.get('EMBED_MODEL', 'voyage-3.5-lite')
-VECTOR_DIM = 1024  # voyage-3.5-lite default output dimension; must match the model field
-RAG_ENABLED = bool(VOYAGE_API_KEY)
+# Methodology RAG. Embeddings are computed in-process by a small local ONNX
+# model (fastembed), so there is no key, rate limit, or network call; the
+# Docker image bakes the model in. Changing EMBED_MODEL means a migration to
+# the new VECTOR_DIM plus `manage.py index_methodology`.
+EMBED_MODEL = os.environ.get('EMBED_MODEL', 'BAAI/bge-small-en-v1.5')
+VECTOR_DIM = 384  # bge-small-en-v1.5 output dimension; must match MethodologyChunk.embedding
+RAG_ENABLED = os.environ.get('RAG_ENABLED', 'true').lower() == 'true'
 
 # --- Error monitoring ---
 # No-op unless SENTRY_DSN is set, so dev and tests never report.

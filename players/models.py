@@ -53,7 +53,7 @@ class MethodologyChunk(models.Model):
     title       = models.CharField(max_length=120)
     chunk_index = models.SmallIntegerField()
     content     = models.TextField()
-    embedding   = VectorField(dimensions=1024)
+    embedding   = VectorField(dimensions=384)  # settings.VECTOR_DIM (bge-small-en-v1.5)
 
     class Meta:
         unique_together = ('slug', 'chunk_index')

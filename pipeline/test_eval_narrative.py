@@ -91,11 +91,12 @@ class TestToolSelection(SimpleTestCase):
 
 class TestRagHitRate(SimpleTestCase):
     def test_hits_and_misses(self):
-        cases = [("qA", "war"), ("qB", "positions")]  # first hits, second misses
+        # hit, ranking miss, and an empty result (retrieval failed / RAG off)
+        cases = [("qA", "war"), ("qB", "positions"), ("qZ", "leaderboard")]
         r = rag_hit_rate(cases, _retrieve, k=3)
-        self.assertEqual((r["hits"], r["n"]), (1, 2))
-        self.assertAlmostEqual(r["rate"], 0.5)
-        self.assertEqual(r["misses"], ["positions"])
+        self.assertEqual((r["hits"], r["n"], r["empty"]), (1, 3, 1))
+        self.assertAlmostEqual(r["rate"], 1 / 3)
+        self.assertEqual(r["misses"], ["positions", "leaderboard"])
 
 
 class TestFaithfulness(SimpleTestCase):
