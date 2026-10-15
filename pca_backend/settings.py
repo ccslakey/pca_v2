@@ -8,11 +8,7 @@ from pca_backend.observability import init_sentry
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Load a local .env (gitignored) for dev. No-op in production, where Railway
-# injects real environment variables directly.
 load_dotenv(BASE_DIR / '.env')
-
-# --- Core ---
 
 SECRET_KEY = os.environ.get(
     'DJANGO_SECRET_KEY',
@@ -26,8 +22,6 @@ ALLOWED_HOSTS = [
     for h in os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
     if h.strip()
 ] + ['healthcheck.railway.app']
-
-# --- Apps ---
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -75,14 +69,10 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'pca_backend.wsgi.application'
 
-# --- Database ---
-
 _db_url = os.environ.get('DATABASE_URL') or 'postgres://connorslakey@localhost:5432/pca_v2'
 DATABASES = {
     'default': dj_database_url.parse(_db_url, conn_max_age=600, conn_health_checks=True)
 }
-
-# --- Password validation ---
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
@@ -91,16 +81,10 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-# --- Internationalisation ---
-
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
-
-# --- Static files ---
-# Django admin assets → collected into staticfiles/ → served at /static/
-# React SPA bundle   → read from frontend/dist/    → served at / via whitenoise root
 
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
@@ -110,11 +94,8 @@ STORAGES = {
     'staticfiles': {'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage'},
 }
 
-# Serve the built React SPA at the root URL (alongside /static/ and /api/)
 WHITENOISE_ROOT = BASE_DIR / 'frontend' / 'dist'
 WHITENOISE_INDEX_FILE = True
-
-# --- CORS (dev only — same-origin in production) ---
 
 CORS_ALLOWED_ORIGINS = [
     o.strip()
@@ -125,15 +106,11 @@ CORS_ALLOWED_ORIGINS = [
     if o.strip()
 ]
 
-# --- CSRF ---
-
 CSRF_TRUSTED_ORIGINS = [
     o.strip()
     for o in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',')
     if o.strip()
 ]
-
-# --- Production security (only when DEBUG is off) ---
 
 if not DEBUG:
     # Railway terminates TLS at the edge and forwards plain HTTP internally,
@@ -144,10 +121,6 @@ if not DEBUG:
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
-
-# --- LLM (grounded narrative feature) ---
-# Feature degrades gracefully: with no key, narrative endpoints serve the
-# deterministic template and nothing touches the Anthropic SDK.
 
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
 NARRATIVE_MODEL = os.environ.get('NARRATIVE_MODEL', 'claude-haiku-4-5-20251001')
@@ -172,12 +145,7 @@ EMBED_MODEL = os.environ.get('EMBED_MODEL', 'BAAI/bge-small-en-v1.5')
 VECTOR_DIM = 384  # bge-small-en-v1.5 output dimension; must match MethodologyChunk.embedding
 RAG_ENABLED = os.environ.get('RAG_ENABLED', 'true').lower() == 'true'
 
-# --- Error monitoring ---
-# No-op unless SENTRY_DSN is set, so dev and tests never report.
-
 init_sentry()
-
-# --- DRF ---
 
 REST_FRAMEWORK = {
     'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],

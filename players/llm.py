@@ -23,7 +23,7 @@ _client: Any = None
 def _get_client() -> Any:
     global _client
     if _client is None:
-        from anthropic import Anthropic  # imported lazily so the dep is optional
+        from anthropic import Anthropic
 
         _client = Anthropic(api_key=settings.ANTHROPIC_API_KEY)
     return _client
@@ -36,14 +36,6 @@ def complete(
     max_tokens: int | None = None,
     model: str | None = None,
 ) -> Any:
-    """
-    Low-level call returning the raw Anthropic response object (content blocks
-    intact) — used by the tool-calling loop in step 2. The system prompt is
-    sent as a cacheable block; with tools attached the tool definitions sit in
-    the same cached prefix, so repeated turns in the agent loop only pay for
-    the growing message tail. `model` / `max_tokens` default to the
-    NARRATIVE_MODEL / NARRATIVE_MAX_TOKENS settings.
-    """
     kwargs: dict[str, Any] = {
         "model": model or settings.NARRATIVE_MODEL,
         "max_tokens": max_tokens or settings.NARRATIVE_MAX_TOKENS,
@@ -56,6 +48,5 @@ def complete(
 
 
 def complete_text(system: str, user: str, max_tokens: int | None = None, model: str | None = None) -> str:
-    """Single-shot convenience used by step 1: returns concatenated text blocks."""
     resp = complete(system, [{"role": "user", "content": user}], max_tokens=max_tokens, model=model)
     return "".join(block.text for block in resp.content if getattr(block, "type", None) == "text").strip()

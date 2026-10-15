@@ -6,8 +6,6 @@
   padding-top: 20px;
 }
 
-// ---- header ----
-
 .browser-header {
   display: flex;
   align-items: center;
@@ -56,8 +54,6 @@
   }
 }
 
-// ---- filters ----
-
 .browser-filters {
   display: flex;
   align-items: center;
@@ -105,8 +101,6 @@
 
   &:focus { outline: none; border-color: var(--text-3); }
 }
-
-// ---- table ----
 
 .browser-table-wrap {
   overflow-x: auto;
@@ -174,8 +168,6 @@
   .col-years  { font-family: var(--font-mono); font-size: 11px; color: var(--text-2); }
 }
 
-// ---- player name cell ----
-
 .player-row-name {
   display: flex;
   align-items: center;
@@ -205,8 +197,6 @@
   &:hover { color: var(--accent); }
 }
 
-// ---- pos tag ----
-
 .pos-tag {
   font-size: 10px;
   font-family: var(--font-mono);
@@ -217,16 +207,12 @@
   padding: 1px 5px;
 }
 
-// ---- stat label (HR / ERA suffix) ----
-
 .stat-label {
   font-size: 9px;
   color: var(--text-3);
   font-weight: 400;
   margin-left: 2px;
 }
-
-// ---- award badges ----
 
 .award-badges {
   display: flex;
@@ -248,8 +234,6 @@
   &.badge-gg   { background: rgba(52, 211, 153, 0.15); color: #34d399; }
   &.badge-asg  { background: rgba(167, 139, 250, 0.15); color: #a78bfa; }
 }
-
-// ---- add button ----
 
 .add-btn {
   width: 24px;
@@ -285,8 +269,6 @@
   }
 }
 
-// ---- loading states ----
-
 .browser-table-wrap.is-refetching tbody {
   opacity: 0.45;
   pointer-events: none;
@@ -320,16 +302,12 @@
   &.skel-badges { width: 80px; margin-left: auto; }
 }
 
-// ---- empty row ----
-
 .empty-row {
   text-align: center;
   color: var(--text-3);
   font-size: 12px;
   padding: 24px 0 !important;
 }
-
-// ---- pagination ----
 
 .browser-pagination {
   display: flex;
@@ -362,8 +340,6 @@
   color: var(--text-3);
 }
 
-// ---- responsive ----
-
 @include bp.down(bp.$bp-md) {
   .browser-header {
     flex-wrap: wrap;
@@ -394,7 +370,6 @@
     }
   }
 
-  // Tap targets
   .filter-chip,
   .page-size-btn {
     padding: 7px 12px;

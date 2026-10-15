@@ -24,7 +24,6 @@ const ROWS: { metric: MetricId; label: string }[] = [
   { metric: 'so', label: 'SO' },
 ];
 
-/** Season-detail bottom sheet, ported from the comp's SeasonSheet. */
 export function SeasonSheet({ player, season, awards, team, color, onClose }: Props) {
   useEffect(() => {
     if (!season) return;

@@ -75,8 +75,6 @@
 }
 
 @include bp.down(bp.$bp-md) {
-  // The trigger sits near the right edge of its row; a left-anchored popover
-  // would overflow the viewport, so anchor it to the right instead.
   .metric-explainer-pop {
     left: auto;
     right: -8px;

@@ -29,7 +29,6 @@ class Command(BaseCommand):
             ]
             if not tokens:
                 continue
-            # Prefer BBref's * primary marker; fall back to first non-minor token
             primary_token = (
                 next((t for t in tokens if t.is_primary_marker), None)
                 or next((t for t in tokens if not t.is_minor_marker), None)

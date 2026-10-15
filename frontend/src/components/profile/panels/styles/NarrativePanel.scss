@@ -16,8 +16,6 @@
     gap: 8px;
   }
 
-  // --- A: source badge + verified marker ---
-
   .narrative-badge {
     display: inline-flex;
     align-items: center;
@@ -53,8 +51,6 @@
     cursor: help;
     white-space: nowrap;
   }
-
-  // --- D: generation trace disclosure ---
 
   .narrative-trace {
     margin-top: 12px;

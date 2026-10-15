@@ -10,7 +10,7 @@ export function useFeatured() {
   return useQuery({
     queryKey: ['featured'],
     queryFn: fetchFeatured,
-    staleTime: Infinity, // server caches; this list never changes between deploys
+    staleTime: Infinity,
   });
 }
 
@@ -105,7 +105,7 @@ export function useNarrative(bbrefId: string | null) {
     queryKey: ['narrative', bbrefId],
     queryFn: () => fetchNarrative(bbrefId!),
     enabled: bbrefId != null,
-    staleTime: Infinity, // server caches per data version
+    staleTime: Infinity,
   });
 }
 
@@ -114,11 +114,10 @@ export function useMethodologySearch(query: string | null) {
     queryKey: ['methodology', query],
     queryFn: () => fetchMethodologySearch(query!),
     enabled: query != null && query.length > 0,
-    staleTime: Infinity, // corpus is static between re-indexes
+    staleTime: Infinity,
   });
 }
 
-/** Load all data for one selected player and build a ChartPlayer. */
 export function useChartPlayer(bbrefId: string | null, colorIndex: number): {
   data: ChartPlayer | undefined;
   isLoading: boolean;

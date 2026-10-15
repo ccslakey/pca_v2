@@ -1,16 +1,3 @@
-"""
-Grounded career-narrative generation.
-
-The contract: every number the model emits must trace back to this player's
-real data. `build_facts` assembles the only information the model ever sees;
-`verify_numbers` checks the output against the set of numbers that data allows;
-`render_template` is a deterministic, number-safe fallback that is correct by
-construction. `generate_narrative` ties them together with a generate → verify
-→ repair → fall-back loop.
-
-This mirrors the shape of `similarity.py`: pure helpers plus a cached entry
-point, no view logic here.
-"""
 from __future__ import annotations
 
 import json
@@ -48,8 +35,6 @@ def _peak(seasons: list[dict]) -> tuple[float | None, int | None]:
 
 
 def build_facts(player: Player) -> dict[str, Any]:
-    """Assemble grounded career facts. Every number here defines what the
-    narrative is permitted to say (see `allowed_numbers`)."""
     bat = list(player.batting_seasons.values(*_BAT_FIELDS).order_by("year"))
     pit = list(player.pitching_seasons.values(*_PIT_FIELDS).order_by("year"))
     awards = list(player.awards.values("year", "kind"))
@@ -153,10 +138,6 @@ def build_facts(player: Player) -> dict[str, Any]:
     return facts
 
 
-# ---------------------------------------------------------------------------
-# Verification — the anti-hallucination check
-# ---------------------------------------------------------------------------
-
 # Comma-grouped (1,500) | decimal (2.31, .342) | bare integer (714)
 # A leading minus (ASCII, U+2212, or an en dash used as one) is part of the
 # number unless it sits right after a word character — "-1.4 WAR" is negative,
@@ -165,7 +146,6 @@ _NUM_RE = re.compile(
     r"(?:(?<![\w.])[-\u2212\u2013](?=\.?\d))?"
     r"(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+\.\d+|\.\d+|\d+)"
 )
-# Fixed reference points that are domain constants, not player facts.
 _DOMAIN_SAFE = {100.0}  # league-average baseline for OPS+ / ERA+
 
 
@@ -237,16 +217,13 @@ def verify_numbers(text: str, allowed: set[float]) -> list[str]:
 # The stat vocabulary a binding may name. Published to the model as the
 # `submit_summary` enum; `labeled_facts` produces the allowed value(s) per key.
 CLAIM_STATS: tuple[str, ...] = (
-    # career aggregates
     "career_war", "career_war_total", "career_hr", "career_hits", "career_avg",
     "career_ops_plus", "career_wins", "career_losses", "career_so", "career_era",
     "career_era_plus", "peak_war", "peak_year",
-    # bio
     "debut_year", "final_year", "birth_year", "seasons_played",
     # season-scoped (pair with a `year` to bind to one season)
     "season_war", "season_hr", "season_avg", "season_ops", "season_ops_plus",
     "season_era", "season_era_plus", "season_so",
-    # other
     "award_count", "year", "reference",
 )
 
@@ -285,7 +262,7 @@ def labeled_facts(facts: dict[str, Any]) -> dict[Any, set[float]]:
     add("peak_year", b.get("peak_year"))
 
     p = facts.get("pitching") or {}
-    add("career_war", p.get("career_war"))  # union: "career WAR" spans both roles
+    add("career_war", p.get("career_war"))
     add("career_wins", p.get("career_wins"))
     add("career_losses", p.get("career_losses"))
     add("career_so", p.get("career_so"))
@@ -341,7 +318,6 @@ _ERAP = frozenset({"career_era_plus", "season_era_plus"})
 _SO = frozenset({"career_so", "season_so"})
 _AWARD = frozenset({"award_count"})
 
-# Ordered: '+' variants precede their bare forms so OPS+/ERA+ win the match.
 _LEXICON: tuple[tuple[Any, frozenset[str]], ...] = tuple(
     (re.compile(pat, re.I), fam) for pat, fam in (
         (r"home runs?|homers?|\bHRs?\b", _HR),
@@ -421,10 +397,6 @@ def verify_claims(
     return problems
 
 
-# ---------------------------------------------------------------------------
-# Deterministic fallback — correct by construction
-# ---------------------------------------------------------------------------
-
 _POS_NAME = {
     "C": "catcher", "1B": "first baseman", "2B": "second baseman", "3B": "third baseman",
     "SS": "shortstop", "LF": "left fielder", "CF": "center fielder", "RF": "right fielder",
@@ -437,8 +409,6 @@ _AWARD_LABEL = {
 
 
 def render_template(facts: dict[str, Any]) -> str:
-    """Number-safe narrative built straight from facts — every figure here is by
-    definition in `allowed_numbers(facts)`, so it always passes verification."""
     bio = facts["bio"]
     name = bio["name"]
     pos = _POS_NAME.get(bio.get("primary_position") or "", "player")
@@ -483,10 +453,6 @@ def render_template(facts: dict[str, Any]) -> str:
     return " ".join(parts)
 
 
-# ---------------------------------------------------------------------------
-# Orchestration
-# ---------------------------------------------------------------------------
-
 _RULES = (
     "Rules:\n"
     "- Use ONLY numbers from the player's actual data. Never invent, estimate, "
@@ -518,8 +484,6 @@ _META_RE = re.compile(
 
 
 def strip_meta(text: str) -> str:
-    """Drop meta paragraphs, keeping only the summary prose. Returns "" when
-    nothing but meta remains, which callers treat as a failed draft."""
     paras = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
     return "\n\n".join(p for p in paras if not _META_RE.match(p))
 
@@ -553,8 +517,6 @@ SYSTEM_PROMPT_TYPED = (
     + _RULES
 )
 
-# Structured-submission tool: forces the model to declare a stat per number so
-# verification can check each against its own value (see verify_claims).
 SUBMIT_TOOL: dict[str, Any] = {
     "name": "submit_summary",
     "description": (
@@ -598,10 +560,9 @@ SUBMIT_TOOL: dict[str, Any] = {
     },
 }
 
-# Agent loop guardrails.
-_MAX_MODEL_CALLS = 8   # hard cap on round-trips to the model
-_MAX_TOOL_CALLS = 8    # hard cap on tool executions per narrative
-_MAX_REPAIRS = 1       # verification-failure revisions before falling back
+_MAX_MODEL_CALLS = 8
+_MAX_TOOL_CALLS = 8
+_MAX_REPAIRS = 1
 
 
 def _result(
@@ -623,9 +584,6 @@ def _result(
 
 
 def get_or_generate(player: Player, data_version: str | None, force: bool = False) -> dict[str, Any]:
-    """Return a persisted narrative for (player, data_version) or generate, store,
-    and return one. The durable cache: generation is several model round-trips, so
-    we pay once per player per data refresh instead of on every profile view."""
     if not force:
         existing = PlayerNarrative.objects.filter(player=player, data_version=data_version).first()
         if existing is not None:
@@ -665,9 +623,6 @@ def get_or_generate(player: Player, data_version: str | None, force: bool = Fals
 
 
 def generate_narrative(player: Player) -> dict[str, Any]:
-    """Grounded career summary. Dispatches to the tool-using agent or the
-    single-shot path, and always degrades to the deterministic template when
-    the LLM is disabled, errors, or fails verification."""
     facts = build_facts(player)
 
     if not getattr(settings, "LLM_ENABLED", False):
@@ -685,7 +640,6 @@ def generate_narrative(player: Player) -> dict[str, Any]:
 
 
 def _generate_single_shot(facts: dict[str, Any]) -> dict[str, Any]:
-    """Step 1: hand the model the full facts payload in one call."""
     allowed = allowed_numbers(facts)
     user = json.dumps(facts)
     trace: dict[str, Any] = {"mode": "single_shot", "model_calls": 1, "repairs": 0}
@@ -712,8 +666,6 @@ def _generate_single_shot(facts: dict[str, Any]) -> dict[str, Any]:
 
 
 def _collect_string_numbers(obj: Any, allowed: set[float]) -> None:
-    """Numbers embedded in returned *text* (e.g. methodology prose) are also
-    grounded — they come from our own published docs — so trust them too."""
     if isinstance(obj, str):
         for tok in _NUM_RE.findall(obj):
             allowed.add(_parse_token(tok)[0])
@@ -741,7 +693,6 @@ def _text_of(content: list) -> str:
 
 
 def _add_usage(trace: dict[str, Any], resp: Any) -> None:
-    """Fold an Anthropic response's token usage into the trace, if present."""
     usage = getattr(resp, "usage", None)
     if usage is None:
         return
@@ -753,11 +704,6 @@ def _add_usage(trace: dict[str, Any], resp: Any) -> None:
 
 
 def _generate_agentic(player: Player, facts: dict[str, Any]) -> dict[str, Any]:
-    """Step 4: the model plans, gathers its own facts via tools, drafts, and is
-    held to a verify→repair loop. The narrative is verified against the union of
-    data the tools actually returned; on a failure the flagged numbers are fed
-    back for revision (bounded by _MAX_REPAIRS) before falling back to the
-    deterministic template. The returned `trace` records what the agent did."""
     from . import narrative_tools
 
     facts_cache: dict[str, Any] = {}
@@ -828,22 +774,16 @@ def _generate_agentic(player: Player, facts: dict[str, Any]) -> dict[str, Any]:
             continue
         return finish(render_template(facts), "template", None, flagged=bad)
 
-    # Loop budget exhausted without a verified draft.
     return finish(render_template(facts), "template", None)
 
 
 def _generate_agentic_typed(player: Player, facts: dict[str, Any]) -> dict[str, Any]:
-    """Route A: the model gathers facts via tools, then submits its draft through
-    `submit_summary` with a typed binding per number. Each number is verified
-    against its *named* stat (`verify_claims`) over the union of data the tools
-    actually returned. On rejection the problems are fed back (bounded by
-    _MAX_REPAIRS) before falling back to the deterministic template."""
     from . import narrative_tools
 
     tools = narrative_tools.TOOLS + [SUBMIT_TOOL]
     facts_cache: dict[str, Any] = {}
     retrieved: dict[str, Any] = {}        # tool payloads merged into a facts-like shape
-    reference_numbers: set[float] = set()  # figures quoted from methodology prose
+    reference_numbers: set[float] = set()
     trace: dict[str, Any] = {
         "mode": "agentic_typed", "model_calls": 0, "tool_calls": [],
         "repairs": 0, "verification": None,
@@ -899,7 +839,6 @@ def _generate_agentic_typed(player: Player, facts: dict[str, Any]) -> dict[str, 
             messages.append({"role": "user", "content": results})
             continue
 
-        # Final draft: verify each declared number against its named stat.
         payload = submit.input or {}
         text = payload.get("text", "")
         bindings = payload.get("bindings") or []
@@ -920,5 +859,4 @@ def _generate_agentic_typed(player: Player, facts: dict[str, Any]) -> dict[str, 
             continue
         return finish(render_template(facts), "template", None, flagged=problems)
 
-    # Loop budget exhausted without a verified submission.
     return finish(render_template(facts), "template", None)

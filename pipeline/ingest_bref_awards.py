@@ -1,40 +1,3 @@
-"""
-pipeline/ingest_bref_awards.py
-
-Scrapes Baseball Reference award pages and loads into the PlayerAward model.
-
-Sources and kind values
------------------------
-Single-page scrapes (~6 requests total, excluding WS):
-  mvp       /awards/mvp.shtml
-  cy        /awards/cya.shtml
-  roty      /awards/roy.shtml
-  hof       /awards/hof.shtml         (induction year stored as year)
-  tc_b      /awards/triple_crowns.shtml  table: triple_crowns_b
-  tc_p      /awards/triple_crowns.shtml  table: triple_crowns_p
-  postmvp   /awards/postmvp.shtml     notes = WS | ALCS | NLCS
-  bat_title /awards/batting-titles.shtml
-  era_title /awards/pitching-era-titles.shtml
-
-Grid pages (2 pages each):
-  gg        /awards/gold_glove_{al,nl}.shtml
-  ss        /awards/silver_slugger_{al,nl}.shtml
-  all_mlb   /awards/all_mlb.shtml          (single page, 1st/2nd team in league col)
-
-All-Star selections (~95 pages, one per game):
-  asg       /allstar/ index → each game page's full roster (incl. non-playing selections)
-
-World Series rosters (~120 pages — longest scrape):
-  ws        /postseason/ index → winning team page per year
-
-Usage:
-  python pipeline/ingest_bref_awards.py
-  python pipeline/ingest_bref_awards.py --dry-run
-  python pipeline/ingest_bref_awards.py --force
-  python pipeline/ingest_bref_awards.py --kinds mvp cy hof ws
-  python pipeline/ingest_bref_awards.py --verbose
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -55,13 +18,8 @@ from pipeline.ingest_utils import already_ingested, fetch_with_retry, log_error,
 from players.models import Player
 from stats.models import PlayerAward
 
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
-
 BREF = "https://www.baseball-reference.com"
 
-# One source key per scraper for idempotency
 SOURCE_KEYS: dict[str, str] = {
     "mvp": "bref_awards_mvp",
     "cy": "bref_awards_cy",
@@ -82,13 +40,7 @@ SOURCE_KEYS: dict[str, str] = {
 ALL_KINDS = list(SOURCE_KEYS.keys())
 
 
-# ---------------------------------------------------------------------------
-# Shared helpers
-# ---------------------------------------------------------------------------
-
-
 def find_table(soup: BeautifulSoup, table_id: str) -> BeautifulSoup | None:
-    """Find a table by id, checking both visible HTML and comment-embedded tables."""
     t = soup.find("table", {"id": table_id})
     if t:
         return t
@@ -101,12 +53,10 @@ def find_table(soup: BeautifulSoup, table_id: str) -> BeautifulSoup | None:
 
 
 def known_player_ids() -> set[str]:
-    """Pre-load all bbref_ids from the Player table to avoid per-row FK checks."""
     return set(Player.objects.values_list("bbref_id", flat=True))
 
 
 def bbref_from_href(href: str) -> str | None:
-    """Extract bbref_id from a player page href like /players/r/ruthba01.shtml."""
     m = re.search(r"/players/[a-z]/([^/]+)\.shtml$", href)
     return m.group(1) if m else None
 
@@ -121,7 +71,6 @@ def upsert_award(
     dry_run: bool = False,
     verbose: bool = False,
 ) -> bool:
-    """Write one PlayerAward row. Returns True if a row was created/found."""
     if bbref_id not in known_ids:
         if verbose:
             print(f"    skip {bbref_id} {year} {kind} — not in player DB")
@@ -138,16 +87,6 @@ def upsert_award(
         defaults={"notes": notes},
     )
     return True
-
-
-# ---------------------------------------------------------------------------
-# Scraper: simple award tables (MVP, Cy Young, ROTY, HOF)
-#
-# These all share the same page structure:
-#   <th data-stat="year_ID">2025</th>    ← year (may carry across rows)
-#   <td data-append-csv="judgeaa01" ...> ← player
-#   <td data-stat="lg_ID">AL</td>        ← league (absent on HOF)
-# ---------------------------------------------------------------------------
 
 
 def scrape_simple(
@@ -232,7 +171,6 @@ def scrape_triple_crown(
             if len(cells) < 2:
                 continue
 
-            # First cell: "2012 AL" or "1877 NL"
             first_text = cells[0].get_text(strip=True)
             m = re.match(r"(\d{4})\s+([A-Z]+)", first_text)
             if not m:
@@ -285,7 +223,6 @@ def scrape_title_table(
         if len(cells) < 3:
             continue
 
-        # Cell 0 = year (blank on NL row — carry forward)
         year_txt = re.sub(r"\D", "", cells[0].get_text(strip=True))
         if year_txt:
             year = int(year_txt)
@@ -293,10 +230,8 @@ def scrape_title_table(
         if not year:
             continue
 
-        # Cell 1 = league (AL / NL)
         league = cells[1].get_text(strip=True) or None
 
-        # Cell 2 = player (contains the player link)
         link = cells[2].find("a", href=lambda h: h and "/players/" in h)
         if not link:
             continue
@@ -308,15 +243,6 @@ def scrape_title_table(
             count += 1
 
     return count
-
-
-# ---------------------------------------------------------------------------
-# Scraper: award_grid pages (Gold Glove, Silver Slugger)
-#
-# No data-stat on any cell — parse positions from the header row by index.
-# Header: [Year, P, C, 1B, 2B, 3B, SS, OF, OF, OF, Utility, Team]
-# Data rows: first cell = "YYYY AL" year+league label, rest = position winners.
-# ---------------------------------------------------------------------------
 
 
 def scrape_award_grid(
@@ -335,10 +261,9 @@ def scrape_award_grid(
         print("  WARNING: table #award_grid not found")
         return 0
 
-    # Build position label list from header row (skip first "Year" col)
     header_row = table.find("tr")
     header_cells = header_row.find_all(["th", "td"]) if header_row else []
-    positions = [c.get_text(strip=True) for c in header_cells[1:]]  # ["P","C","1B",...]
+    positions = [c.get_text(strip=True) for c in header_cells[1:]]
 
     count = 0
     for tr in table.select("tr")[1:]:  # skip header
@@ -346,7 +271,6 @@ def scrape_award_grid(
         if not cells:
             continue
 
-        # First cell: link text "2025 AL"
         first_link = cells[0].find("a")
         if not first_link:
             continue
@@ -411,7 +335,7 @@ def scrape_all_mlb(
                 year = int(txt)
 
         team_td = tr.find("td", attrs={"data-stat": "team"})
-        team_rank = team_td.get_text(strip=True) if team_td else None  # "1st" or "2nd"
+        team_rank = team_td.get_text(strip=True) if team_td else None
 
         if not year or not team_rank:
             continue
@@ -426,7 +350,6 @@ def scrape_all_mlb(
             bbref_id = bbref_from_href(link["href"])
             if not bbref_id:
                 continue
-            # Normalise position slot: "SP_1" → "SP", "OF_3" → "OF"
             pos_label = re.sub(r"_\d+$", "", pos).upper() if pos else None
             if upsert_award(
                 bbref_id,
@@ -495,17 +418,6 @@ def scrape_postseason_mvp(
     return count
 
 
-# ---------------------------------------------------------------------------
-# Scraper: All-Star game per-year rosters
-#
-# Fetches /allstar/ index to collect all game page URLs (1933–present),
-# then scrapes each game page's roster section (div_lineups: starters and
-# reserves, including selections who didn't play) plus the NL/AL batting and
-# pitching box scores, all embedded in HTML comments. One
-# PlayerAward(kind='asg') row per player per year per league. Idempotency is
-# per game page — 1959–1962 had two games a year.
-# ---------------------------------------------------------------------------
-
 ASG_TABLES = [
     ("NLAllStarsbatting", "NL"),
     ("ALAllStarsbatting", "AL"),
@@ -515,7 +427,6 @@ ASG_TABLES = [
 
 
 def parse_asg_index(session: BRefSession) -> list[tuple[int, str]]:
-    """Return [(year, url)] for every All-Star game in BRef history."""
     url = f"{BREF}/allstar/"
     print(f"  asg index: {url}")
     resp = fetch_with_retry(session, url)
@@ -549,7 +460,7 @@ def scrape_asg_game(
 
     The box scores only list players who appeared in the game, so the roster
     section is the source of truth for selections; box scores are a backstop."""
-    seen: set[tuple[str, str]] = set()  # (bbref_id, league) — dedupe roster + box-score tables
+    seen: set[tuple[str, str]] = set()
     count = 0
 
     def record(bbref_id: str, league: str) -> None:
@@ -563,7 +474,6 @@ def scrape_asg_game(
     for comment in soup.find_all(string=lambda s: isinstance(s, Comment)):
         csoup = BeautifulSoup(comment, "lxml")
         if csoup.find(id="div_lineups"):
-            # One box per league, headed "NL All-Stars" / "AL All-Stars".
             for box in csoup.select("#div_lineups div.data_grid_box"):
                 m = re.match(r"(AL|NL)\b", box.get_text(" ", strip=True))
                 if not m:
@@ -597,7 +507,6 @@ def scrape_allstar(
 
     total = 0
     for year, url in games:
-        # Keyed by game page, not year: 1959–1962 each had two games.
         source_key = f"bref_awards_asg_{url.rsplit('/', 1)[-1].removesuffix('.shtml')}"
         if not force and not dry_run and already_ingested(source_key):
             if verbose:
@@ -713,7 +622,7 @@ def scrape_world_series(
             resp = fetch_with_retry(session, team_url)
             soup = BeautifulSoup(resp.content, "lxml")
             roster = scrape_team_roster(soup)
-            roster &= known_ids  # only players in our DB
+            roster &= known_ids
             # ws rows have league=NULL, which unique_together doesn't constrain,
             # so ignore_conflicts alone won't stop a re-run from duplicating them.
             roster -= set(
@@ -735,11 +644,6 @@ def scrape_world_series(
                 log_error(source_key, exc)
 
     return total
-
-
-# ---------------------------------------------------------------------------
-# Dispatch table
-# ---------------------------------------------------------------------------
 
 
 def run_kind(
@@ -818,11 +722,6 @@ def run_kind(
     raise ValueError(f"Unknown kind: {kind!r}")
 
 
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description="Ingest BRef award data")
     parser.add_argument("--dry-run", action="store_true", help="Parse and print without writing to DB")
@@ -848,7 +747,7 @@ def main() -> None:
     for k in args.kinds:
         if k in ("tc_b", "tc_p"):
             if not tc_added:
-                kinds_to_run.append("tc_b")  # scraper handles both internally
+                kinds_to_run.append("tc_b")
                 tc_added = True
         else:
             kinds_to_run.append(k)

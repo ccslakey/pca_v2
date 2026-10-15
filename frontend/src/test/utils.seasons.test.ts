@@ -103,7 +103,6 @@ describe('mergeSeasons', () => {
   });
 
   it('uses pitching SO over batting SO for NL pitchers (hr=0 not null)', () => {
-    // NL pitcher has a batting season (hr=0, small SO) and a dominant pitching season
     const batting = bat(2005, { home_runs: 0, strikeouts: 30, plate_appearances: 200 });
     const pitching = pit(2005, { strikeouts: 250 });
     const result = mergeSeasons([batting], [pitching], null);
@@ -116,13 +115,11 @@ describe('mergeSeasons', () => {
   });
 
   it('computes age from birthDate at mid-season (July 1)', () => {
-    // Born June 1, 1980 — already had birthday by July 1 → age = season - birth year
     const result = mergeSeasons([bat(2010)], [], '1980-06-01');
     expect(result[0].age).toBe(30);
   });
 
   it('decrements age when birthday is after July 1', () => {
-    // Born August 1, 1980 — birthday not yet reached by July 1 → age = 29
     const result = mergeSeasons([bat(2010)], [], '1980-08-01');
     expect(result[0].age).toBe(29);
   });

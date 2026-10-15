@@ -43,12 +43,12 @@ def _get_last_updated() -> str | None:
 
 
 _LEADERBOARD_CACHE_KEY = "leaderboard:v2"
-_LEADERBOARD_CACHE_TTL = 3600  # 1 hour
+_LEADERBOARD_CACHE_TTL = 3600
 
 _FEATURED_CACHE_KEY = "featured:v1"
-_FEATURED_CACHE_TTL = 3600  # 1 hour
+_FEATURED_CACHE_TTL = 3600
 
-_AGING_CURVE_CACHE_TTL = 86_400  # 24 hours — changes only on ingest
+_AGING_CURVE_CACHE_TTL = 86_400
 
 
 def _build_aging_curve(role: str) -> list[dict[str, Any]]:
@@ -128,7 +128,6 @@ def _build_aging_curve(role: str) -> list[dict[str, Any]]:
 
 
 def _build_featured_trios() -> list[dict[str, Any]]:
-    """Resolve curated bbref_ids → name/id bundles in one query."""
     all_ids = {pid for c in FEATURED_COMPARISONS for pid in c["player_ids"]}
     by_id = {
         p["bbref_id"]: p
@@ -153,30 +152,22 @@ def _get_featured_trios() -> list[dict[str, Any]]:
 
 
 def _build_leaderboard_rows() -> list[dict[str, Any]]:
-    """
-    Build career-stat rows for every player using 4 flat GROUP BY queries.
-    Much faster than correlated subqueries — called once, then cached.
-    """
-    # 1. Batting totals per player
     batting: dict[str, dict] = {}
     for row in BattingSeason.objects.values("player_id").annotate(
         war_sum=Sum("war"), hr=Sum("home_runs"), peak_war=Max("war")
     ):
         batting[row["player_id"]] = row
 
-    # 2. Pitching totals per player
     pitching: dict[str, dict] = {}
     for row in PitchingSeason.objects.values("player_id").annotate(
         war_sum=Sum("war"), er=Sum("earned_runs"), ip=Sum("ip_outs"), peak_war=Max("war")
     ):
         pitching[row["player_id"]] = row
 
-    # 3. Award counts per (player, kind)
     award_counts: dict[str, dict[str, int]] = {}
     for row in PlayerAward.objects.values("player_id", "kind").annotate(c=Count("id")):
         award_counts.setdefault(row["player_id"], {})[row["kind"]] = row["c"]
 
-    # 4. Player metadata
     players = {
         p["bbref_id"]: p
         for p in Player.objects.values(
@@ -304,21 +295,16 @@ class PlayerViewSet(viewsets.ReadOnlyModelViewSet[Player]):
 
     @action(detail=True, url_path="narrative")
     def narrative(self, request: Request, pk: str | None = None) -> Response:
-        """Grounded career summary, persisted in Postgres per player + data
-        version so the multi-call generation is paid once per data refresh."""
         player: Player = self.get_object()
         return Response(get_or_generate(player, _get_last_updated()))
 
     @action(detail=False, url_path="methodology_search")
     def methodology_search(self, request: Request) -> Response:
-        """Semantic search over the methodology docs (pgvector + Voyage). Returns
-        [] when RAG is unconfigured or the corpus is unindexed."""
         query = request.query_params.get("q", "")
         return Response({"query": query, "results": search_methodology(query)})
 
     @action(detail=False, url_path="aging_curve")
     def aging_curve(self, request: Request) -> Response:
-        """Mean WAR by age for a role group. ?role=B (default) or ?role=P."""
         role = request.query_params.get("role", "B")
         if role not in ("B", "P"):
             role = "B"
@@ -331,7 +317,6 @@ class PlayerViewSet(viewsets.ReadOnlyModelViewSet[Player]):
 
     @action(detail=True, url_path="bundle")
     def bundle(self, request: Request, pk: str | None = None) -> Response:
-        """Return detail + batting + pitching + awards + last_updated in one round trip."""
         player: Player = self.get_object()
         batting_qs  = player.batting_seasons.all().order_by("year", "stint")
         pitching_qs = player.pitching_seasons.all().order_by("year", "stint")
@@ -346,7 +331,6 @@ class PlayerViewSet(viewsets.ReadOnlyModelViewSet[Player]):
 
     @action(detail=False, url_path="featured")
     def featured(self, request: Request) -> Response:
-        """Curated comparison groups for the Compare page landing state."""
         return Response({"trios": _get_featured_trios(), "last_updated": _get_last_updated()})
 
     @action(detail=False, url_path="leaderboard")
@@ -398,14 +382,12 @@ class PlayerViewSet(viewsets.ReadOnlyModelViewSet[Player]):
                 continue
             filtered.append(row)
 
-        # --- sort in Python ---
         reverse = order != "asc"
         filtered.sort(
             key=lambda r: (-(r[sort_by] or 0) if reverse else (r[sort_by] or 0), r["last_name"], r["first_name"]),
             reverse=False,  # key already encodes direction
         )
 
-        # --- paginate ---
         total = len(filtered)
         total_pages = max(1, (total + page_size - 1) // page_size)
         offset = (page - 1) * page_size

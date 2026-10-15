@@ -21,7 +21,6 @@ export function MobileApp() {
         <Route path="/search" element={<MobileSearch />} />
         <Route path="/saved" element={<MobileSaved />} />
         <Route path="/player/:bbrefId" element={<MobileProfile />} />
-        {/* Methodology pages aren't part of the mobile shell — send them home. */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <MobileTabBar />

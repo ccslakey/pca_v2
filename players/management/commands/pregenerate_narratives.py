@@ -1,14 +1,3 @@
-"""
-Pre-generate and persist player narratives so profiles serve instantly.
-
-    python manage.py pregenerate_narratives --bbref-ids ruthba01 mayswi01
-    python manage.py pregenerate_narratives --limit 50
-    python manage.py pregenerate_narratives --limit 50 --force   # regenerate even if cached
-
-Requires either --bbref-ids or --limit so a stray invocation can't generate a
-narrative for every player in the database. Each run is keyed to the current
-data version; cached rows for that version are skipped unless --force.
-"""
 from __future__ import annotations
 
 from django.core.management.base import BaseCommand, CommandError

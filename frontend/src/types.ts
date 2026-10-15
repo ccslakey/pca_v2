@@ -278,8 +278,6 @@ export interface PaginatedResponse<T> extends PaginatedBase<T> {
   previous: string | null;
 }
 
-// ---- Leaderboard ----
-
 export interface LeaderboardPlayer {
   bbref_id: string;
   first_name: string;
@@ -316,8 +314,6 @@ export interface LeaderboardFilters {
   page_size?: number;
 }
 
-// ---- Chart domain types ----
-
 export type MetricId = 'war' | 'hr' | 'avg' | 'ops' | 'ops_plus' | 'era' | 'era_plus' | 'so';
 
 export interface Metric {
@@ -326,7 +322,6 @@ export interface Metric {
   full: string;
 }
 
-/** One x-axis data point per player per season on the chart. */
 export interface ChartSeason {
   season: number;
   age: number | null;
@@ -340,13 +335,12 @@ export interface ChartSeason {
   so: number | null;
 }
 
-/** A player's full data as needed by the chart and cards. */
 export interface ChartPlayer {
   id: string;           // bbref_id
   name: string;
   color: string;
   initials: string;
-  pos: string;          // primary position label (B / P / B+P)
+  pos: string;
   years: string;
   seasons: ChartSeason[];
   isPitcher: boolean;

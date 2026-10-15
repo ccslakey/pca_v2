@@ -113,7 +113,6 @@ export function PitchZone({ bbrefId, isBatter, isPitcher, color }: Props) {
 
   return (
     <div className="pitch-zone-wrap">
-      {/* Role tabs — only shown for two-way players */}
       {isTwoWay && (
         <div className="pitch-zone-tabs" style={{ marginBottom: 4 }}>
           {(
@@ -133,7 +132,6 @@ export function PitchZone({ bbrefId, isBatter, isPitcher, color }: Props) {
         </div>
       )}
 
-      {/* Outcome tabs */}
       <div className="pitch-zone-tabs">
         {outcomes.map((o) => (
           <button
@@ -149,7 +147,6 @@ export function PitchZone({ bbrefId, isBatter, isPitcher, color }: Props) {
       <div style={{ position: "relative" }}>
         <svg width={WIDTH} height={HEIGHT} style={{ display: "block" }}>
           <defs>
-            {/* Clip to SVG bounds so blurred blobs don't overflow */}
             <clipPath id={clipId}>
               <rect width={WIDTH} height={HEIGHT} />
             </clipPath>
@@ -175,7 +172,6 @@ export function PitchZone({ bbrefId, isBatter, isPitcher, color }: Props) {
             rx={6}
           />
 
-          {/* All heat layers, clipped to SVG bounds */}
           <g clipPath={`url(#${clipId})`}>
             {hasData &&
               LAYERS.map((layer, i) => {
@@ -210,7 +206,6 @@ export function PitchZone({ bbrefId, isBatter, isPitcher, color }: Props) {
               })}
           </g>
 
-          {/* Strike zone overlay */}
           <rect
             x={SZ_X1}
             y={SZ_Z1}

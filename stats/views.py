@@ -24,10 +24,6 @@ def meta(request):
 
 
 class BattingSeasonViewSet(viewsets.ReadOnlyModelViewSet[BattingSeason]):
-    """
-    Season batting stats. Filter by player, year, team, or league.
-    Supports ordering on any numeric field via ?ordering=war or ?ordering=-home_runs.
-    """
     queryset = BattingSeason.objects.select_related('player').order_by('year', 'stint')
     serializer_class = BattingSeasonSerializer
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
@@ -41,9 +37,6 @@ class BattingSeasonViewSet(viewsets.ReadOnlyModelViewSet[BattingSeason]):
 
 
 class PitchingSeasonViewSet(viewsets.ReadOnlyModelViewSet[PitchingSeason]):
-    """
-    Season pitching stats. Filter by player, year, team, or league.
-    """
     queryset = PitchingSeason.objects.select_related('player').order_by('year', 'stint')
     serializer_class = PitchingSeasonSerializer
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]

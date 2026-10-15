@@ -1,33 +1,3 @@
-"""
-pipeline/ingest_bref_history.py
-
-Scrapes Baseball Reference standard batting, pitching, and fielding pages for every
-season in MLB history (1871–present) and loads into Django models.
-
-URL strategy:
-  1901–present → /leagues/MLB/{year}-standard-{type}.shtml  (both AL+NL)
-  1876–1900    → /leagues/NL/{year}-standard-{type}.shtml
-  1882–1891    → /leagues/AA/{year}-standard-{type}.shtml
-  1890         → /leagues/PL/1890-standard-{type}.shtml
-  1884         → /leagues/UA/1884-standard-{type}.shtml
-  1871–1875    → /leagues/NA/{year}-standard-{type}.shtml
-
-Rate limit: BRefSession enforces 10 req/min (6s between requests).
-Total pages: ~300 → approximately 30 minutes end-to-end.
-
-Idempotent: completed year/league combos are logged in IngestionLog and
-skipped on re-runs unless --force is passed.
-
-Usage:
-  python pipeline/ingest_bref_history.py
-  python pipeline/ingest_bref_history.py --start-year 1950 --end-year 2024
-  python pipeline/ingest_bref_history.py --batting-only
-  python pipeline/ingest_bref_history.py --pitching-only
-  python pipeline/ingest_bref_history.py --fielding-only
-  python pipeline/ingest_bref_history.py --dry-run
-  python pipeline/ingest_bref_history.py --force   # re-ingest already-logged years
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -82,11 +52,6 @@ MULTI_TEAM_MARKERS: set[str] = {"2TM", "3TM", "4TM", "5TM", "TOT"}
 
 # Maps BRef data-stat column name → (model field name, converter function)
 ColMap = dict[str, tuple[str, Callable[[Any], Any]]]
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
 
 
 def build_chadwick_index() -> dict[str, dict[str, int | str | None]]:
@@ -173,11 +138,6 @@ def extract_table(html_bytes: bytes, table_id: str) -> pd.DataFrame:
 
 
 def ip_to_outs(ip_str: Any) -> int | None:
-    """
-    Converts BRef's decimal IP format to total outs recorded.
-    "6.1" → 19 (6 full innings + 1 out)
-    "6.2" → 20 (6 full innings + 2 outs)
-    """
     if not ip_str or ip_str in ("", "--"):
         return None
     try:
@@ -224,21 +184,12 @@ def parse_name(display_name: str) -> tuple[str, str]:
     return name, ""
 
 
-# ---------------------------------------------------------------------------
-# Player upsert
-# ---------------------------------------------------------------------------
-
-
 def upsert_player(
     bbref_id: str,
     display_name: str,
     chadwick_index: dict[str, dict[str, int | str | None]],
     dry_run: bool,
 ) -> Player | None:
-    """
-    Creates or updates a Player record. Returns the Player instance or None.
-    Cross-references Chadwick register for mlbam_id / fangraphs_id / retro_id.
-    """
     if not bbref_id:
         return None
 
@@ -262,10 +213,6 @@ def upsert_player(
     )
     return player
 
-
-# ---------------------------------------------------------------------------
-# Column maps
-# ---------------------------------------------------------------------------
 
 BATTING_COL_MAP: ColMap = {
     "b_games": ("games", to_int),
@@ -359,11 +306,6 @@ FIELDING_COL_ALIASES: dict[str, tuple[tuple[str, Callable[[Any], Any]], ...]] = 
 }
 
 FIELDING_POSITION_COLS = ("pos", "positions", "position")
-
-
-# ---------------------------------------------------------------------------
-# Ingest functions
-# ---------------------------------------------------------------------------
 
 
 def ingest_batting_page(
@@ -585,11 +527,6 @@ def ingest_fielding_page(
     if verbose:
         print(f"    {len(seasons)} fielding rows written")
     return len(seasons)
-
-
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
 
 
 def main() -> None:

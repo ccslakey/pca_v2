@@ -5,8 +5,6 @@ import { ComparePage } from './pages/ComparePage';
 import { useIsMobile } from './utils/useIsMobile';
 import { MobileApp } from './mobile/MobileApp';
 
-// Lazy: only the landing route ships in the initial bundle. /browse and
-// /player/:id are split into their own chunks (loaded on navigation).
 const LeaderboardPage = lazy(() =>
   import('./pages/LeaderboardPage').then(m => ({ default: m.LeaderboardPage })),
 );
@@ -44,8 +42,6 @@ function DesktopRoutes() {
 }
 
 function RoutedApp() {
-  // Both branches live under the one BrowserRouter, so ?compare= and
-  // /player/:id deep links resolve in either mode.
   const isMobile = useIsMobile();
   return isMobile ? <MobileApp /> : <DesktopRoutes />;
 }

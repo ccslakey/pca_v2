@@ -1,4 +1,3 @@
-"""Position-based career WAR percentile rankings via SQL window functions."""
 from django.db import connection
 
 

@@ -1,19 +1,7 @@
-"""
-Function-calling tools for the narrative agent (step 2).
-
-Instead of pre-stuffing every fact into the prompt, the model *requests* what
-it needs through these typed tools. Each tool wraps data we already compute in
-`narrative.build_facts` and only ever returns real, stored statistics — the
-model never sees a SQL string and cannot query anything but these four shapes
-for a valid player id. The data a tool actually returns becomes the ground
-truth the final narrative is verified against.
-"""
 from __future__ import annotations
 
 from typing import Any
 
-# Anthropic tool schema. player_id is the only input — the model identifies a
-# player, the executor resolves and validates it.
 _PLAYER_ARG = {
     "type": "object",
     "properties": {
@@ -67,8 +55,6 @@ TOOLS: list[dict[str, Any]] = [
 
 
 def _facts_for(player_id: str, facts_cache: dict[str, Any]) -> dict[str, Any] | None:
-    """Resolve and cache a player's facts within a single agent run. Returns
-    None for an unknown id so the tool can report it back to the model."""
     if player_id not in facts_cache:
         from .models import Player  # lazy to avoid an import cycle with narrative
         from .narrative import build_facts
@@ -79,9 +65,6 @@ def _facts_for(player_id: str, facts_cache: dict[str, Any]) -> dict[str, Any] | 
 
 
 def run_tool(name: str, args: dict[str, Any], facts_cache: dict[str, Any]) -> dict[str, Any]:
-    """Execute one tool call. Returns a JSON-serializable dict (an `error` key
-    when the player id is unknown or the tool name is unrecognized)."""
-    # Methodology search is not player-scoped — handle it before resolving facts.
     if name == "search_methodology":
         from . import rag
 

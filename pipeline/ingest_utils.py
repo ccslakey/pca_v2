@@ -1,5 +1,3 @@
-"""Shared utilities for all pipeline ingest scripts."""
-
 from __future__ import annotations
 
 import time
@@ -22,7 +20,6 @@ def fetch_with_retry(
     retries: int = 3,
     backoff: int = 20,
 ) -> requests.Response:
-    """Fetch a URL via BRefSession, retrying on transient network errors."""
     for attempt in range(1, retries + 1):
         try:
             return session.get(url)

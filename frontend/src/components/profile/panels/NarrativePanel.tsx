@@ -21,7 +21,6 @@ export function NarrativePanel({ bbrefId }: Props) {
   const { data, isLoading, isError } = useNarrative(bbrefId);
   const [showTrace, setShowTrace] = useState(false);
 
-  // Nothing useful to show — hide the panel entirely rather than leave a husk.
   if (isError || (data && !data.text)) return null;
 
   const isLlm = data?.source === "llm";

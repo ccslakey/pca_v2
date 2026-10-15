@@ -98,7 +98,6 @@ export function MobileCompare() {
       </div>
 
       <div className="m-scroll">
-        {/* Comparison set */}
         <div className="m-cmp-set" style={{ paddingTop: 12 }}>
           {players.map(p => (
             <span key={p.id} className="m-cmp-chip">
@@ -134,7 +133,6 @@ export function MobileCompare() {
           </div>
         )}
 
-        {/* Metric switch */}
         <div className="m-cmp-metric">
           {METRIC_OPTS.map(m => (
             <button key={m.id} className={metric === m.id ? 'is-active' : ''} onClick={() => { track('chart_metric_changed', { metric: m.id, page: 'compare', surface: 'mobile' }); setMetric(m.id); }}>

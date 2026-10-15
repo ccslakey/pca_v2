@@ -126,7 +126,6 @@
     gap: 16px;
 }
 
-/* ---- Profile page shell ---- */
 .profile {
     min-height: 100vh;
     display: flex;
@@ -193,8 +192,6 @@
     padding: 6px 0 0;
 }
 
-/* ---- responsive ---- */
-
 @include bp.down(bp.$bp-lg) {
     .col-2 {
         grid-template-columns: 1fr;
@@ -207,8 +204,6 @@
         gap: 10px 12px;
         padding: 10px 14px;
 
-        /* Search drops to a full-width second row; row one keeps
-           brand · spacer · links · theme picker. */
         .search {
             order: 10;
             flex: 1 1 100%;

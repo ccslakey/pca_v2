@@ -53,7 +53,7 @@ export function initAnalytics(): void {
       autocapture: false,
       disable_session_recording: true,
       disable_surveys: true,
-      capture_exceptions: false, // Sentry owns errors
+      capture_exceptions: false,
       before_send: scrubAnalyticsEvent,
     });
     client = posthog;

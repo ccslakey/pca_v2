@@ -50,8 +50,6 @@
 
 .methodology-grid {
   display: grid;
-  // min() caps the track at the container width so viewports under ~408px
-  // don't overflow sideways.
   grid-template-columns: repeat(auto-fill, minmax(min(360px, 100%), 1fr));
   gap: 12px;
 }

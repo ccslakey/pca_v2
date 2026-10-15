@@ -3,14 +3,6 @@ from pgvector.django import VectorField
 
 
 class Player(models.Model):
-    """
-    One row per MLB player, keyed by their Baseball Reference player ID
-    (e.g. "ruthba01"). This ID is also Lahman's playerID and is embedded
-    directly in BRef pages via data-append-csv attributes.
-
-    mlbam_id is populated from the Chadwick register cross-reference and
-    is required to join with Statcast data (2015+).
-    """
     bbref_id = models.CharField(max_length=20, primary_key=True)
 
     mlbam_id     = models.IntegerField(null=True, unique=True, db_index=True)
@@ -39,17 +31,7 @@ class Player(models.Model):
 
 
 class MethodologyChunk(models.Model):
-    """
-    A chunk of the methodology documentation (frontend/src/methodology/*.md),
-    embedded for semantic retrieval. Populated by `manage.py index_methodology`
-    and queried by the narrative agent's `search_methodology` tool so it can
-    explain a metric in the project's own words.
-
-    At this corpus size (~10 docs) exact KNN over the vectors is instant, so no
-    ANN (HNSW/IVFFlat) index is defined — that would only earn its keep past
-    tens of thousands of rows.
-    """
-    slug        = models.CharField(max_length=50, db_index=True)  # article slug, e.g. "war"
+    slug        = models.CharField(max_length=50, db_index=True)
     title       = models.CharField(max_length=120)
     chunk_index = models.SmallIntegerField()
     content     = models.TextField()
@@ -78,7 +60,7 @@ class PlayerNarrative(models.Model):
     source       = models.CharField(max_length=12)            # "llm" | "template"
     model        = models.CharField(max_length=60, null=True, blank=True)
     flagged      = models.JSONField(default=list)             # numbers the verifier rejected
-    trace        = models.JSONField(default=dict)             # agent run trace
+    trace        = models.JSONField(default=dict)
     data_version = models.CharField(max_length=20, null=True, blank=True)
     generated_at = models.DateTimeField(auto_now=True)
 

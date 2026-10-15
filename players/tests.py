@@ -227,11 +227,9 @@ class TestSimilarAction(APITestCase):
         self.ruth = make_player('ruthba01', 'Babe', 'Ruth')
         add_batting(self.ruth, 2000, war=10.0)
 
-        # High WAR batter — should rank first
         self.gehrig = make_player('gehrilo01', 'Lou', 'Gehrig')
         add_batting(self.gehrig, 2000, war=9.5)
 
-        # Mid WAR batter
         self.dimag = make_player('dimagjo01', 'Joe', 'DiMaggio')
         add_batting(self.dimag, 2000, war=7.0)
 
@@ -239,7 +237,6 @@ class TestSimilarAction(APITestCase):
         self.scrub = make_player('scrubXX01', 'No', 'Name')
         add_batting(self.scrub, 2000, war=0.5)
 
-        # Pitcher — should rank lower due to position penalty
         self.ford = make_player('fordwh01', 'Whitey', 'Ford')
         add_pitching(self.ford, 2000, war=9.0)
 
@@ -273,9 +270,7 @@ class TestSimilarAction(APITestCase):
 
     def test_batters_not_in_pitcher_list(self):
         r = self.client.get(self.url)
-        # ruth is a batter — pitchers list should be empty
         self.assertEqual(r.data['pitchers'], [])
-        # gehrig and dimaggio should appear in batters list
         ids = [p['bbref_id'] for p in r.data['batters']]
         self.assertTrue(any(x in ids for x in ('gehrilo01', 'dimagjo01')))
 
@@ -302,7 +297,6 @@ class TestSimilarAction(APITestCase):
         r = self.client.get(reverse('player-similar', kwargs={'pk': 'fordwh01'}))
         ids = [p['bbref_id'] for p in r.data['pitchers']]
         self.assertNotIn('fordwh01', ids)
-        # ford is a pitcher — batters list should be empty
         self.assertEqual(r.data['batters'], [])
 
     def test_two_way_player(self):
@@ -582,10 +576,6 @@ class TestLeaderboardRows(APITestCase):
         self.assertTrue(row['is_pitcher'])
 
 
-# ---------------------------------------------------------------------------
-# Grounded narrative (LLM summary feature)
-# ---------------------------------------------------------------------------
-
 from unittest.mock import patch  # noqa: E402
 
 from django.test import SimpleTestCase, override_settings  # noqa: E402
@@ -604,8 +594,6 @@ from players.narrative import (  # noqa: E402
 
 
 class TestVerifyNumbers(SimpleTestCase):
-    """The anti-hallucination check: every emitted number must trace to data."""
-
     def test_clean_text_passes(self):
         allowed = {714.0, 162.1, 1927.0, 0.342}
         self.assertEqual(
@@ -619,18 +607,15 @@ class TestVerifyNumbers(SimpleTestCase):
         self.assertEqual(verify_numbers("racked up 1,500 hits", {1500.0}), [])
 
     def test_legitimate_rounding_accepted(self):
-        # Model rounds a .342 average to .34 — still grounded.
         self.assertEqual(verify_numbers("a .34 hitter", {0.342}), [])
 
     def test_wrong_rounding_flagged(self):
         self.assertEqual(verify_numbers("a .35 hitter", {0.342}), [".35"])
 
     def test_league_average_baseline_is_safe(self):
-        # 100 is the OPS+/ERA+ league-average constant, allowed without a fact.
         self.assertEqual(verify_numbers("an OPS+ above the 100 baseline", set()), [])
 
     def test_integer_rounding_of_war(self):
-        # 162.7 WAR may be cited as "163" — acceptable rounding to whole number.
         self.assertEqual(verify_numbers("163 career WAR", {162.7}), [])
 
     def test_flat_verifier_cross_stat_collision_is_a_known_limitation(self):
@@ -640,7 +625,7 @@ class TestVerifyNumbers(SimpleTestCase):
         runs" passes because 162 round-matches the WAR value. This documents the
         flat path's limitation; the typed path (verify_claims) closes it — see
         TestVerifyClaims.test_cross_stat_collision_is_rejected."""
-        allowed = {714.0, 162.1}  # career HR and career WAR — both legitimate
+        allowed = {714.0, 162.1}
         self.assertEqual(verify_numbers("he hit 162 home runs", allowed), [])
 
     def test_negative_value_matches_signed_fact(self):
@@ -648,7 +633,6 @@ class TestVerifyNumbers(SimpleTestCase):
         self.assertEqual(verify_numbers("a career \u22120.6 WAR", {-0.6}), [])  # U+2212 minus
 
     def test_sign_error_is_flagged(self):
-        # Writing 1.4 when the real figure is -1.4 is a wrong claim, not rounding.
         self.assertEqual(verify_numbers("finished with 1.4 career WAR", {-1.4}), ["1.4"])
 
     def test_hyphenated_ranges_are_not_negative(self):
@@ -671,10 +655,6 @@ class TestStripMeta(SimpleTestCase):
 
 
 class TestVerifyClaims(SimpleTestCase):
-    """Typed verification (Route A): each number is checked against its *named*
-    stat, not a flat union — so a real-but-wrong-stat number is rejected."""
-
-    # Player with 714 HR and 162.1 career WAR; season line 1927: 60 HR.
     LABELED = {
         "career_hr": {714.0},
         "career_war": {162.1},
@@ -692,8 +672,6 @@ class TestVerifyClaims(SimpleTestCase):
         self.assertEqual(verify_claims(text, bindings, self.LABELED), [])
 
     def test_cross_stat_collision_is_rejected(self):
-        # The hole the flat verifier waves through: 162 is real (it's the WAR),
-        # but bound to home runs it does not match career_hr's value → rejected.
         text = "He hit 162 home runs."
         bindings = [{"value": 162, "stat": "career_hr"}]
         problems = verify_claims(text, bindings, self.LABELED)
@@ -701,26 +679,20 @@ class TestVerifyClaims(SimpleTestCase):
         self.assertIn("career_hr", problems[0])
 
     def test_undeclared_number_is_rejected(self):
-        # Every number must be declared; an unbound figure can't be grounded.
         problems = verify_claims("He hit 73 home runs.", [], self.LABELED)
         self.assertEqual(problems, ["73: no binding declares this number"])
 
     def test_year_scoped_binding_enforces_the_season(self):
-        # 60 HR is real for 1927; claiming it for 1928 (no data) is rejected.
         text = "He hit 60 home runs in 1928."
         ok = [{"value": 60, "stat": "season_hr", "year": 1927}, {"value": 1928, "stat": "year"}]
         # 1928 itself isn't an active year here, so it's flagged regardless;
         # focus on the season binding: bind 60 to the wrong season.
         wrong = [{"value": 60, "stat": "season_hr", "year": 1928}, {"value": 1928, "stat": "year"}]
         self.assertTrue(any("season_hr for 1928" in p for p in verify_claims(text, wrong, self.LABELED)))
-        # Bound to the right season, the 60 passes (1928 still flagged separately).
         problems = verify_claims(text, ok, self.LABELED)
         self.assertFalse(any("season_hr" in p for p in problems))
 
     def test_mislabeled_binding_is_caught_by_phrase_check(self):
-        # Layer 2: 162 is a real value (the WAR), and the model *declares* it as
-        # career_war — so the value check (b) passes. But the prose says "home
-        # runs", which the binding's stat contradicts → rejected.
         text = "He hit 162 home runs."
         bindings = [{"value": 162, "stat": "career_war"}]
         problems = verify_claims(text, bindings, self.LABELED)
@@ -729,27 +701,22 @@ class TestVerifyClaims(SimpleTestCase):
         self.assertIn("career_war", problems[0])
 
     def test_honest_binding_with_matching_prose_passes(self):
-        # Same number, but the prose and the binding agree → fine.
         labeled = {"career_war": {162.1}}
         text = "He compiled 162.1 WAR."
         self.assertEqual(verify_claims(text, [{"value": 162.1, "stat": "career_war"}], labeled), [])
 
     def test_number_with_no_nearby_keyword_is_not_flagged(self):
-        # Conservative: no stat word near the number → can't adjudicate → pass.
         labeled = {"seasons_played": {22.0}}
         text = "He played 22 long years."
         self.assertEqual(verify_claims(text, [{"value": 22, "stat": "seasons_played"}], labeled), [])
 
     def test_phrase_check_does_not_read_across_an_adjacent_number(self):
-        # 714 next to "home runs", 162.1 next to "WAR": each binds correctly and
-        # the window for one number must not borrow the other's keyword.
         labeled = {"career_hr": {714.0}, "career_war": {162.1}}
         text = "He hit 714 home runs and compiled 162.1 WAR."
         bindings = [{"value": 714, "stat": "career_hr"}, {"value": 162.1, "stat": "career_war"}]
         self.assertEqual(verify_claims(text, bindings, labeled), [])
 
     def test_rounding_band_carries_through_both_checks(self):
-        # ".34" written for a .342 average: declared 0.342, checked at 2 places.
         labeled = {"career_avg": {0.342}}
         text = "a .34 hitter"
         self.assertEqual(verify_claims(text, [{"value": 0.342, "stat": "career_avg"}], labeled), [])
@@ -767,7 +734,6 @@ class TestVerifyClaims(SimpleTestCase):
         self.assertEqual(labeled["career_war"], {162.1})
         self.assertEqual(labeled[("season_hr", 1927)], {60.0})
         self.assertIn(1927.0, labeled["year"])
-        # 714 lives only under career_hr — it is NOT a valid career_war value.
         self.assertNotIn(714.0, labeled["career_war"])
 
 
@@ -800,7 +766,6 @@ class TestNarrativeFacts(APITestCase):
         self.assertIn(1925.0, allowed)  # mid-career year, safe to mention
 
     def test_template_is_fully_grounded(self):
-        # The fallback can never emit a number it didn't get from the data.
         facts = build_facts(self.player)
         text = render_template(facts)
         self.assertEqual(verify_numbers(text, allowed_numbers(facts)), [])
@@ -818,7 +783,6 @@ class TestGenerateNarrative(APITestCase):
 
     @override_settings(LLM_ENABLED=False)
     def test_no_key_uses_template(self):
-        # No key → deterministic template, no SDK, no network.
         result = generate_narrative(self.player)
         self.assertEqual(result["source"], "template")
         self.assertTrue(result["verified"])
@@ -833,7 +797,6 @@ class TestGenerateNarrative(APITestCase):
 
     @override_settings(LLM_ENABLED=True, NARRATIVE_USE_TOOLS=False)
     def test_hallucinated_number_falls_back_to_template(self):
-        # 999 HR is not in the data; after a failed repair we serve the template.
         with patch.object(narrative.llm, "complete_text", return_value="He hit 999 home runs.") as m:
             result = generate_narrative(self.player)
         self.assertEqual(result["source"], "template")
@@ -854,7 +817,7 @@ class TestGenerateNarrative(APITestCase):
         self.assertTrue(result["verified"])
 
 
-@override_settings(LLM_ENABLED=False)  # template path → deterministic, no network
+@override_settings(LLM_ENABLED=False)
 class TestNarrativeEndpoint(APITestCase):
     def setUp(self):
         cache.clear()
@@ -887,10 +850,6 @@ class TestNarrativeEndpoint(APITestCase):
         for props in (first, second):
             self.assertNotIn("text", props)
 
-
-# ---------------------------------------------------------------------------
-# Tool-calling agent (step 2)
-# ---------------------------------------------------------------------------
 
 from players import narrative_tools  # noqa: E402
 
@@ -957,7 +916,6 @@ class TestAgenticNarrative(APITestCase):
 
     @override_settings(LLM_ENABLED=True, NARRATIVE_USE_TOOLS=True, NARRATIVE_MODEL="claude-haiku-4-5-20251001")
     def test_agent_gathers_facts_then_writes(self):
-        # Turn 1: model asks for career totals. Turn 2: writes using a returned number.
         responses = [
             _Resp([_Block("tool_use", name="get_career_totals", input={"player_id": "ruthba01"}, id="t1")]),
             _Resp([_Block("text", text="Babe Ruth compiled 11.5 WAR with 54 home runs.")]),
@@ -970,8 +928,6 @@ class TestAgenticNarrative(APITestCase):
 
     @override_settings(LLM_ENABLED=True, NARRATIVE_USE_TOOLS=True)
     def test_citing_unretrieved_stat_is_flagged(self):
-        # Model writes a number without ever calling a tool — nothing is grounded.
-        # Draft fails, repair (1) fails too → deterministic fallback with the flag.
         bad = _Resp([_Block("text", text="He hit 73 home runs in 2001.")])
         with patch.object(narrative.llm, "complete", side_effect=[bad, bad]) as m:
             result = generate_narrative(self.player)
@@ -982,12 +938,10 @@ class TestAgenticNarrative(APITestCase):
 
     @override_settings(LLM_ENABLED=True, NARRATIVE_USE_TOOLS=True)
     def test_repair_recovers_after_flagged_draft(self):
-        # Draft cites an unretrieved number; after the flag is fed back, the model
-        # revises to a grounded sentence and the LLM output is served.
         responses = [
             _Resp([_Block("tool_use", name="get_career_totals", input={"player_id": "ruthba01"}, id="t1")]),
-            _Resp([_Block("text", text="He hit 73 home runs.")]),          # unsupported → flagged
-            _Resp([_Block("text", text="He compiled 11.5 WAR with 54 home runs.")]),  # grounded
+            _Resp([_Block("text", text="He hit 73 home runs.")]),
+            _Resp([_Block("text", text="He compiled 11.5 WAR with 54 home runs.")]),
         ]
         with patch.object(narrative.llm, "complete", side_effect=responses):
             result = generate_narrative(self.player)
@@ -1047,8 +1001,6 @@ class TestAgenticNarrative(APITestCase):
 
     @override_settings(LLM_ENABLED=True, NARRATIVE_USE_TOOLS=True)
     def test_model_call_budget_exhausts_to_template(self):
-        # Agent loops forever asking for tools, never writes prose → hits the
-        # model-call cap and falls back deterministically.
         loop = _Resp([_Block("tool_use", name="get_career_totals", input={"player_id": "ruthba01"}, id="t1")])
         with patch.object(narrative.llm, "complete", return_value=loop) as m:
             result = generate_narrative(self.player)
@@ -1059,8 +1011,6 @@ class TestAgenticNarrative(APITestCase):
 @override_settings(LLM_ENABLED=True, NARRATIVE_USE_TOOLS=True, NARRATIVE_TYPED_VERIFY=True,
                    NARRATIVE_MODEL="claude-haiku-4-5-20251001")
 class TestAgenticTypedNarrative(APITestCase):
-    """Route A: submission via submit_summary with a typed binding per number."""
-
     def setUp(self):
         cache.clear()
         self.player = make_player(
@@ -1090,8 +1040,6 @@ class TestAgenticTypedNarrative(APITestCase):
         self.assertEqual(result["trace"]["verification"], "passed")
 
     def test_cross_stat_misbinding_is_rejected_then_falls_back(self):
-        # "54 home runs" is fine, but 11.5 bound to career_hr (it's the WAR) is a
-        # cross-stat collision: rejected. One repair, also wrong → template.
         bad = _Resp([_Block("tool_use", name="submit_summary", id="s1", input={
             "text": "He hit 11.5 home runs.",
             "bindings": [{"value": 11.5, "stat": "career_hr"}],
@@ -1107,7 +1055,7 @@ class TestAgenticTypedNarrative(APITestCase):
         responses = [
             _Resp([self._totals()]),
             _Resp([_Block("tool_use", name="submit_summary", id="s1", input={
-                "text": "He hit 73 home runs.",  # undeclared/ungrounded
+                "text": "He hit 73 home runs.",
                 "bindings": [{"value": 73, "stat": "career_hr"}],
             })]),
             _Resp([_Block("tool_use", name="submit_summary", id="s2", input={
@@ -1120,10 +1068,6 @@ class TestAgenticTypedNarrative(APITestCase):
         self.assertEqual(result["source"], "llm")
         self.assertEqual(result["trace"]["repairs"], 1)
 
-
-# ---------------------------------------------------------------------------
-# Methodology RAG (step 3)
-# ---------------------------------------------------------------------------
 
 from django.conf import settings as dj_settings  # noqa: E402
 
@@ -1189,7 +1133,6 @@ class TestChunking(SimpleTestCase):
 
 class TestStringNumberGrounding(SimpleTestCase):
     def test_numbers_in_retrieved_text_are_allowed(self):
-        # Numbers quoted from methodology docs must verify, since they're real.
         allowed: set[float] = set()
         narrative._accumulate_allowed(
             {"results": [{"content": "An OPS+ of 100 is league average; a weight of 2.0 applies."}]},
@@ -1234,7 +1177,6 @@ class TestMethodologySearch(APITestCase):
                 self.assertEqual(rag.search_methodology("x"), [])
 
     def test_results_cached_per_query(self):
-        # A repeated query is served from cache — no second embed.
         with patch.object(rag.embeddings, "embed_query", return_value=_unit_vec(0)) as m:
             rag.search_methodology("what is war", k=2)
             rag.search_methodology("what is war", k=2)
@@ -1256,16 +1198,11 @@ class TestMethodologySearchTool(APITestCase):
 
 class TestMethodologyEndpoint(APITestCase):
     def test_endpoint_returns_shape(self):
-        # No chunks indexed in the test DB → empty results but a valid 200 shape.
         r = self.client.get(reverse("player-methodology-search"), {"q": "ops+"})
         self.assertEqual(r.status_code, 200)
         self.assertIn("results", r.data)
         self.assertEqual(r.data["query"], "ops+")
 
-
-# ---------------------------------------------------------------------------
-# Narrative persistence (durable cache) + pre-generation command
-# ---------------------------------------------------------------------------
 
 from io import StringIO  # noqa: E402
 
@@ -1303,7 +1240,7 @@ class TestNarrativePersistence(APITestCase):
         with patch.object(narrative, "generate_narrative", return_value=_fake_result()) as m:
             narrative.get_or_generate(self.player, "2026-05-31")
             narrative.get_or_generate(self.player, "2026-05-31")
-        self.assertEqual(m.call_count, 1)  # second served from the DB
+        self.assertEqual(m.call_count, 1)
 
     def test_new_data_version_regenerates(self):
         with patch.object(narrative, "generate_narrative", return_value=_fake_result()) as m:
@@ -1311,7 +1248,7 @@ class TestNarrativePersistence(APITestCase):
             narrative.get_or_generate(self.player, "2026-06-01")
         self.assertEqual(m.call_count, 2)
         rows = PlayerNarrative.objects.filter(player=self.player)
-        self.assertEqual(rows.count(), 1)  # one row, overwritten in place
+        self.assertEqual(rows.count(), 1)
         self.assertEqual(rows.get().data_version, "2026-06-01")
 
     def test_force_regenerates_on_hit(self):
@@ -1344,7 +1281,7 @@ class TestNarrativeEndpointPersists(APITestCase):
             r2 = self.client.get(self.url)
         self.assertEqual(r1.status_code, 200)
         self.assertEqual(r2.data["text"], "Babe Ruth was great.")
-        self.assertEqual(m.call_count, 1)  # persisted after the first request
+        self.assertEqual(m.call_count, 1)
 
 
 class TestPregenerateCommand(APITestCase):

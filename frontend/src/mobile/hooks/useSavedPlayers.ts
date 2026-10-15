@@ -22,9 +22,7 @@ function read(): SavedPlayer[] {
 function write(list: SavedPlayer[]) {
   try {
     localStorage.setItem(KEY, JSON.stringify(list));
-  } catch {
-    // storage full / unavailable — ignore
-  }
+  } catch {}
 }
 
 /**

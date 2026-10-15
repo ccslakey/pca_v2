@@ -1,11 +1,3 @@
-"""Sentry setup and PII scrubbing.
-
-The app has no accounts, so the only personal data that can leak into error
-reports is request metadata: client IP (incl. X-Forwarded-For from Railway's
-proxy), cookies, headers, bodies, and query params someone else appended to a
-URL (email trackers, ad click IDs). Strip all of it before events leave the box.
-"""
-
 import os
 from urllib.parse import parse_qsl, urlencode
 

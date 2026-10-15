@@ -12,8 +12,6 @@ interface Props {
 
 const PAD = { top: 22, right: 14, bottom: 22, left: 28 };
 
-/** Single-line career-arc chart (by season). Plain SVG, ported from the comp's
- *  MobileChart.jsx — grid, axes, zero line, gradient area, peak marker. */
 export function MobileChart({ player, metric, color, width = 340, height = 180 }: Props) {
   const innerW = width - PAD.left - PAD.right;
   const innerH = height - PAD.top - PAD.bottom;

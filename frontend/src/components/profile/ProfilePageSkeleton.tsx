@@ -23,7 +23,6 @@ export function ProfilePageSkeleton() {
       </div>
 
       <div className="profile-main">
-        {/* Hero */}
         <div className="hero">
           <div className="hero-left">
             <Skeleton width={220} height={220} radius={24} />
@@ -43,7 +42,6 @@ export function ProfilePageSkeleton() {
           </div>
         </div>
 
-        {/* Stat grid */}
         <div className="stat-grid">
           <div className="stat-block is-headline">
             <Skeleton width={80} height={10} />
@@ -60,9 +58,7 @@ export function ProfilePageSkeleton() {
         </div>
 
         <div className="col-2">
-          {/* LEFT column */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {/* Career arc */}
             <div className="panel">
               <div className="panel-header">
                 <div className="panel-title">Career arc</div>
@@ -71,7 +67,6 @@ export function ProfilePageSkeleton() {
               <Skeleton width="100%" height={360} radius={8} style={{ marginTop: 12 }} />
             </div>
 
-            {/* Sparklines */}
             <div className="panel">
               <div className="panel-header">
                 <div className="panel-title">Sparklines</div>
@@ -89,7 +84,6 @@ export function ProfilePageSkeleton() {
               </div>
             </div>
 
-            {/* Season log */}
             <div className="panel">
               <div className="panel-header">
                 <div className="panel-title">Season log</div>
@@ -115,9 +109,7 @@ export function ProfilePageSkeleton() {
             </div>
           </div>
 
-          {/* RIGHT column */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {/* Similar players */}
             <div className="panel">
               <div className="panel-header">
                 <div className="panel-title">Similar players</div>
@@ -135,7 +127,6 @@ export function ProfilePageSkeleton() {
               ))}
             </div>
 
-            {/* Pitch zone */}
             <div className="panel">
               <div className="panel-header">
                 <div className="panel-title">Pitch zone</div>
@@ -143,7 +134,6 @@ export function ProfilePageSkeleton() {
               <Skeleton width="100%" height={280} radius={8} />
             </div>
 
-            {/* James scores */}
             <div className="panel">
               <div className="panel-header">
                 <div className="panel-title">Hall of Fame Metrics</div>
@@ -158,7 +148,6 @@ export function ProfilePageSkeleton() {
               </div>
             </div>
 
-            {/* Awards */}
             <div className="panel">
               <div className="panel-header">
                 <div className="panel-title">Awards</div>

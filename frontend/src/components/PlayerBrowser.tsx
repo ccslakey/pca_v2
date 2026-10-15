@@ -7,8 +7,6 @@ import { posLabel } from "../utils/format";
 import { track } from "../analytics";
 import "./PlayerBrowser.scss";
 
-// ---- constants ----
-
 const ERA_PRESETS = [
   { label: "All eras", era_start: undefined, era_end: undefined },
   { label: "Pre-1920", era_start: undefined, era_end: 1919 },
@@ -50,8 +48,6 @@ const SORT_COLS = [
 const EMBEDDED_PAGE_SIZES = [5, 15, 25];
 const STANDALONE_PAGE_SIZES = [25, 50, 100, 250];
 
-// ---- helpers ----
-
 function playerColor(bbrefId: string): string {
   let hash = 0;
   for (const ch of bbrefId) hash = (hash * 31 + ch.charCodeAt(0)) & 0xffffffff;
@@ -68,8 +64,6 @@ function years(p: LeaderboardPlayer) {
   if (debut && final) return `${debut}–${final}`;
   return debut ? `${debut}–` : "—";
 }
-
-// ---- sub-components ----
 
 function AwardBadges({ p }: { p: LeaderboardPlayer }) {
   const badges: JSX.Element[] = [];
@@ -137,8 +131,6 @@ function SortHeader({ col, label, sort, order, onSort }: SortHeaderProps) {
     </th>
   );
 }
-
-// ---- main component ----
 
 interface PlayerBrowserProps {
   selectedIds?: string[];
@@ -225,7 +217,6 @@ export function PlayerBrowser({
 
   return (
     <div className="player-browser">
-      {/* header */}
       <div className="browser-header">
         <div className="browser-title">
           Leaderboard
@@ -250,7 +241,6 @@ export function PlayerBrowser({
         </div>
       </div>
 
-      {/* filters */}
       <div className="browser-filters">
         Position: &nbsp;
         <div className="filter-group">
@@ -289,7 +279,6 @@ export function PlayerBrowser({
         </div>
       </div>
 
-      {/* table */}
       <div
         className={`browser-table-wrap ${isRefetching ? "is-refetching" : ""}`}
       >
@@ -431,7 +420,6 @@ export function PlayerBrowser({
         </table>
       </div>
 
-      {/* pagination — always shown on standalone, hidden when single page on embedded */}
       {(standalone || totalPages > 1) && (
         <div className="browser-pagination">
           <button
