@@ -3,7 +3,6 @@ from __future__ import annotations
 import tempfile
 from datetime import date
 from pathlib import Path
-from unittest.mock import patch
 
 from django.test import TestCase
 
@@ -18,8 +17,7 @@ class LahmanKeyingTests(TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             csv = Path(tmp) / "People.csv"
             csv.write_text("\n".join([HEADER, *rows]) + "\n")
-            with patch.object(backfill_player_bio, "load_chadwick", return_value={}):
-                backfill_player_bio.run(people_csv=str(csv), dry_run=False, overwrite=False, verbose=False)
+            backfill_player_bio.run(people_csv=str(csv), dry_run=False, overwrite=False, verbose=False)
 
     def _bio(self, bbref_id: str) -> tuple:
         p = Player.objects.get(bbref_id=bbref_id)
