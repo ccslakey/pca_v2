@@ -19,16 +19,28 @@ from stats.models import (
 )
 
 
-def make_player(bbref_id: str, first: str = 'Test', last: str = 'Player', **kwargs) -> Player:
+def make_player(
+    bbref_id: str,
+    first: str = 'Test',
+    last: str = 'Player',
+    *,
+    birth_date: datetime.date | None = None,
+    debut: datetime.date | None = None,
+    final_game: datetime.date | None = None,
+    bats: str = 'R',
+    throws: str = 'R',
+    primary_position: str | None = None,
+) -> Player:
     return Player.objects.create(
         bbref_id=bbref_id,
         first_name=first,
         last_name=last,
-        debut=kwargs.get('debut', None),
-        final_game=kwargs.get('final_game', None),
-        bats=kwargs.get('bats', 'R'),
-        throws=kwargs.get('throws', 'R'),
-        primary_position=kwargs.get('primary_position', None),
+        birth_date=birth_date,
+        debut=debut,
+        final_game=final_game,
+        bats=bats,
+        throws=throws,
+        primary_position=primary_position,
     )
 
 
@@ -261,7 +273,7 @@ class TestSimilarAction(APITestCase):
 
     def test_returns_at_most_four(self):
         for i in range(5):
-            p = make_player(f'extra{i:02d}01', war_val=8.0)
+            p = make_player(f'extra{i:02d}01')
             add_batting(p, 2000, war=8.0)
         r = self.client.get(self.url)
         self.assertLessEqual(len(r.data['batters']), 4)
@@ -288,7 +300,7 @@ class TestSimilarAction(APITestCase):
 
     def test_similarity_descending(self):
         for i in range(5):
-            pl = make_player(f'extra{i:02d}01', war_val=8.0)
+            pl = make_player(f'extra{i:02d}01')
             add_batting(pl, 2000, war=float(8 - i))
         r = self.client.get(self.url)
         sims = [p['similarity'] for p in r.data['batters']]
@@ -469,8 +481,6 @@ class TestComputePrimaryPositions(APITestCase):
 class TestAgingCurve(APITestCase):
     def setUp(self):
         cache.clear()
-        # Player born 1980 → age 30 in the 2010 season
-        self.p = make_player('agecurve01', birth_date=datetime.date(1980, 1, 1))
 
     def _make_player(self, bbref_id, birth_year):
         return Player.objects.get_or_create(
@@ -490,10 +500,8 @@ class TestAgingCurve(APITestCase):
                                      plate_appearances=150, war=6.0)
         result = _build_aging_curve('B')
         by_age = {pt['age']: pt for pt in result}
-        self.assertIn(30, by_age)
-        self.assertAlmostEqual(by_age[30]['war'], 4.0)
-        self.assertIn(31, by_age)
-        self.assertAlmostEqual(by_age[31]['war'], 6.0)
+        self.assertEqual([(a, pt['war'], pt['n']) for a, pt in sorted(by_age.items())],
+                         [(30, 4.0, 1), (31, 6.0, 1)])
 
     def test_batting_curve_excludes_below_pa_threshold(self):
         p = self._make_player('batlow01', 1980)
@@ -504,12 +512,14 @@ class TestAgingCurve(APITestCase):
         self.assertNotIn(30, by_age)
 
     def test_batting_curve_excludes_players_without_birth_date(self):
-        p = make_player('nobirth01')  # birth_date=None by default
-        BattingSeason.objects.create(player=p, year=2010, stint=1, team='NYA', league='AL',
+        nobirth = make_player('nobirth01')
+        born = make_player('born01', birth_date=datetime.date(1980, 1, 1))
+        BattingSeason.objects.create(player=nobirth, year=2010, stint=1, team='NYA', league='AL',
                                      plate_appearances=150, war=5.0)
+        BattingSeason.objects.create(player=born, year=2010, stint=1, team='NYA', league='AL',
+                                     plate_appearances=150, war=3.0)
         result = _build_aging_curve('B')
-        # Should not raise and should not include this player
-        self.assertIsInstance(result, list)
+        self.assertEqual([(pt['age'], pt['war'], pt['n']) for pt in result], [(30, 3.0, 1)])
 
     def test_pitching_curve_uses_ip_threshold(self):
         p = self._make_player('pitcage01', 1980)
@@ -529,13 +539,11 @@ class TestAgingCurve(APITestCase):
         by_age = {pt['age']: pt for pt in result}
         self.assertNotIn(30, by_age)
 
-    def test_returns_list(self):
-        result = _build_aging_curve('B')
-        self.assertIsInstance(result, list)
+    def test_batting_curve_empty_without_seasons(self):
+        self.assertEqual(_build_aging_curve('B'), [])
 
-    def test_pitching_role_returns_list(self):
-        result = _build_aging_curve('P')
-        self.assertIsInstance(result, list)
+    def test_pitching_curve_empty_without_seasons(self):
+        self.assertEqual(_build_aging_curve('P'), [])
 
 
 class TestLeaderboardRows(APITestCase):
