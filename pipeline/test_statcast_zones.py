@@ -20,17 +20,20 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "pca_backend.settings")
 
+from datetime import date, timedelta
 from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
 from django.test import TestCase
+from django.urls import reverse
 
 from pipeline.ingest_statcast_zones import (
     BATTER_OUTCOMES,
     _source_key,
     aggregate_buckets,
     ingest_bulk,
+    main,
     players_by_war,
     write_buckets,
 )
@@ -474,3 +477,69 @@ class TestPlayersByWar(TestCase):
         ids = self._ids(results)
         self.assertIn("rookiebat01", ids)
         self.assertNotIn("rookiepit01", ids)    # filtered by roles={'B'}
+
+
+# ---------------------------------------------------------------------------
+# Weekly refresh
+# ---------------------------------------------------------------------------
+
+
+class FakeSavant:
+    """One whiff per day at (0.0, 2.0), published through a movable date."""
+
+    def __init__(self, first_day: date, last_day: date):
+        days = pd.date_range(first_day, last_day).date
+        self.pitches = _make_pitch_df(
+            [
+                {
+                    "batter": np.float64(1001),
+                    "pitcher": np.float64(9001),
+                    "plate_x": 0.0,
+                    "plate_z": 2.0,
+                    "description": "swinging_strike",
+                    "game_date": day,
+                    "game_year": day.year,
+                }
+                for day in days
+            ]
+        )
+        self.published_through = first_day
+
+    def statcast(self, start_dt: str, end_dt: str, **_kwargs) -> pd.DataFrame:
+        game_date = self.pitches["game_date"]
+        end = min(date.fromisoformat(end_dt), self.published_through)
+        in_window = (game_date >= date.fromisoformat(start_dt)) & (game_date <= end)
+        return self.pitches[in_window].reset_index(drop=True)
+
+
+class TestWeeklyRefresh(TestCase):
+    def setUp(self):
+        self.player = _make_player("troutmi01", 1001)
+        BattingSeason.objects.create(
+            player=self.player, year=2026, stint=1, team="LAA", war=6.0, plate_appearances=600,
+        )
+        self.savant = FakeSavant(date(2026, 9, 2), date(2026, 9, 21))
+
+    def _run_weekly_refresh(self, monday: date) -> None:
+        self.savant.published_through = monday
+        argv = [
+            "ingest_statcast_zones.py",
+            "--start-date", str(monday - timedelta(days=14)),
+            "--end-date", str(monday),
+            "--min-war", "5.0",
+        ]
+        with patch("sys.argv", argv), patch("pipeline.ingest_statcast_zones.statcast", self.savant.statcast):
+            main()
+
+    def _whiff_buckets(self) -> list[dict]:
+        r = self.client.get(
+            reverse("player-pitch-zone", kwargs={"pk": "troutmi01"}), {"role": "B", "outcome": "whiffs"}
+        )
+        return r.json()["buckets"]
+
+    def test_overlapping_weekly_windows_count_each_pitch_once(self):
+        self._run_weekly_refresh(date(2026, 9, 14))
+        self._run_weekly_refresh(date(2026, 9, 21))
+        self._run_weekly_refresh(date(2026, 9, 21))
+
+        self.assertEqual(self._whiff_buckets(), [{"plate_x": 0.0, "plate_z": 2.0, "count": 20, "total": 20}])
