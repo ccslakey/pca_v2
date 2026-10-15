@@ -98,7 +98,6 @@ To enable the live LLM/RAG paths, set:
 | Env var | Enables |
 |---|---|
 | `ANTHROPIC_API_KEY` | LLM-generated career narratives (`GET /api/players/{id}/narrative/`) |
-| `VOYAGE_API_KEY` | Methodology embeddings + semantic search (run `index_methodology` after setting) |
 
 `NARRATIVE_USE_TOOLS=false` switches the narrative from the tool-calling agent to a single-shot call.
 
@@ -131,8 +130,8 @@ python pipeline/ingest_statcast_zones.py
 ```
 
 ### Methodology RAG index (for the narrative agent)
-Embeds `frontend/src/methodology/*.md` into pgvector for semantic retrieval.
-Requires `VOYAGE_API_KEY`:
+Embeds `frontend/src/methodology/*.md` into pgvector for semantic retrieval,
+using a local ONNX embedding model (no API key; the first run downloads ~65 MB):
 ```bash
 python manage.py index_methodology
 ```

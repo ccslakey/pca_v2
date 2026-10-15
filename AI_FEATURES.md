@@ -57,8 +57,9 @@ tools *actually returned*, so a stat the agent never retrieved gets flagged.
 
 ### 3. Retrieval / RAG
 
-The methodology documentation (~10 articles) is chunked, embedded with Voyage,
-and stored in **pgvector** on the existing Postgres. A `search_methodology` tool
+The methodology documentation (~10 articles) is chunked, embedded in-process with
+a local ONNX model (`BAAI/bge-small-en-v1.5` via fastembed), and stored in
+**pgvector** on the existing Postgres. A `search_methodology` tool
 does cosine-distance KNN over the chunks, so the agent can describe a metric in
 the project's own words, and the UI can surface contextual explanations.
 
@@ -94,8 +95,9 @@ offline; the CLI has a `--max-hallucination` flag to act as a CI gate.
 
 ## Engineering notes
 
-- **Stack:** Anthropic Claude (Haiku 4.5) for generation, Voyage
-  (`voyage-3.5-lite`, 1024-dim) for embeddings, pgvector for storage, Django/DRF
+- **Stack:** Anthropic Claude (Haiku 5.5 in production) for generation, a local
+  `bge-small-en-v1.5` ONNX model (384-dim, via fastembed) for embeddings — no
+  embeddings API, so no key or rate limit — pgvector for storage, Django/DRF
   + PostgreSQL on the backend, React/TypeScript on the frontend.
 - **Cost & latency:** generation is several model round-trips (~$0.006/player on
   Haiku). Results are persisted in Postgres (`PlayerNarrative`) keyed by a data
@@ -103,7 +105,8 @@ offline; the CLI has a `--max-hallucination` flag to act as a CI gate.
   view — and the version key invalidates automatically when data is re-ingested.
   A `pregenerate_narratives` command pre-bakes profiles so they load instantly.
 - **Graceful degradation:** every external dependency is optional. No Anthropic
-  key → template narrative. No Voyage key → empty search. Both seams are
+  key → template narrative. Unindexed corpus or an embedding error → empty
+  search (logged, not silent). Both seams are
   mockable, so the full test suite (116 tests) runs with no keys and no network.
 - **Prompt caching** is applied to the system prompt / tool definitions, which
   matters most in the multi-turn agent loop.
@@ -135,13 +138,13 @@ offline; the CLI has a `--max-hallucination` flag to act as a CI gate.
 | Function-calling tools | `players/narrative_tools.py` |
 | Mockable Anthropic seam (prompt caching) | `players/llm.py` |
 | Retrieval (pgvector cosine KNN, cached) | `players/rag.py` |
-| Mockable Voyage embedding seam | `players/embeddings.py` |
+| Mockable local embedding seam (fastembed) | `players/embeddings.py` |
 | Persistence + corpus models | `players/models.py` (`PlayerNarrative`, `MethodologyChunk`) |
 | Indexing / pre-generation commands | `players/management/commands/` |
 | Eval harness | `pipeline/eval_narrative.py` |
 | UI: narrative panel + agent trace | `frontend/src/components/profile/panels/NarrativePanel.tsx` |
 | UI: RAG-backed metric explainers | `frontend/src/components/MetricExplainer.tsx` |
 
-To run the live paths locally: set `ANTHROPIC_API_KEY` and `VOYAGE_API_KEY` in a
-`.env`, then `python manage.py index_methodology`. Without keys, the features
-degrade to the deterministic template and empty search.
+To run the live paths locally: set `ANTHROPIC_API_KEY` in a `.env`, then
+`python manage.py index_methodology`. Without a key, the narrative degrades to
+the deterministic template; search works without any key.

@@ -1125,15 +1125,51 @@ class TestAgenticTypedNarrative(APITestCase):
 # Methodology RAG (step 3)
 # ---------------------------------------------------------------------------
 
-from players import rag  # noqa: E402
+from django.conf import settings as dj_settings  # noqa: E402
+
+from players import embeddings, rag  # noqa: E402
 from players.management.commands.index_methodology import _chunk, _title_of  # noqa: E402
 from players.models import MethodologyChunk  # noqa: E402
 
 
-def _unit_vec(i: int, dim: int = 1024) -> list[float]:
+def _unit_vec(i: int, dim: int = dj_settings.VECTOR_DIM) -> list[float]:
     v = [0.0] * dim
     v[i] = 1.0
     return v
+
+
+class _FakeVec(list):
+    def tolist(self):
+        return list(self)
+
+
+class _FakeModel:
+    """Stand-in for fastembed.TextEmbedding: records which encoder was used."""
+
+    def __init__(self, dim):
+        self.dim, self.calls = dim, []
+
+    def query_embed(self, texts):
+        self.calls.append("query")
+        return (_FakeVec(_unit_vec(0, self.dim)) for _ in ([texts] if isinstance(texts, str) else texts))
+
+    def passage_embed(self, texts):
+        self.calls.append("passage")
+        return (_FakeVec(_unit_vec(1, self.dim)) for _ in texts)
+
+
+class TestEmbeddings(SimpleTestCase):
+    def test_routes_queries_and_documents_to_their_encoders(self):
+        fake = _FakeModel(dj_settings.VECTOR_DIM)
+        with patch.object(embeddings, "_get_model", return_value=fake):
+            self.assertEqual(embeddings.embed_query("what is war"), _unit_vec(0))
+            self.assertEqual(embeddings.embed(["a", "b"], input_type="document"), [_unit_vec(1)] * 2)
+        self.assertEqual(fake.calls, ["query", "passage"])
+
+    def test_dimension_mismatch_raises(self):
+        with patch.object(embeddings, "_get_model", return_value=_FakeModel(dj_settings.VECTOR_DIM + 1)):
+            with self.assertRaises(ValueError):
+                embeddings.embed_query("x")
 
 
 class TestChunking(SimpleTestCase):
@@ -1192,12 +1228,13 @@ class TestMethodologySearch(APITestCase):
         with patch.object(rag.embeddings, "embed_query", return_value=_unit_vec(0)):
             self.assertEqual(rag.search_methodology("x"), [])
 
-    def test_embed_error_returns_empty(self):
+    def test_embed_error_returns_empty_and_logs(self):
         with patch.object(rag.embeddings, "embed_query", side_effect=RuntimeError("boom")):
-            self.assertEqual(rag.search_methodology("x"), [])
+            with self.assertLogs("players.rag", level="ERROR"):
+                self.assertEqual(rag.search_methodology("x"), [])
 
     def test_results_cached_per_query(self):
-        # A repeated query is served from cache — no second embed (free-tier safe).
+        # A repeated query is served from cache — no second embed.
         with patch.object(rag.embeddings, "embed_query", return_value=_unit_vec(0)) as m:
             rag.search_methodology("what is war", k=2)
             rag.search_methodology("what is war", k=2)
@@ -1219,7 +1256,7 @@ class TestMethodologySearchTool(APITestCase):
 
 class TestMethodologyEndpoint(APITestCase):
     def test_endpoint_returns_shape(self):
-        # RAG disabled by default in tests → empty results but a valid 200 shape.
+        # No chunks indexed in the test DB → empty results but a valid 200 shape.
         r = self.client.get(reverse("player-methodology-search"), {"q": "ops+"})
         self.assertEqual(r.status_code, 200)
         self.assertIn("results", r.data)
