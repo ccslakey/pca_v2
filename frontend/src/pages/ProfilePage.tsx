@@ -29,7 +29,6 @@ import { track } from "../analytics";
 export function ProfilePage() {
   const { bbrefId } = useParams<{ bbrefId: string }>();
   const [metric, setMetric] = useState<MetricId>("war");
-  const [tab, setTab] = useState<"standard" | "advanced">("standard");
 
   const { data: player, isLoading } = useChartPlayer(bbrefId ?? null, 0);
   const { data: bundle } = usePlayerBundle(bbrefId ?? null);
@@ -107,8 +106,6 @@ export function ProfilePage() {
               player={player}
               color={color}
               peak={peak}
-              tab={tab}
-              setTab={setTab}
             />
           </div>
 
