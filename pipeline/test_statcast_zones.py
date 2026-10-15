@@ -5,7 +5,6 @@ Covers:
   - aggregate_buckets correctness
   - bulk path parity: groupby slice produces identical buckets to per-player filter
   - float64 batter/pitcher dtype tolerance (statcast CSV uses float64 when NaN rows present)
-  - write_buckets: non-incremental replace, incremental merge
   - ingest_bulk: skips already-ingested, logs success/error
 
 Run from project root:
@@ -20,7 +19,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "pca_backend.settings")
 
-from datetime import date, timedelta
+from datetime import date
 from unittest.mock import patch
 
 import numpy as np
@@ -54,8 +53,29 @@ def _make_pitch_df(rows: list[dict]) -> pd.DataFrame:
         "plate_z": 2.5,
         "description": "ball",
         "events": None,
+        "game_date": date(2024, 5, 1),
+        "game_year": 2024,
     }
     return pd.DataFrame([{**defaults, **r} for r in rows])
+
+
+class FakeSavant:
+    def __init__(self, pitches: pd.DataFrame):
+        self.pitches = pitches
+
+    def statcast(self, start_dt: str, end_dt: str, **_kwargs) -> pd.DataFrame:
+        game_date = self.pitches["game_date"]
+        in_window = (game_date >= date.fromisoformat(start_dt)) & (game_date <= date.fromisoformat(end_dt))
+        return self.pitches[in_window].reset_index(drop=True)
+
+
+def _frozen_date(today: date) -> type[date]:
+    class FrozenDate(date):
+        @classmethod
+        def today(cls) -> date:
+            return today
+
+    return FrozenDate
 
 
 def _make_player(bbref_id: str, mlbam_id: int) -> Player:
@@ -172,19 +192,7 @@ class TestBulkPathParity(TestCase):
                 "events": None,
             },
         ]
-        return pd.DataFrame(
-            [
-                {
-                    "batter": r["batter"],
-                    "pitcher": r["pitcher"],
-                    "plate_x": r["plate_x"],
-                    "plate_z": r["plate_z"],
-                    "description": r["description"],
-                    "events": r["events"],
-                }
-                for r in rows
-            ]
-        )
+        return _make_pitch_df(rows)
 
     def test_batter_slice_matches_per_player_filter(self):
         df = self._make_multi_player_df()
@@ -238,48 +246,25 @@ class TestWriteBuckets(TestCase):
     def setUp(self):
         self.player = _make_player("troutmi01", 1001)
 
-    def test_non_incremental_replaces_existing(self):
-        StatcastZoneBucket.objects.create(
-            player=self.player,
-            role="B",
-            outcome="whiffs",
-            plate_x=0.0,
-            plate_z=2.0,
-            count=99,
-            total=100,
-        )
-        buckets = [{"outcome": "whiffs", "plate_x": 0.0, "plate_z": 2.0, "count": 1, "total": 5}]
-        write_buckets(self.player, "B", buckets, dry_run=False, incremental=False)
-        row = StatcastZoneBucket.objects.get(player=self.player, role="B", outcome="whiffs")
-        self.assertEqual(row.count, 1)
-        self.assertEqual(row.total, 5)
+    def _whiffs_at_origin(self, season: int, count: int, total: int) -> dict:
+        return {"season": season, "outcome": "whiffs", "plate_x": 0.0, "plate_z": 2.0, "count": count, "total": total}
 
-    def test_incremental_adds_to_existing(self):
-        StatcastZoneBucket.objects.create(
-            player=self.player,
-            role="B",
-            outcome="whiffs",
-            plate_x=0.0,
-            plate_z=2.0,
-            count=10,
-            total=20,
-        )
-        buckets = [{"outcome": "whiffs", "plate_x": 0.0, "plate_z": 2.0, "count": 5, "total": 5}]
-        write_buckets(self.player, "B", buckets, dry_run=False, incremental=True)
-        row = StatcastZoneBucket.objects.get(player=self.player, role="B", outcome="whiffs")
-        self.assertEqual(row.count, 15)
-        self.assertEqual(row.total, 25)
+    def _stored(self) -> list[tuple[int, int, int]]:
+        rows = StatcastZoneBucket.objects.filter(player=self.player, role="B").order_by("season")
+        return [(r.season, r.count, r.total) for r in rows]
 
-    def test_incremental_inserts_new_location(self):
-        buckets = [{"outcome": "whiffs", "plate_x": 1.0, "plate_z": 3.0, "count": 3, "total": 7}]
-        write_buckets(self.player, "B", buckets, dry_run=False, incremental=True)
-        self.assertTrue(
-            StatcastZoneBucket.objects.filter(player=self.player, role="B", outcome="whiffs", plate_x=1.0).exists()
-        )
+    def test_replaces_written_season(self):
+        write_buckets(self.player, "B", [self._whiffs_at_origin(2024, 99, 100)], dry_run=False)
+        write_buckets(self.player, "B", [self._whiffs_at_origin(2024, 1, 5)], dry_run=False)
+        self.assertEqual(self._stored(), [(2024, 1, 5)])
+
+    def test_keeps_other_seasons(self):
+        write_buckets(self.player, "B", [self._whiffs_at_origin(2023, 10, 20)], dry_run=False)
+        write_buckets(self.player, "B", [self._whiffs_at_origin(2024, 5, 5)], dry_run=False)
+        self.assertEqual(self._stored(), [(2023, 10, 20), (2024, 5, 5)])
 
     def test_dry_run_writes_nothing(self):
-        buckets = [{"outcome": "whiffs", "plate_x": 0.0, "plate_z": 2.0, "count": 5, "total": 10}]
-        write_buckets(self.player, "B", buckets, dry_run=True, incremental=False)
+        write_buckets(self.player, "B", [self._whiffs_at_origin(2024, 5, 10)], dry_run=True)
         self.assertFalse(StatcastZoneBucket.objects.filter(player=self.player).exists())
 
 
@@ -316,61 +301,36 @@ class TestIngestBulk(TestCase):
 
     @patch("pipeline.ingest_statcast_zones.statcast")
     def test_writes_buckets_for_target_player(self, mock_statcast):
-        mock_statcast.return_value = self._bulk_df()
-        targets = [(self.player, {"B"})]
-        n = ingest_bulk(
-            targets, "2024-05-01", "2024-05-08", force=False, dry_run=False, verbose=False, incremental=True
+        mock_statcast.side_effect = FakeSavant(self._bulk_df()).statcast
+        ingest_bulk([(self.player, {"B"})], 2024, force=False, dry_run=False, verbose=False)
+        stored = StatcastZoneBucket.objects.filter(player=self.player, role="B").values_list(
+            "season", "outcome", "count", "total"
         )
-        self.assertGreater(n, 0)
-        self.assertTrue(StatcastZoneBucket.objects.filter(player=self.player, role="B").exists())
+        self.assertEqual(sorted(stored), [(2024, "contact", 1, 2), (2024, "hits", 1, 2), (2024, "whiffs", 1, 2)])
 
     @patch("pipeline.ingest_statcast_zones.statcast")
     def test_skips_already_ingested_player(self, mock_statcast):
         mock_statcast.return_value = self._bulk_df()
-        key = _source_key(self.player, "B", incremental=True, start_date="2024-05-01", end_date="2024-05-08")
+        key = _source_key(self.player, "B", 2024)
         IngestionLog.objects.create(source=key, rows_loaded=5, status="success")
 
-        ingest_bulk(
-            [(self.player, {"B"})],
-            "2024-05-01",
-            "2024-05-08",
-            force=False,
-            dry_run=False,
-            verbose=False,
-            incremental=True,
-        )
+        ingest_bulk([(self.player, {"B"})], 2024, force=False, dry_run=False, verbose=False)
         # statcast should not have been called since all players are already ingested
         mock_statcast.assert_not_called()
 
     @patch("pipeline.ingest_statcast_zones.statcast")
     def test_force_flag_overrides_skip(self, mock_statcast):
-        mock_statcast.return_value = self._bulk_df()
-        key = _source_key(self.player, "B", incremental=True, start_date="2024-05-01", end_date="2024-05-08")
+        mock_statcast.side_effect = FakeSavant(self._bulk_df()).statcast
+        key = _source_key(self.player, "B", 2024)
         IngestionLog.objects.create(source=key, rows_loaded=5, status="success")
 
-        ingest_bulk(
-            [(self.player, {"B"})],
-            "2024-05-01",
-            "2024-05-08",
-            force=True,
-            dry_run=False,
-            verbose=False,
-            incremental=True,
-        )
-        mock_statcast.assert_called_once()
+        n = ingest_bulk([(self.player, {"B"})], 2024, force=True, dry_run=False, verbose=False)
+        self.assertEqual(n, 3)
 
     @patch("pipeline.ingest_statcast_zones.statcast")
     def test_dry_run_does_not_write(self, mock_statcast):
         mock_statcast.return_value = self._bulk_df()
-        ingest_bulk(
-            [(self.player, {"B"})],
-            "2024-05-01",
-            "2024-05-08",
-            force=False,
-            dry_run=True,
-            verbose=False,
-            incremental=True,
-        )
+        ingest_bulk([(self.player, {"B"})], 2024, force=False, dry_run=True, verbose=False)
         self.assertFalse(StatcastZoneBucket.objects.filter(player=self.player).exists())
 
     @patch("pipeline.ingest_statcast_zones.statcast")
@@ -379,23 +339,13 @@ class TestIngestBulk(TestCase):
         no_mlbam = _make_player("nomlbam01", None)
         no_mlbam.mlbam_id = None
         no_mlbam.save()
-        ingest_bulk(
-            [(no_mlbam, {"B"})], "2024-05-01", "2024-05-08", force=False, dry_run=False, verbose=False, incremental=True
-        )
+        ingest_bulk([(no_mlbam, {"B"})], 2024, force=False, dry_run=False, verbose=False)
         mock_statcast.assert_not_called()
 
     @patch("pipeline.ingest_statcast_zones.statcast")
     def test_empty_statcast_response_handled(self, mock_statcast):
         mock_statcast.return_value = pd.DataFrame()
-        n = ingest_bulk(
-            [(self.player, {"B"})],
-            "2024-05-01",
-            "2024-05-08",
-            force=False,
-            dry_run=False,
-            verbose=False,
-            incremental=True,
-        )
+        n = ingest_bulk([(self.player, {"B"})], 2024, force=False, dry_run=False, verbose=False)
         self.assertEqual(n, 0)
 
 
@@ -479,56 +429,36 @@ class TestPlayersByWar(TestCase):
         self.assertNotIn("rookiepit01", ids)    # filtered by roles={'B'}
 
 
-# ---------------------------------------------------------------------------
-# Weekly refresh
-# ---------------------------------------------------------------------------
-
-
-class FakeSavant:
-    """One whiff per day at (0.0, 2.0), published through a movable date."""
-
-    def __init__(self, first_day: date, last_day: date):
-        days = pd.date_range(first_day, last_day).date
-        self.pitches = _make_pitch_df(
-            [
-                {
-                    "batter": np.float64(1001),
-                    "pitcher": np.float64(9001),
-                    "plate_x": 0.0,
-                    "plate_z": 2.0,
-                    "description": "swinging_strike",
-                    "game_date": day,
-                    "game_year": day.year,
-                }
-                for day in days
-            ]
-        )
-        self.published_through = first_day
-
-    def statcast(self, start_dt: str, end_dt: str, **_kwargs) -> pd.DataFrame:
-        game_date = self.pitches["game_date"]
-        end = min(date.fromisoformat(end_dt), self.published_through)
-        in_window = (game_date >= date.fromisoformat(start_dt)) & (game_date <= end)
-        return self.pitches[in_window].reset_index(drop=True)
-
-
 class TestWeeklyRefresh(TestCase):
     def setUp(self):
         self.player = _make_player("troutmi01", 1001)
         BattingSeason.objects.create(
             player=self.player, year=2026, stint=1, team="LAA", war=6.0, plate_appearances=600,
         )
-        self.savant = FakeSavant(date(2026, 9, 2), date(2026, 9, 21))
+        self.savant = FakeSavant(
+            _make_pitch_df(
+                [
+                    {
+                        "batter": np.float64(1001),
+                        "pitcher": np.float64(9001),
+                        "plate_x": 0.0,
+                        "plate_z": 2.0,
+                        "description": "swinging_strike",
+                        "game_date": day,
+                        "game_year": day.year,
+                    }
+                    for day in pd.date_range("2026-09-02", "2026-09-21").date
+                ]
+            )
+        )
 
     def _run_weekly_refresh(self, monday: date) -> None:
-        self.savant.published_through = monday
-        argv = [
-            "ingest_statcast_zones.py",
-            "--start-date", str(monday - timedelta(days=14)),
-            "--end-date", str(monday),
-            "--min-war", "5.0",
-        ]
-        with patch("sys.argv", argv), patch("pipeline.ingest_statcast_zones.statcast", self.savant.statcast):
+        argv = ["ingest_statcast_zones.py", "--season", str(monday.year), "--min-war", "5.0"]
+        with (
+            patch("sys.argv", argv),
+            patch("pipeline.ingest_statcast_zones.date", _frozen_date(monday)),
+            patch("pipeline.ingest_statcast_zones.statcast", self.savant.statcast),
+        ):
             main()
 
     def _whiff_buckets(self) -> list[dict]:

@@ -18,7 +18,6 @@ from stats.serializers import (
     FieldingSeasonSerializer,
     PitchingSeasonSerializer,
     PlayerAwardSerializer,
-    StatcastZoneBucketSerializer,
 )
 
 from .featured import FEATURED_COMPARISONS
@@ -289,12 +288,19 @@ class PlayerViewSet(viewsets.ReadOnlyModelViewSet[Player]):
         if role not in VALID_ROLES or outcome not in VALID_OUTCOMES:
             return Response({"detail": "Invalid role or outcome."}, status=400)
 
-        qs = player.zone_buckets.filter(role=role, outcome=outcome)
+        by_location = (
+            player.zone_buckets.filter(role=role, outcome=outcome)
+            .values("plate_x", "plate_z")
+            .annotate(count_sum=Sum("count"), total_sum=Sum("total"))
+        )
         return Response(
             {
                 "role": role,
                 "outcome": outcome,
-                "buckets": StatcastZoneBucketSerializer(qs, many=True).data,
+                "buckets": [
+                    {"plate_x": b["plate_x"], "plate_z": b["plate_z"], "count": b["count_sum"], "total": b["total_sum"]}
+                    for b in by_location
+                ],
             }
         )
 

@@ -126,7 +126,8 @@ python pipeline/ingest_bref_awards.py
 
 ### Statcast pitch zones (2015+)
 ```bash
-python pipeline/ingest_statcast_zones.py
+python pipeline/ingest_statcast_zones.py                  # every season, per player
+python pipeline/ingest_statcast_zones.py --season 2026    # one season, bulk pull
 ```
 
 ### Methodology RAG index (for the narrative agent)
