@@ -11,11 +11,9 @@ interface Props {
   player: ChartPlayer;
   color: string;
   peak: Peak | null;
-  tab: "standard" | "advanced";
-  setTab: (t: "standard" | "advanced") => void;
 }
 
-export function SeasonLogPanel({ player, color, peak, tab: _tab, setTab: _setTab }: Props) {
+export function SeasonLogPanel({ player, color, peak }: Props) {
   return (
     <div className="panel">
       <div className="panel-header">
@@ -23,21 +21,6 @@ export function SeasonLogPanel({ player, color, peak, tab: _tab, setTab: _setTab
           Season log
           <span className="muted">{player.seasons.length} seasons</span>
         </div>
-        {/* TODO implement? */}
-        {/*<div className="tabs">
-          <button
-            className={`tab ${tab === "standard" ? "is-active" : ""}`}
-            onClick={() => setTab("standard")}
-          >
-            Standard
-          </button>
-          <button
-            className={`tab ${tab === "advanced" ? "is-active" : ""}`}
-            onClick={() => setTab("advanced")}
-          >
-            Advanced
-          </button>
-        </div>*/}
       </div>
       <div style={{ overflowX: "auto" }}>
         <table className="season-table">

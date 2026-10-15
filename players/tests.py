@@ -793,7 +793,6 @@ class TestGenerateNarrative(APITestCase):
     def test_no_key_uses_template(self):
         result = generate_narrative(self.player)
         self.assertEqual(result["source"], "template")
-        self.assertTrue(result["verified"])
         self.assertIsNone(result["model"])
 
     @override_settings(LLM_ENABLED=True, NARRATIVE_USE_TOOLS=False, NARRATIVE_MODEL="claude-haiku-4-5-20251001")
@@ -822,7 +821,6 @@ class TestGenerateNarrative(APITestCase):
         with patch.object(narrative.llm, "complete_text", side_effect=RuntimeError("boom")):
             result = generate_narrative(self.player)
         self.assertEqual(result["source"], "template")
-        self.assertTrue(result["verified"])
 
 
 @override_settings(LLM_ENABLED=False)
@@ -839,7 +837,7 @@ class TestNarrativeEndpoint(APITestCase):
     def test_returns_200_with_expected_shape(self):
         r = self.client.get(self.url)
         self.assertEqual(r.status_code, 200)
-        for key in ("text", "source", "verified", "model", "generated_at"):
+        for key in ("text", "source", "model", "generated_at"):
             self.assertIn(key, r.data)
 
     def test_404_for_unknown_player(self):
@@ -1268,7 +1266,6 @@ class TestNarrativePersistence(APITestCase):
     def test_as_dict_shape(self):
         n = PlayerNarrative.objects.create(player=self.player, text="t", source="template")
         d = n.as_dict()
-        self.assertTrue(d["verified"])
         for key in ("text", "source", "model", "flagged", "trace", "generated_at"):
             self.assertIn(key, d)
 

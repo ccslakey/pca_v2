@@ -68,7 +68,6 @@ class PlayerNarrative(models.Model):
         return {
             "text": self.text,
             "source": self.source,
-            "verified": True,
             "model": self.model,
             "flagged": self.flagged,
             "trace": self.trace,
