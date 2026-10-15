@@ -6,7 +6,6 @@ from .models import (
     FieldingSeason,
     PitchingSeason,
     PlayerAward,
-    StatcastZoneBucket,
 )
 
 
@@ -48,9 +47,3 @@ class PlayerAwardSerializer(serializers.ModelSerializer[PlayerAward]):
     class Meta:
         model = PlayerAward
         fields = ['id', 'year', 'kind', 'league', 'notes']
-
-
-class StatcastZoneBucketSerializer(serializers.ModelSerializer[StatcastZoneBucket]):
-    class Meta:
-        model = StatcastZoneBucket
-        fields = ['plate_x', 'plate_z', 'count', 'total']

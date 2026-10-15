@@ -206,7 +206,6 @@ class PlayerAward(models.Model):
 class StatcastZoneBucket(models.Model):
     """
     Aggregated Statcast pitch-location data for the pitch zone heatmap.
-    One row per (player, role, outcome, plate_x, plate_z) bucket.
     plate_x / plate_z are raw Statcast coordinates rounded to 0.1 ft —
     the frontend bins these into a grid at render time.
     """
@@ -222,6 +221,7 @@ class StatcastZoneBucket(models.Model):
 
     player  = models.ForeignKey(Player, on_delete=models.CASCADE, related_name='zone_buckets')
     role    = models.CharField(max_length=1, choices=Role.choices)
+    season  = models.PositiveSmallIntegerField(null=True)
     outcome = models.CharField(max_length=10, choices=Outcome.choices)
     plate_x = models.FloatField()
     plate_z = models.FloatField()
@@ -229,7 +229,7 @@ class StatcastZoneBucket(models.Model):
     total   = models.IntegerField()  # total pitches seen at (x, z)
 
     class Meta:
-        unique_together = ('player', 'role', 'outcome', 'plate_x', 'plate_z')
+        unique_together = ('player', 'role', 'season', 'outcome', 'plate_x', 'plate_z')
         indexes = [models.Index(fields=['player', 'role', 'outcome'])]
 
     def __str__(self):

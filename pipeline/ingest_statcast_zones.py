@@ -12,13 +12,8 @@ Options:
     --verbose             Print per-player bucket counts
     --roles B|P|both      Which role to ingest (default: both)
     --bbref-ids ID…       Ingest specific players by bbref_id (skips WAR filter)
-    --start-date DATE     Start date YYYY-MM-DD (default: 2015-03-01)
-    --end-date DATE       End date YYYY-MM-DD (default: today)
-
-When --start-date is not the default (2015-03-01), the script runs in
-incremental mode: new bucket counts are merged into existing DB rows rather
-than replacing them.  The IngestionLog key includes the date range so the
-idempotency check is per-range, not per-player.
+    --season YEAR         Rebuild one season from a bulk Savant pull
+                          (default: every season since 2015, per player)
 """
 
 import argparse
@@ -27,6 +22,7 @@ import sys
 import time
 import warnings
 from datetime import date
+from typing import TypedDict
 
 import django
 
@@ -54,14 +50,7 @@ from stats.models import BattingSeason, PitchingSeason, StatcastZoneBucket
 # Constants
 # ---------------------------------------------------------------------------
 
-DEFAULT_START_DATE = '2015-03-01'
-DEFAULT_END_DATE   = date.today().strftime('%Y-%m-%d')
-
-# Bulk-pull threshold. For windows <= this many days we fetch all pitches in
-# one parallel statcast() call and group client-side — much faster than N
-# per-player calls. Longer windows (e.g. the full 2015-today backfill) fall
-# back to the per-player path to keep memory bounded.
-BULK_THRESHOLD_DAYS = 60
+FIRST_SEASON = 2015
 
 BATTER_OUTCOMES = {
     'contact': lambda df: df['description'] == 'hit_into_play',
@@ -79,12 +68,23 @@ PITCHER_OUTCOMES = {
 # Helpers
 # ---------------------------------------------------------------------------
 
-def aggregate_buckets(df: pd.DataFrame, outcome_fns: dict) -> list[dict]:
-    """
-    Given a raw Statcast DataFrame, return a list of bucket dicts:
-      {outcome, plate_x, plate_z, count, total}
-    plate_x and plate_z are rounded to 0.1 ft.
-    """
+class Bucket(TypedDict):
+    season:  int
+    outcome: str
+    plate_x: float
+    plate_z: float
+    count:   int
+    total:   int
+
+
+def season_window(season: int | None) -> tuple[date, date]:
+    today = date.today()
+    if season is None:
+        return date(FIRST_SEASON, 3, 1), today
+    return date(season, 3, 1), min(date(season, 12, 31), today)
+
+
+def aggregate_buckets(df: pd.DataFrame, outcome_fns: dict) -> list[Bucket]:
     if df is None or df.empty:
         return []
     df = df.dropna(subset=['plate_x', 'plate_z']).reset_index(drop=True)
@@ -95,15 +95,16 @@ def aggregate_buckets(df: pd.DataFrame, outcome_fns: dict) -> list[dict]:
     df['px'] = (df['plate_x'] * 10).round() / 10
     df['pz'] = (df['plate_z'] * 10).round() / 10
 
-    total_by_loc = df.groupby(['px', 'pz']).size().rename('total')
+    total_by_loc = df.groupby(['game_year', 'px', 'pz']).size().rename('total')
 
-    buckets = []
+    buckets: list[Bucket] = []
     for outcome, mask_fn in outcome_fns.items():
         mask = mask_fn(df)
-        counts = df[mask].groupby(['px', 'pz']).size().rename('count')
+        counts = df[mask].groupby(['game_year', 'px', 'pz']).size().rename('count')
         merged = counts.to_frame().join(total_by_loc, how='left')
-        for (px, pz), row in merged.iterrows():
+        for (season, px, pz), row in merged.iterrows():
             buckets.append({
+                'season':  int(season),
                 'outcome': outcome,
                 'plate_x': px,
                 'plate_z': pz,
@@ -113,72 +114,29 @@ def aggregate_buckets(df: pd.DataFrame, outcome_fns: dict) -> list[dict]:
     return buckets
 
 
-def write_buckets(player: Player, role: str, buckets: list[dict],
-                  dry_run: bool, incremental: bool = False) -> int:
+def write_buckets(player: Player, role: str, buckets: list[Bucket], dry_run: bool) -> int:
     if dry_run or not buckets:
         return len(buckets)
 
-    if not incremental:
-        StatcastZoneBucket.objects.filter(player=player, role=role).delete()
-        objs = [
-            StatcastZoneBucket(
-                player=player,
-                role=role,
-                outcome=b['outcome'],
-                plate_x=b['plate_x'],
-                plate_z=b['plate_z'],
-                count=b['count'],
-                total=b['total'],
-            )
-            for b in buckets
-        ]
-        StatcastZoneBucket.objects.bulk_create(objs)
-        return len(objs)
-
-    # Incremental: add new counts to existing rows, insert new locations
-    existing = {
-        (r.outcome, r.plate_x, r.plate_z): r
-        for r in StatcastZoneBucket.objects.filter(player=player, role=role)
-    }
-    new_objs:    list[StatcastZoneBucket] = []
-    update_objs: list[StatcastZoneBucket] = []
-    for b in buckets:
-        key = (b['outcome'], b['plate_x'], b['plate_z'])
-        if key in existing:
-            row = existing[key]
-            row.count += b['count']
-            row.total += b['total']
-            update_objs.append(row)
-        else:
-            new_objs.append(StatcastZoneBucket(
-                player=player, role=role,
-                outcome=b['outcome'],
-                plate_x=b['plate_x'],
-                plate_z=b['plate_z'],
-                count=b['count'],
-                total=b['total'],
-            ))
-    if new_objs:
-        StatcastZoneBucket.objects.bulk_create(new_objs)
-    if update_objs:
-        StatcastZoneBucket.objects.bulk_update(update_objs, ['count', 'total'])
-    return len(new_objs) + len(update_objs)
+    seasons = {b['season'] for b in buckets}
+    StatcastZoneBucket.objects.filter(player=player, role=role, season__in=seasons).delete()
+    StatcastZoneBucket.objects.bulk_create(
+        StatcastZoneBucket(player=player, role=role, **b) for b in buckets
+    )
+    return len(buckets)
 
 
-def _source_key(player: Player, role: str, incremental: bool,
-                start_date: str, end_date: str) -> str:
-    # Incremental runs get a date-range-specific key so the full-ingest log
-    # doesn't prevent them from running, and re-running the same range is idempotent.
-    if incremental:
-        return f'statcast_zone_{role.lower()}_{player.bbref_id}_{start_date}_{end_date}'
-    return f'statcast_zone_{role.lower()}_{player.bbref_id}'
+def _source_key(player: Player, role: str, season: int | None) -> str:
+    key = f'statcast_zone_{role.lower()}_{player.bbref_id}'
+    if season is None:
+        return key
+    _, end = season_window(season)
+    return f'{key}_{season}_{end}'
 
 
 def ingest_player_role(player: Player, role: str, force: bool,
-                       dry_run: bool, verbose: bool,
-                       start_date: str, end_date: str,
-                       incremental: bool = False) -> int:
-    source_key = _source_key(player, role, incremental, start_date, end_date)
+                       dry_run: bool, verbose: bool) -> int:
+    source_key = _source_key(player, role, None)
 
     if not force and not dry_run and already_ingested(source_key):
         if verbose:
@@ -191,16 +149,17 @@ def ingest_player_role(player: Player, role: str, force: bool,
             print(f'    [{player.bbref_id}] no mlbam_id — skipping')
         return 0
 
+    start, end = season_window(None)
     try:
         if role == 'B':
-            df = statcast_batter(start_date, end_date, mlbam)
+            df = statcast_batter(str(start), str(end), mlbam)
             outcome_fns = BATTER_OUTCOMES
         else:
-            df = statcast_pitcher(start_date, end_date, mlbam)
+            df = statcast_pitcher(str(start), str(end), mlbam)
             outcome_fns = PITCHER_OUTCOMES
 
         buckets = aggregate_buckets(df, outcome_fns)
-        n = write_buckets(player, role, buckets, dry_run, incremental=incremental)
+        n = write_buckets(player, role, buckets, dry_run)
 
         if not dry_run:
             log_success(source_key, n)
@@ -215,22 +174,8 @@ def ingest_player_role(player: Player, role: str, force: bool,
         return 0
 
 
-# ---------------------------------------------------------------------------
-# Bulk ingest path (short windows only)
-# ---------------------------------------------------------------------------
-
-def ingest_bulk(targets: list[tuple[Player, set[str]]],
-                start_date: str, end_date: str,
-                force: bool, dry_run: bool, verbose: bool,
-                incremental: bool) -> int:
-    """
-    One Savant pull for the whole window, then per-player aggregation in
-    pandas. Much faster than N per-player Savant calls when the window is
-    small (the weekly refresh job's 8 days = ~150k pitches in one parallel
-    request vs ~1000 sequential requests).
-    """
-    # Filter out (player, role) pairs that already have a log entry for this
-    # range so we don't re-process them — match the per-player path's skip.
+def ingest_bulk(targets: list[tuple[Player, set[str]]], season: int,
+                force: bool, dry_run: bool, verbose: bool) -> int:
     pending: list[tuple[Player, set[str]]] = []
     for player, player_roles in targets:
         if player.mlbam_id is None:
@@ -239,7 +184,7 @@ def ingest_bulk(targets: list[tuple[Player, set[str]]],
             continue
         active_roles: set[str] = set()
         for role in player_roles:
-            key = _source_key(player, role, incremental, start_date, end_date)
+            key = _source_key(player, role, season)
             if force or dry_run or not already_ingested(key):
                 active_roles.add(role)
             elif verbose:
@@ -248,11 +193,12 @@ def ingest_bulk(targets: list[tuple[Player, set[str]]],
             pending.append((player, active_roles))
 
     if not pending:
-        print('All targets already ingested for this range.')
+        print('All targets already ingested for this season.')
         return 0
 
-    print(f'Bulk-pulling Statcast pitches {start_date} → {end_date}...')
-    df = statcast(start_date, end_date, verbose=verbose, parallel=True)
+    start, end = season_window(season)
+    print(f'Bulk-pulling Statcast pitches {start} → {end}...')
+    df = statcast(str(start), str(end), verbose=verbose, parallel=True)
     if df is None or df.empty:
         print('  no pitches returned for window')
         return 0
@@ -270,7 +216,7 @@ def ingest_bulk(targets: list[tuple[Player, set[str]]],
     for i, (player, player_roles) in enumerate(pending, 1):
         print(f'  [{i}/{len(pending)}] {player.bbref_id} — {player.first_name} {player.last_name}')
         for role in sorted(player_roles):
-            source_key = _source_key(player, role, incremental, start_date, end_date)
+            source_key = _source_key(player, role, season)
             if role == 'B':
                 pdf = by_batter.get(player.mlbam_id)
                 outcome_fns = BATTER_OUTCOMES
@@ -280,7 +226,7 @@ def ingest_bulk(targets: list[tuple[Player, set[str]]],
 
             try:
                 buckets = aggregate_buckets(pdf, outcome_fns)
-                n = write_buckets(player, role, buckets, dry_run, incremental=incremental)
+                n = write_buckets(player, role, buckets, dry_run)
                 if not dry_run:
                     log_success(source_key, n)
                 total += n
@@ -382,10 +328,9 @@ def main() -> None:
                         help='Which role to ingest (default: both)')
     parser.add_argument('--bbref-ids', nargs='+', metavar='ID',
                         help='Ingest specific players by bbref_id')
-    parser.add_argument('--start-date', default=DEFAULT_START_DATE,
-                        help=f'Start date YYYY-MM-DD (default: {DEFAULT_START_DATE})')
-    parser.add_argument('--end-date', default=DEFAULT_END_DATE,
-                        help='End date YYYY-MM-DD (default: today)')
+    parser.add_argument('--season', type=int, default=None,
+                        help='Rebuild one season from a bulk Savant pull '
+                             f'(default: every season since {FIRST_SEASON}, per player)')
     parser.add_argument('--current-year', type=int, default=date.today().year,
                         help='Year used for active-player bypass of the WAR filter '
                              '(default: current calendar year). Pass 0 to disable.')
@@ -394,11 +339,6 @@ def main() -> None:
     parser.add_argument('--active-min-bfp', type=int, default=50,
                         help='Min current-year BFP for pitcher active-bypass (default: 50)')
     args = parser.parse_args()
-
-    start_date  = args.start_date
-    end_date    = args.end_date
-    # When fetching a sub-range, merge into existing buckets rather than replace
-    incremental = (start_date != DEFAULT_START_DATE)
 
     roles: set[str] = {'B', 'P'} if args.roles == 'both' else {args.roles}
 
@@ -432,28 +372,19 @@ def main() -> None:
         targets = targets[:args.limit]
 
     print(f'Players to ingest: {len(targets)}')
-    print(f'Date range: {start_date} → {end_date}', end='')
-    if incremental:
-        print('  (incremental — merging into existing buckets)', end='')
-    print()
     if args.dry_run:
         print('  (dry-run — no DB writes)')
 
-    window_days = (date.fromisoformat(end_date) - date.fromisoformat(start_date)).days
-    use_bulk = window_days <= BULK_THRESHOLD_DAYS
-
-    if use_bulk:
-        print(f'Using bulk Savant pull (window = {window_days} days <= {BULK_THRESHOLD_DAYS})')
-        total_buckets = ingest_bulk(targets, start_date, end_date,
-                                    args.force, args.dry_run, args.verbose, incremental)
+    if args.season is not None:
+        print(f'Rebuilding season {args.season} from a bulk Savant pull')
+        total_buckets = ingest_bulk(targets, args.season, args.force, args.dry_run, args.verbose)
     else:
-        print(f'Using per-player Savant calls (window = {window_days} days > {BULK_THRESHOLD_DAYS})')
+        print(f'Rebuilding every season since {FIRST_SEASON} with per-player Savant calls')
         total_buckets = 0
         for i, (player, player_roles) in enumerate(targets, 1):
             print(f'  [{i}/{len(targets)}] {player.bbref_id} — {player.first_name} {player.last_name}')
             for role in sorted(player_roles):
-                n = ingest_player_role(player, role, args.force, args.dry_run, args.verbose,
-                                       start_date, end_date, incremental)
+                n = ingest_player_role(player, role, args.force, args.dry_run, args.verbose)
                 total_buckets += n
                 if not args.dry_run:
                     time.sleep(2)

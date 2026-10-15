@@ -408,6 +408,16 @@ class TestPitchZoneAction(APITestCase):
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.data['buckets'], [])
 
+    def test_sums_seasons_at_one_location(self):
+        for season, count, total in [(2023, 3, 10), (2024, 4, 6)]:
+            StatcastZoneBucket.objects.create(
+                player=self.player, role='P', season=season, outcome='whiffs',
+                plate_x=0.1, plate_z=2.4, count=count, total=total,
+            )
+        r = self.client.get(reverse('player-pitch-zone', kwargs={'pk': 'troutmi01'}),
+                            {'role': 'P', 'outcome': 'whiffs'})
+        self.assertEqual(r.data['buckets'], [{'plate_x': 0.1, 'plate_z': 2.4, 'count': 7, 'total': 16}])
+
     def test_invalid_outcome_returns_400(self):
         r = self.client.get(reverse('player-pitch-zone', kwargs={'pk': 'troutmi01'}),
                             {'role': 'B', 'outcome': 'bogus'})
