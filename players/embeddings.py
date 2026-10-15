@@ -13,6 +13,7 @@ Each process holds one copy of the model (~225 MB resident), loaded on first use
 """
 from __future__ import annotations
 
+import os
 import threading
 from typing import Any
 
@@ -27,6 +28,10 @@ def _get_model() -> Any:
     if _model is None:
         with _lock:
             if _model is None:
+                # Official ONNX Runtime builds send usage telemetry to Microsoft;
+                # it must be off before the runtime initializes (the Docker image
+                # also sets this).
+                os.environ.setdefault("ORT_DISABLE_TELEMETRY", "1")
                 from fastembed import TextEmbedding  # lazy: heavy import, only needed to embed
 
                 _model = TextEmbedding(settings.EMBED_MODEL)
