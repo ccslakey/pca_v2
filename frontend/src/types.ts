@@ -220,7 +220,6 @@ export interface NarrativeTrace {
 export interface NarrativeResponse {
   text: string;
   source: 'llm' | 'template';
-  verified: boolean;
   model: string | null;
   flagged?: string[];
   trace?: NarrativeTrace;

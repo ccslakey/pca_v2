@@ -575,7 +575,6 @@ def _result(
     return {
         "text": text,
         "source": source,          # "llm" | "template"
-        "verified": True,          # we never serve an unverified number
         "model": model,
         "flagged": flagged or [],  # numbers the LLM tried to use that we rejected
         "trace": trace or {},      # observability: tools called, calls, repairs, tokens
