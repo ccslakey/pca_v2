@@ -82,7 +82,7 @@ def _aggregate_batting() -> dict[tuple[int, str | None], dict[str, dict]]:
         "games", "plate_appearances", "at_bats", "runs", "hits",
         "doubles", "triples", "home_runs", "rbi", "stolen_bases",
         "walks", "total_bases", "on_base_pct", "slugging_pct", "ops",
-    ):
+    ).order_by("stint"):
         k = (s["player_id"], s["year"])
         a = raw_by_pyear[k]
         pa = s["plate_appearances"] or 0
@@ -107,7 +107,6 @@ def _aggregate_batting() -> dict[tuple[int, str | None], dict[str, dict]]:
         if s["slugging_pct"] is not None and ab:
             a["slg_x_ab"] += s["slugging_pct"] * ab
             a["rate_ab"]  += ab
-        # Take the player's primary league (first stint encountered)
         if a["league"] is None:
             a["league"] = s["league"]
 
@@ -141,7 +140,7 @@ def _aggregate_pitching() -> dict[tuple[int, str | None], dict[str, dict]]:
         "player_id", "year", "league",
         "wins", "games", "games_started", "complete_games", "sho", "saves",
         "ip_outs", "hits_allowed", "earned_runs", "walks", "strikeouts",
-    ):
+    ).order_by("stint"):
         k = (s["player_id"], s["year"])
         a = raw[k]
         a["w"]   += s["wins"] or 0
