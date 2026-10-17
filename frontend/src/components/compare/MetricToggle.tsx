@@ -78,7 +78,7 @@ export function MetricToggle({
             ] as const
           ).map(({ kind, label }) => (
             <span key={kind} className="key">
-              <AnnotationGlyph kind={kind} color="#f5f7fb" size={12} />
+              <AnnotationGlyph kind={kind} color="currentColor" size={12} />
               {label}
             </span>
           ))}

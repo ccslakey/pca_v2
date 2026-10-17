@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mergeSeasons } from '../utils/seasons';
+import { mergeSeasons, playerRoles } from '../utils/seasons';
 import type { BattingSeason, PitchingSeason } from '../types';
 
 function bat(year: number, overrides: Partial<BattingSeason> = {}): BattingSeason {
@@ -127,5 +127,39 @@ describe('mergeSeasons', () => {
   it('sets age to null when birthDate is null', () => {
     const result = mergeSeasons([bat(2010)], [], null);
     expect(result[0].age).toBeNull();
+  });
+});
+
+describe('mergeSeasons totals', () => {
+  it('sums batting and pitching totals across stints', () => {
+    const result = mergeSeasons(
+      [bat(2010, { plate_appearances: 400, at_bats: 350, hits: 100 }), bat(2010, { stint: 2, plate_appearances: 200, at_bats: 180, hits: 40 })],
+      [pit(2010, { ip_outs: 300, earned_runs: 30 }), pit(2010, { stint: 2, ip_outs: 90, earned_runs: 15 })],
+      null,
+    );
+    expect(result[0]).toMatchObject({ pa: 600, ab: 530, h: 140, ip_outs: 390, er: 45 });
+  });
+
+  it('gives batting-only seasons zero pitching totals', () => {
+    expect(mergeSeasons([bat(2010)], [], null)[0]).toMatchObject({ ip_outs: 0, er: 0 });
+  });
+});
+
+describe('playerRoles', () => {
+  it('does not treat a pitcher who batted as a batter', () => {
+    expect(playerRoles('P', [bat(2010)], [pit(2010)])).toEqual({ isBatter: false, isPitcher: true });
+  });
+
+  it('ignores a position player\'s mop-up innings', () => {
+    expect(playerRoles('CF', [bat(2010)], [pit(2010, { ip_outs: 6 })])).toEqual({ isBatter: true, isPitcher: false });
+  });
+
+  it('keeps two-way players as both', () => {
+    expect(playerRoles('DH', [bat(2021)], [pit(2021, { ip_outs: 390 })])).toEqual({ isBatter: true, isPitcher: true });
+  });
+
+  it('uses the WAR split when the primary position is unknown', () => {
+    expect(playerRoles(null, [bat(1890, { war: 0.5 })], [pit(1890, { war: 6 })])).toEqual({ isBatter: false, isPitcher: true });
+    expect(playerRoles(null, [bat(1890, { war: 6 })], [])).toEqual({ isBatter: true, isPitcher: false });
   });
 });

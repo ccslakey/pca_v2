@@ -2,10 +2,14 @@
 
 .stat-grid {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  // One full-width row on desktop whatever the block count (pitchers 3,
+  // batters 4, two-way players 5) - a fixed 6-column grid left gaps.
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
   gap: 10px;
 
   @include bp.down(bp.$bp-lg) {
+    grid-auto-flow: row;
     grid-template-columns: repeat(3, 1fr);
   }
   @include bp.down(bp.$bp-sm) {

@@ -91,6 +91,9 @@
   transition: opacity 150ms;
 
   &.is-hidden { opacity: 0.3; pointer-events: none; }
+
+  // Glyphs fill with currentColor; keep them readable in light and dark themes.
+  .key svg { color: var(--text-1); }
 }
 
 @include bp.down(bp.$bp-md) {

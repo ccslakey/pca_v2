@@ -22,6 +22,12 @@
   .head-shot { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-family: var(--font-mono); font-weight: 700; font-size: 11px; color: #0a0c12; flex: none; }
 }
 
+// Slot colors (var(--chart-N)) range from near-black to pastel across themes,
+// so pick black or white initials from the background's lightness.
+@supports (color: oklch(from red l c h)) {
+  .player-card .head-shot { color: oklch(from var(--shot-bg) clamp(0, (0.57 - l) * 1000, 1) 0 0); }
+}
+
 .player-card-name { font-size: 13.5px; font-weight: 600; letter-spacing: -0.01em; }
 .player-card-meta { font-size: 11px; color: var(--text-3); font-family: var(--font-mono); }
 .player-card-stats { display: flex; gap: 14px; margin-top: 2px; }

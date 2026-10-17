@@ -4,7 +4,7 @@ import { fetchAgingCurve, fetchFeatured, fetchLeaderboard, fetchMethodologySearc
 import type { ZoneOutcome, ZoneRole, LeaderboardFilters } from './types';
 import type { ChartPlayer } from './types';
 import { initials, posLabel } from './utils/format';
-import { mergeSeasons } from './utils/seasons';
+import { mergeSeasons, playerRoles } from './utils/seasons';
 
 export function useFeatured() {
   return useQuery({
@@ -129,14 +129,13 @@ export function useChartPlayer(bbrefId: string | null, colorIndex: number): {
   }
 
   const { detail: p, batting: bat, pitching: pit, awards } = bundle;
-  const hasBat = bat.length > 0;
-  const hasPit = pit.length > 0;
+  const { isBatter, isPitcher } = playerRoles(p.primary_position, bat, pit);
 
   const debutYear = p.debut      ? new Date(p.debut).getUTCFullYear()      : null;
   const finalYear = p.final_game ? new Date(p.final_game).getUTCFullYear() : null;
   const years = debutYear && finalYear ? `${debutYear}–${finalYear}` : 'Active';
 
-  const pos = posLabel(p.primary_position, p.throws, hasPit);
+  const pos = posLabel(p.primary_position, p.throws, isPitcher);
   const wp  = p.war_percentile;
 
   const chartPlayer: ChartPlayer = {
@@ -147,8 +146,8 @@ export function useChartPlayer(bbrefId: string | null, colorIndex: number): {
     pos,
     years,
     seasons: mergeSeasons(bat, pit, p.birth_date),
-    isBatter: hasBat,
-    isPitcher: hasPit,
+    isBatter,
+    isPitcher,
     awards,
     birthYear: p.birth_date ? new Date(p.birth_date).getUTCFullYear() : null,
     warPercentile: wp ? { topPct: wp.top_pct, position: wp.position, rank: wp.rank, n: wp.n } : null,

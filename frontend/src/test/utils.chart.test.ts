@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { fmtMetric, peakSeason, careerWar, yDomain, xTicks } from '../utils/chart';
+import { fmtMetric, peakSeason, careerWar, sumMetric, yDomain, xTicks } from '../utils/chart';
 import type { ChartSeason } from '../types';
 
 function season(year: number, vals: Partial<ChartSeason> = {}): ChartSeason {
@@ -135,5 +135,50 @@ describe('xTicks', () => {
   it('uses step of 4 for long ranges', () => {
     const ticks = xTicks(1980, 2024);
     expect(ticks.every((_v, i) => i === 0 || ticks[i] - ticks[i - 1] === 4)).toBe(true);
+  });
+});
+
+describe('sumMetric', () => {
+  it('sums counting stats', () => {
+    expect(sumMetric([season(2010, { hr: 30 }), season(2011, { hr: 12 })], 'hr')).toBe(42);
+  });
+
+  it('computes career ERA from earned runs and outs, not a mean of season ERAs', () => {
+    // 200 IP at 3.15 plus a 6-inning 37.50 season: career ERA is ~4.18, not 20.33.
+    const seasons = [
+      season(2019, { era: 3.15, ip_outs: 600, er: 70 }),
+      season(2020, { era: 37.5, ip_outs: 18, er: 25 }),
+    ];
+    expect(sumMetric(seasons, 'era')).toBeCloseTo((27 * 95) / 618, 6);
+  });
+
+  it('computes career AVG as hits over at-bats', () => {
+    const seasons = [
+      season(2010, { avg: 0.3, h: 150, ab: 500 }),
+      season(2011, { avg: 0.1, h: 2, ab: 20 }),
+    ];
+    expect(sumMetric(seasons, 'avg')).toBeCloseTo(152 / 520, 6);
+  });
+
+  it('weights ERA+ by earned runs and OPS+ by plate appearances', () => {
+    const pitching = [
+      season(2010, { era_plus: 150, er: 60 }),
+      season(2011, { era_plus: 50, er: 20 }),
+    ];
+    expect(sumMetric(pitching, 'era_plus')).toBe((150 * 60 + 50 * 20) / 80);
+    const batting = [
+      season(2010, { ops_plus: 160, pa: 600 }),
+      season(2011, { ops_plus: null, pa: 90 }), // unrated (<130 PA) seasons don't count
+      season(2012, { ops_plus: 100, pa: 200 }),
+    ];
+    expect(sumMetric(batting, 'ops_plus')).toBe((160 * 600 + 100 * 200) / 800);
+  });
+
+  it('returns null ERA for a player who never pitched', () => {
+    expect(sumMetric([season(2010, { ip_outs: 0, er: 0 })], 'era')).toBeNull();
+  });
+
+  it('falls back to a plain mean when seasons carry no totals', () => {
+    expect(sumMetric([season(2010, { era: 2 }), season(2011, { era: 4 })], 'era')).toBe(3);
   });
 });

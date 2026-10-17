@@ -1,5 +1,33 @@
 import type { BattingSeason, ChartSeason, PitchingSeason } from '../types';
 
+// A position player's mop-up innings don't make him a pitcher; 100 IP of real
+// pitching does (Ruth, Ohtani).
+const TWO_WAY_MIN_IP_OUTS = 300;
+
+/**
+ * Which stat lines a player's views should show. Having batting rows isn't
+ * enough: pre-DH and NL pitchers bat, so a primary pitcher is not a batter.
+ * Without a primary position, fall back to the leaderboard's rule (more
+ * pitching WAR than batting WAR means pitcher).
+ */
+export function playerRoles(
+  primaryPosition: string | null,
+  batting: BattingSeason[],
+  pitching: PitchingSeason[],
+): { isBatter: boolean; isPitcher: boolean } {
+  const hasBat = batting.length > 0;
+  const hasPit = pitching.length > 0;
+  const war = (rows: { war: number | null }[]) => rows.reduce((n, s) => n + (s.war ?? 0), 0);
+  const primaryP = primaryPosition
+    ? primaryPosition === 'P'
+    : hasPit && (!hasBat || war(pitching) > war(batting));
+  const outs = pitching.reduce((n, s) => n + (s.ip_outs ?? 0), 0);
+  return {
+    isBatter: hasBat && !primaryP,
+    isPitcher: hasPit && (primaryP || outs >= TWO_WAY_MIN_IP_OUTS),
+  };
+}
+
 function round1(n: number) {
   return Math.round(n * 10) / 10;
 }
@@ -24,6 +52,9 @@ export function mergeSeasons(batting: BattingSeason[], pitching: PitchingSeason[
     if (existing) {
       existing.war = round1((existing.war ?? 0) + (s.war ?? 0));
       existing.hr  = (existing.hr ?? 0) + (s.home_runs ?? 0);
+      existing.pa  = (existing.pa ?? 0) + pa;
+      existing.ab  = (existing.ab ?? 0) + (s.at_bats ?? 0);
+      existing.h   = (existing.h ?? 0) + (s.hits ?? 0);
       if (pa > existing._battingPA) {
         existing.avg      = s.batting_avg;
         existing.ops      = s.ops;
@@ -43,6 +74,11 @@ export function mergeSeasons(batting: BattingSeason[], pitching: PitchingSeason[
         era: null,
         era_plus: null,
         so: s.strikeouts,
+        pa,
+        ab: s.at_bats ?? 0,
+        h: s.hits ?? 0,
+        ip_outs: 0,
+        er: 0,
         _battingPA: pa,
         _pitchingIP: 0,
         _pitchingSO: 0,
@@ -55,6 +91,8 @@ export function mergeSeasons(batting: BattingSeason[], pitching: PitchingSeason[
     const ip = s.ip_outs ?? 0;
     if (existing) {
       existing.war = round1((existing.war ?? 0) + (s.war ?? 0));
+      existing.ip_outs = (existing.ip_outs ?? 0) + ip;
+      existing.er      = (existing.er ?? 0) + (s.earned_runs ?? 0);
       if (ip > existing._pitchingIP) {
         existing.era      = s.era;
         existing.era_plus = ip >= 30 ? s.era_plus : null;
@@ -73,6 +111,11 @@ export function mergeSeasons(batting: BattingSeason[], pitching: PitchingSeason[
         era: s.era,
         era_plus: ip >= 30 ? s.era_plus : null,
         so: s.strikeouts,
+        pa: 0,
+        ab: 0,
+        h: 0,
+        ip_outs: ip,
+        er: s.earned_runs ?? 0,
         _battingPA: 0,
         _pitchingIP: ip,
         _pitchingSO: s.strikeouts ?? 0,

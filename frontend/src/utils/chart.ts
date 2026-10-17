@@ -84,10 +84,55 @@ export function careerWar(seasons: { war: number | null }[]): number {
   return Math.round(seasons.reduce((sum, s) => sum + (s.war ?? 0), 0) * 10) / 10;
 }
 
+type TotalKey = 'pa' | 'ab' | 'h' | 'ip_outs' | 'er';
+
+/** Sum of a season total, or null when any season lacks it (no totals to use). */
+function seasonTotal(seasons: ChartSeason[], key: TotalKey): number | null {
+  if (!seasons.every(s => s[key] != null)) return null;
+  return seasons.reduce((n, s) => n + (s[key] ?? 0), 0);
+}
+
+function weightedMean(seasons: ChartSeason[], metric: MetricId, weight: TotalKey): number | null {
+  let num = 0;
+  let den = 0;
+  for (const s of seasons) {
+    const v = s[metric as keyof ChartSeason] as number | null;
+    const w = s[weight] ?? 0;
+    if (v == null || w <= 0) continue;
+    num += v * w;
+    den += w;
+  }
+  return den > 0 ? num / den : null;
+}
+
+/**
+ * Career value of a metric. Counting stats are summed. Rate stats come from
+ * season totals, matching the backend (players/narrative.py), so a 6-inning
+ * season can't swing a career ERA:
+ *   AVG  = ΣH / ΣAB
+ *   ERA  = 27·ΣER / Σouts
+ *   ERA+ = earned-run-weighted mean of season ERA+ (exact, since ERA+ = 100·lgERA/ERA)
+ *   OPS, OPS+ = PA-weighted mean of season values (close, not exact)
+ * Seasons without totals fall back to a plain mean of the season values.
+ */
 export function sumMetric(seasons: ChartSeason[], metric: MetricId): number | null {
   if (['war', 'hr', 'so'].includes(metric)) {
     return seasons.reduce((s, x) => s + ((x[metric as keyof ChartSeason] as number) ?? 0), 0);
   }
+  if (metric === 'avg') {
+    const ab = seasonTotal(seasons, 'ab');
+    const h = seasonTotal(seasons, 'h');
+    if (ab != null && h != null) return ab > 0 ? h / ab : null;
+  }
+  if (metric === 'era') {
+    const outs = seasonTotal(seasons, 'ip_outs');
+    const er = seasonTotal(seasons, 'er');
+    if (outs != null && er != null) return outs > 0 ? (27 * er) / outs : null;
+  }
+  const weight: TotalKey | null =
+    metric === 'era_plus' ? 'er' : metric === 'ops' || metric === 'ops_plus' ? 'pa' : null;
+  if (weight && seasonTotal(seasons, weight) != null) return weightedMean(seasons, metric, weight);
+
   const vals = seasons.map(s => s[metric as keyof ChartSeason]).filter((v): v is number => v != null);
   if (!vals.length) return null;
   return vals.reduce((a, b) => a + b, 0) / vals.length;

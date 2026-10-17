@@ -51,7 +51,10 @@ export function PlayerCard({
     >
       <div className="accent-bar" style={{ background: player.color }} />
       <div className="player-card-head">
-        <div className="head-shot" style={{ background: player.color }}>
+        <div
+          className="head-shot"
+          style={{ background: player.color, "--shot-bg": player.color } as React.CSSProperties}
+        >
           {player.initials}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
