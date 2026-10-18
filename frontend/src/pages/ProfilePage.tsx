@@ -57,8 +57,8 @@ export function ProfilePage() {
   const jerseyNum = (player.id.charCodeAt(0) % 60) + 1;
 
   const availableMetrics = METRICS.filter((m) => {
-    if (m.id === "era") return player.isPitcher;
-    if (["hr", "avg", "ops"].includes(m.id)) return player.isBatter;
+    if (m.id === "era" || m.id === "era_plus") return player.isPitcher;
+    if (["hr", "avg", "ops", "ops_plus"].includes(m.id)) return player.isBatter;
     return true;
   });
 

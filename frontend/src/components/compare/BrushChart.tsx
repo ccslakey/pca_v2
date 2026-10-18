@@ -122,9 +122,7 @@ export function BrushChart({ players, metric, xMode, xRange, fullRange, setXRang
             y={d => yScale(d.val)}
             yScale={yScale}
             curve={curveCatmullRom}
-            fill="rgba(255,255,255,0.06)"
-            stroke="rgba(255,255,255,0.12)"
-            strokeWidth={1}
+            className="brush-area"
           />
 
           <Brush

@@ -332,6 +332,14 @@ export interface ChartSeason {
   era: number | null;
   era_plus: number | null;
   so: number | null;
+  // Season totals across stints. Career rates are computed from these
+  // (see sumMetric) rather than by averaging the rate columns above.
+  // Optional so hand-built seasons without totals still work.
+  pa?: number;
+  ab?: number;
+  h?: number;
+  ip_outs?: number;
+  er?: number;
 }
 
 export interface ChartPlayer {

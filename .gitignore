@@ -36,3 +36,10 @@ frontend/node_modules/
 frontend/dist/
 
 scratch/
+
+frontend/.ds-sync/
+frontend/ds-dist/
+frontend/ds-bundle/
+frontend/.design-sync/.cache/
+frontend/.design-sync/learnings/
+frontend/.design-sync/node_modules
