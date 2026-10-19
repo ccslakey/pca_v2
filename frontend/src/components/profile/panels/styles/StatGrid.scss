@@ -8,12 +8,14 @@
   grid-auto-columns: 1fr;
   gap: 10px;
 
+  // Narrower: the headline gets its own row and the other blocks grow to
+  // fill the rows below - a fixed column count left gaps.
   @include bp.down(bp.$bp-lg) {
-    grid-auto-flow: row;
-    grid-template-columns: repeat(3, 1fr);
-  }
-  @include bp.down(bp.$bp-sm) {
-    grid-template-columns: repeat(2, 1fr);
+    display: flex;
+    flex-wrap: wrap;
+
+    > .stat-block { flex: 1 1 140px; }
+    > .is-headline { flex-basis: 100%; }
   }
 }
 

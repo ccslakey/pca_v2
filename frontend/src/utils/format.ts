@@ -18,9 +18,14 @@ export function fmtPercentile(topPct: number): string {
     : `top ${Math.round(topPct)}%`;
 }
 
+const NAME_SUFFIXES = new Set(["JR", "SR", "II", "III", "IV"]);
+
 export function initials(name: string): string {
-  const parts = name.trim().split(" ");
+  const parts = name
+    .trim()
+    .split(/\s+/)
+    .filter((w) => !NAME_SUFFIXES.has(w.replace(/\.$/, "").toUpperCase()));
   return parts.length >= 2
     ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-    : name.slice(0, 2).toUpperCase();
+    : (parts[0] ?? "").slice(0, 2).toUpperCase();
 }

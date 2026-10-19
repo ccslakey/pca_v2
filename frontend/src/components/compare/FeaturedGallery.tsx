@@ -1,15 +1,12 @@
 import './FeaturedGallery.scss';
 import { useFeatured } from '../../hooks';
 import { playerColor } from '../../utils/color';
+import { initials } from '../../utils/format';
 import { Skeleton } from '../Skeleton';
 import type { FeaturedTrio } from '../../types';
 
 interface Props {
   onSelect: (playerIds: string[]) => void;
-}
-
-function initials(first: string, last: string): string {
-  return `${first[0] ?? ''}${last[0] ?? ''}`.toUpperCase();
 }
 
 function TrioCard({ trio, onSelect }: { trio: FeaturedTrio; onSelect: () => void }) {
@@ -24,7 +21,7 @@ function TrioCard({ trio, onSelect }: { trio: FeaturedTrio; onSelect: () => void
             style={{ background: playerColor(p.bbref_id) }}
             title={`${p.first_name} ${p.last_name}`}
           >
-            {initials(p.first_name, p.last_name)}
+            {initials(`${p.first_name} ${p.last_name}`)}
           </span>
         ))}
       </div>
