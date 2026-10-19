@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import unicodedata
 from collections.abc import Callable, Generator
 from typing import Any
 
@@ -56,7 +57,7 @@ ColMap = dict[str, tuple[str, Callable[[Any], Any]]]
 
 def build_chadwick_index() -> dict[str, dict[str, int | str | None]]:
     """
-    Returns a dict: bbref_id → {mlbam_id, fangraphs_id, retro_id}
+    Returns a dict: bbref_id → {mlbam_id, fangraphs_id, retro_id, name_last}
     sourced from the Chadwick register (GitHub).
     """
     print("Loading Chadwick register for player ID cross-reference...")
@@ -69,10 +70,12 @@ def build_chadwick_index() -> dict[str, dict[str, int | str | None]]:
         mlbam = row.get("key_mlbam")
         fg = row.get("key_fangraphs")
         retro = row.get("key_retro")
+        last = row.get("name_last")
         index[str(bbref)] = {
             "mlbam_id": int(mlbam) if pd.notna(mlbam) and int(mlbam) > 0 else None,
             "fangraphs_id": int(fg) if pd.notna(fg) and int(fg) > 0 else None,
             "retro_id": str(retro) if pd.notna(retro) else None,
+            "name_last": str(last) if pd.notna(last) else None,
         }
     print(f"  {len(index):,} players indexed from Chadwick register.")
     return index
@@ -169,19 +172,54 @@ def to_float(val: Any) -> float | None:
         return None
 
 
-def parse_name(display_name: str) -> tuple[str, str]:
+NAME_SUFFIXES = {"jr", "sr", "ii", "iii", "iv"}
+SURNAME_PARTICLES = {
+    "da", "dal", "das", "de", "del", "della", "den", "der", "des", "di", "dos", "du",
+    "la", "le", "los", "st.", "ten", "ter", "van", "vande", "vander", "von",
+}
+
+
+def _fold(s: str) -> str:
+    """'de Jesús' and 'De Jesus' both fold to 'dejesus'."""
+    s = unicodedata.normalize("NFKD", s)
+    return "".join(c for c in s if c.isalnum() and not unicodedata.combining(c)).lower()
+
+
+def _surname_start(parts: list[str], known_last: str | None) -> int | None:
+    """Index of the first surname word, or None for a single unanchored word."""
+    if known_last:
+        target = _fold(known_last)
+        for i in range(len(parts)):
+            if _fold("".join(parts[i:])) == target:
+                return i
+    if len(parts) < 2:
+        return None
+    i = len(parts) - 1
+    while i > 1 and parts[i - 1].lower() in SURNAME_PARTICLES:
+        i -= 1
+    return i
+
+
+def parse_name(display_name: str, known_last: str | None = None) -> tuple[str, str]:
     """
     Splits "Babe Ruth" or "Ruth, Babe*" into (first, last).
     BRef occasionally marks HOFers or active players with * or #.
+    Suffixes stay on the surname ("Ken Griffey Jr." -> "Griffey Jr.").
+    known_last (Chadwick's name_last) locates multi-word surnames like
+    "Yellow Horse"; without it, particles like "de los" join the surname.
     """
     name = display_name.strip().rstrip("*#").strip()
     if "," in name:
         last, first = name.split(",", 1)
         return first.strip(), last.strip()
     parts = name.split()
-    if len(parts) >= 2:
-        return " ".join(parts[:-1]), parts[-1]
-    return name, ""
+    suffix: list[str] = []
+    while len(parts) > 2 and parts[-1].rstrip(".").lower() in NAME_SUFFIXES:
+        suffix.insert(0, parts.pop())
+    start = _surname_start(parts, known_last)
+    if start is None:
+        return name, ""
+    return " ".join(parts[:start]), " ".join(parts[start:] + suffix)
 
 
 def upsert_player(
@@ -193,8 +231,9 @@ def upsert_player(
     if not bbref_id:
         return None
 
-    first_name, last_name = parse_name(display_name)
     cross_ref = chadwick_index.get(bbref_id, {})
+    known_last = cross_ref.get("name_last")
+    first_name, last_name = parse_name(display_name, known_last if isinstance(known_last, str) else None)
 
     defaults: dict[str, Any] = {
         "first_name": first_name,
