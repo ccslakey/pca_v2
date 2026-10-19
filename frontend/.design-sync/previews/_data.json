@@ -18,7 +18,12 @@
      "ops_plus": 89,
      "era": null,
      "era_plus": null,
-     "so": 30
+     "so": 30,
+     "pa": 135,
+     "ab": 123,
+     "h": 27,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 2012,
@@ -30,7 +35,12 @@
      "ops_plus": 168,
      "era": null,
      "era_plus": null,
-     "so": 139
+     "so": 139,
+     "pa": 639,
+     "ab": 559,
+     "h": 182,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 2013,
@@ -42,7 +52,12 @@
      "ops_plus": 179,
      "era": null,
      "era_plus": null,
-     "so": 136
+     "so": 136,
+     "pa": 716,
+     "ab": 589,
+     "h": 190,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 2014,
@@ -54,7 +69,12 @@
      "ops_plus": 169,
      "era": null,
      "era_plus": null,
-     "so": 184
+     "so": 184,
+     "pa": 705,
+     "ab": 602,
+     "h": 173,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 2015,
@@ -66,7 +86,12 @@
      "ops_plus": 176,
      "era": null,
      "era_plus": null,
-     "so": 158
+     "so": 158,
+     "pa": 682,
+     "ab": 575,
+     "h": 172,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 2016,
@@ -78,7 +103,12 @@
      "ops_plus": 173,
      "era": null,
      "era_plus": null,
-     "so": 137
+     "so": 137,
+     "pa": 681,
+     "ab": 549,
+     "h": 173,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 2017,
@@ -90,7 +120,12 @@
      "ops_plus": 186,
      "era": null,
      "era_plus": null,
-     "so": 90
+     "so": 90,
+     "pa": 507,
+     "ab": 402,
+     "h": 123,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 2018,
@@ -102,7 +137,12 @@
      "ops_plus": 198,
      "era": null,
      "era_plus": null,
-     "so": 124
+     "so": 124,
+     "pa": 608,
+     "ab": 471,
+     "h": 147,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 2019,
@@ -114,7 +154,12 @@
      "ops_plus": 182,
      "era": null,
      "era_plus": null,
-     "so": 120
+     "so": 120,
+     "pa": 600,
+     "ab": 470,
+     "h": 137,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 2020,
@@ -126,7 +171,12 @@
      "ops_plus": 167,
      "era": null,
      "era_plus": null,
-     "so": 56
+     "so": 56,
+     "pa": 241,
+     "ab": 199,
+     "h": 56,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 2021,
@@ -138,7 +188,12 @@
      "ops_plus": 194,
      "era": null,
      "era_plus": null,
-     "so": 41
+     "so": 41,
+     "pa": 146,
+     "ab": 117,
+     "h": 39,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 2022,
@@ -150,7 +205,12 @@
      "ops_plus": 176,
      "era": null,
      "era_plus": null,
-     "so": 139
+     "so": 139,
+     "pa": 499,
+     "ab": 438,
+     "h": 124,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 2023,
@@ -162,7 +222,12 @@
      "ops_plus": 132,
      "era": null,
      "era_plus": null,
-     "so": 104
+     "so": 104,
+     "pa": 362,
+     "ab": 308,
+     "h": 81,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 2024,
@@ -174,7 +239,12 @@
      "ops_plus": null,
      "era": null,
      "era_plus": null,
-     "so": 27
+     "so": 27,
+     "pa": 126,
+     "ab": 109,
+     "h": 24,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 2025,
@@ -186,7 +256,12 @@
      "ops_plus": 124,
      "era": null,
      "era_plus": null,
-     "so": 178
+     "so": 178,
+     "pa": 556,
+     "ab": 456,
+     "h": 106,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 2026,
@@ -198,7 +273,12 @@
      "ops_plus": 172,
      "era": null,
      "era_plus": null,
-     "so": 42
+     "so": 42,
+     "pa": 174,
+     "ab": 135,
+     "h": 35,
+     "ip_outs": 0,
+     "er": 0
     }
    ],
    "isBatter": true,
@@ -427,7 +507,12 @@
      "ops_plus": null,
      "era": null,
      "era_plus": null,
-     "so": 42
+     "so": 42,
+     "pa": 95,
+     "ab": 84,
+     "h": 15,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 2017,
@@ -439,7 +524,12 @@
      "ops_plus": 171,
      "era": null,
      "era_plus": null,
-     "so": 208
+     "so": 208,
+     "pa": 678,
+     "ab": 542,
+     "h": 154,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 2018,
@@ -451,7 +541,12 @@
      "ops_plus": 150,
      "era": null,
      "era_plus": null,
-     "so": 152
+     "so": 152,
+     "pa": 498,
+     "ab": 413,
+     "h": 115,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 2019,
@@ -463,7 +558,12 @@
      "ops_plus": 143,
      "era": null,
      "era_plus": null,
-     "so": 141
+     "so": 141,
+     "pa": 447,
+     "ab": 378,
+     "h": 103,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 2020,
@@ -475,7 +575,12 @@
      "ops_plus": null,
      "era": null,
      "era_plus": null,
-     "so": 32
+     "so": 32,
+     "pa": 114,
+     "ab": 101,
+     "h": 26,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 2021,
@@ -487,7 +592,12 @@
      "ops_plus": 149,
      "era": null,
      "era_plus": null,
-     "so": 158
+     "so": 158,
+     "pa": 633,
+     "ab": 550,
+     "h": 158,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 2022,
@@ -499,7 +609,12 @@
      "ops_plus": 210,
      "era": null,
      "era_plus": null,
-     "so": 175
+     "so": 175,
+     "pa": 696,
+     "ab": 570,
+     "h": 177,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 2023,
@@ -511,7 +626,12 @@
      "ops_plus": 175,
      "era": null,
      "era_plus": null,
-     "so": 130
+     "so": 130,
+     "pa": 458,
+     "ab": 367,
+     "h": 98,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 2024,
@@ -523,7 +643,12 @@
      "ops_plus": 225,
      "era": null,
      "era_plus": null,
-     "so": 171
+     "so": 171,
+     "pa": 704,
+     "ab": 559,
+     "h": 180,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 2025,
@@ -535,7 +660,12 @@
      "ops_plus": 213,
      "era": null,
      "era_plus": null,
-     "so": 160
+     "so": 160,
+     "pa": 679,
+     "ab": 541,
+     "h": 179,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 2026,
@@ -547,7 +677,12 @@
      "ops_plus": 182,
      "era": null,
      "era_plus": null,
-     "so": 49
+     "so": 49,
+     "pa": 172,
+     "ab": 141,
+     "h": 38,
+     "ip_outs": 0,
+     "er": 0
     }
    ],
    "isBatter": true,
@@ -741,7 +876,12 @@
      "ops_plus": 108,
      "era": null,
      "era_plus": null,
-     "so": 83
+     "so": 83,
+     "pa": 506,
+     "ab": 455,
+     "h": 120,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 1990,
@@ -753,7 +893,12 @@
      "ops_plus": 136,
      "era": null,
      "era_plus": null,
-     "so": 81
+     "so": 81,
+     "pa": 666,
+     "ab": 597,
+     "h": 179,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 1991,
@@ -765,7 +910,12 @@
      "ops_plus": 155,
      "era": null,
      "era_plus": null,
-     "so": 82
+     "so": 82,
+     "pa": 633,
+     "ab": 548,
+     "h": 179,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 1992,
@@ -777,7 +927,12 @@
      "ops_plus": 149,
      "era": null,
      "era_plus": null,
-     "so": 67
+     "so": 67,
+     "pa": 617,
+     "ab": 565,
+     "h": 174,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 1993,
@@ -789,7 +944,12 @@
      "ops_plus": 171,
      "era": null,
      "era_plus": null,
-     "so": 91
+     "so": 91,
+     "pa": 691,
+     "ab": 582,
+     "h": 180,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 1994,
@@ -801,7 +961,12 @@
      "ops_plus": 171,
      "era": null,
      "era_plus": null,
-     "so": 73
+     "so": 73,
+     "pa": 493,
+     "ab": 433,
+     "h": 140,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 1995,
@@ -813,7 +978,12 @@
      "ops_plus": 122,
      "era": null,
      "era_plus": null,
-     "so": 53
+     "so": 53,
+     "pa": 314,
+     "ab": 260,
+     "h": 67,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 1996,
@@ -825,7 +995,12 @@
      "ops_plus": 154,
      "era": null,
      "era_plus": null,
-     "so": 104
+     "so": 104,
+     "pa": 638,
+     "ab": 545,
+     "h": 165,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 1997,
@@ -837,7 +1012,12 @@
      "ops_plus": 165,
      "era": null,
      "era_plus": null,
-     "so": 121
+     "so": 121,
+     "pa": 704,
+     "ab": 608,
+     "h": 185,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 1998,
@@ -849,7 +1029,12 @@
      "ops_plus": 150,
      "era": null,
      "era_plus": null,
-     "so": 121
+     "so": 121,
+     "pa": 720,
+     "ab": 633,
+     "h": 180,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 1999,
@@ -861,7 +1046,12 @@
      "ops_plus": 139,
      "era": null,
      "era_plus": null,
-     "so": 108
+     "so": 108,
+     "pa": 706,
+     "ab": 606,
+     "h": 173,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 2000,
@@ -873,7 +1063,12 @@
      "ops_plus": 133,
      "era": null,
      "era_plus": null,
-     "so": 117
+     "so": 117,
+     "pa": 631,
+     "ab": 520,
+     "h": 141,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 2001,
@@ -885,7 +1080,12 @@
      "ops_plus": 124,
      "era": null,
      "era_plus": null,
-     "so": 72
+     "so": 72,
+     "pa": 417,
+     "ab": 364,
+     "h": 104,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 2002,
@@ -897,7 +1097,12 @@
      "ops_plus": 103,
      "era": null,
      "era_plus": null,
-     "so": 39
+     "so": 39,
+     "pa": 232,
+     "ab": 197,
+     "h": 52,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 2003,
@@ -909,7 +1114,12 @@
      "ops_plus": 145,
      "era": null,
      "era_plus": null,
-     "so": 44
+     "so": 44,
+     "pa": 201,
+     "ab": 166,
+     "h": 41,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 2004,
@@ -921,7 +1131,12 @@
      "ops_plus": 123,
      "era": null,
      "era_plus": null,
-     "so": 67
+     "so": 67,
+     "pa": 348,
+     "ab": 300,
+     "h": 76,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 2005,
@@ -933,7 +1148,12 @@
      "ops_plus": 144,
      "era": null,
      "era_plus": null,
-     "so": 93
+     "so": 93,
+     "pa": 555,
+     "ab": 491,
+     "h": 148,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 2006,
@@ -945,7 +1165,12 @@
      "ops_plus": 99,
      "era": null,
      "era_plus": null,
-     "so": 78
+     "so": 78,
+     "pa": 472,
+     "ab": 428,
+     "h": 108,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 2007,
@@ -957,7 +1182,12 @@
      "ops_plus": 119,
      "era": null,
      "era_plus": null,
-     "so": 99
+     "so": 99,
+     "pa": 623,
+     "ab": 528,
+     "h": 146,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 2008,
@@ -969,7 +1199,12 @@
      "ops_plus": 104,
      "era": null,
      "era_plus": null,
-     "so": 89
+     "so": 89,
+     "pa": 575,
+     "ab": 490,
+     "h": 122,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 2009,
@@ -981,7 +1216,12 @@
      "ops_plus": 97,
      "era": null,
      "era_plus": null,
-     "so": 80
+     "so": 80,
+     "pa": 454,
+     "ab": 387,
+     "h": 83,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 2010,
@@ -993,7 +1233,12 @@
      "ops_plus": null,
      "era": null,
      "era_plus": null,
-     "so": 17
+     "so": 17,
+     "pa": 108,
+     "ab": 98,
+     "h": 18,
+     "ip_outs": 0,
+     "er": 0
     }
    ],
    "isBatter": true,
@@ -1250,7 +1495,12 @@
      "ops_plus": null,
      "era": 4.26,
      "era_plus": 98,
-     "so": 100
+     "so": 100,
+     "pa": 38,
+     "ab": 29,
+     "h": 2,
+     "ip_outs": 323,
+     "er": 51
     },
     {
      "season": 2009,
@@ -1262,7 +1512,12 @@
      "ops_plus": null,
      "era": 2.79,
      "era_plus": 143,
-     "so": 185
+     "so": 185,
+     "pa": 59,
+     "ab": 48,
+     "h": 5,
+     "ip_outs": 513,
+     "er": 53
     },
     {
      "season": 2010,
@@ -1274,7 +1529,12 @@
      "ops_plus": null,
      "era": 2.91,
      "era_plus": 133,
-     "so": 212
+     "so": 212,
+     "pa": 74,
+     "ab": 55,
+     "h": 3,
+     "ip_outs": 613,
+     "er": 66
     },
     {
      "season": 2011,
@@ -1286,7 +1546,12 @@
      "ops_plus": null,
      "era": 2.28,
      "era_plus": 161,
-     "so": 248
+     "so": 248,
+     "pa": 86,
+     "ab": 71,
+     "h": 16,
+     "ip_outs": 700,
+     "er": 59
     },
     {
      "season": 2012,
@@ -1298,7 +1563,12 @@
      "ops_plus": null,
      "era": 2.53,
      "era_plus": 150,
-     "so": 229
+     "so": 229,
+     "pa": 75,
+     "ab": 58,
+     "h": 12,
+     "ip_outs": 683,
+     "er": 64
     },
     {
      "season": 2013,
@@ -1310,7 +1580,12 @@
      "ops_plus": null,
      "era": 1.83,
      "era_plus": 194,
-     "so": 232
+     "so": 232,
+     "pa": 92,
+     "ab": 77,
+     "h": 14,
+     "ip_outs": 708,
+     "er": 48
     },
     {
      "season": 2014,
@@ -1322,7 +1597,12 @@
      "ops_plus": null,
      "era": 1.77,
      "era_plus": 197,
-     "so": 239
+     "so": 239,
+     "pa": 74,
+     "ab": 63,
+     "h": 11,
+     "ip_outs": 595,
+     "er": 39
     },
     {
      "season": 2015,
@@ -1334,7 +1614,12 @@
      "ops_plus": null,
      "era": 2.13,
      "era_plus": 173,
-     "so": 301
+     "so": 301,
+     "pa": 79,
+     "ab": 71,
+     "h": 9,
+     "ip_outs": 698,
+     "er": 55
     },
     {
      "season": 2016,
@@ -1346,7 +1631,12 @@
      "ops_plus": null,
      "era": 1.69,
      "era_plus": 237,
-     "so": 172
+     "so": 172,
+     "pa": 50,
+     "ab": 46,
+     "h": 8,
+     "ip_outs": 447,
+     "er": 28
     },
     {
      "season": 2017,
@@ -1358,7 +1648,12 @@
      "ops_plus": null,
      "era": 2.31,
      "era_plus": 179,
-     "so": 202
+     "so": 202,
+     "pa": 59,
+     "ab": 49,
+     "h": 9,
+     "ip_outs": 525,
+     "er": 45
     },
     {
      "season": 2018,
@@ -1370,7 +1665,12 @@
      "ops_plus": null,
      "era": 2.73,
      "era_plus": 142,
-     "so": 155
+     "so": 155,
+     "pa": 57,
+     "ab": 46,
+     "h": 11,
+     "ip_outs": 484,
+     "er": 49
     },
     {
      "season": 2019,
@@ -1382,7 +1682,12 @@
      "ops_plus": null,
      "era": 3.03,
      "era_plus": 137,
-     "so": 189
+     "so": 189,
+     "pa": 65,
+     "ab": 49,
+     "h": 5,
+     "ip_outs": 535,
+     "er": 60
     },
     {
      "season": 2020,
@@ -1394,7 +1699,12 @@
      "ops_plus": null,
      "era": 2.16,
      "era_plus": 202,
-     "so": 62
+     "so": 62,
+     "pa": 0,
+     "ab": 0,
+     "h": 0,
+     "ip_outs": 175,
+     "er": 14
     },
     {
      "season": 2021,
@@ -1406,7 +1716,12 @@
      "ops_plus": null,
      "era": 3.55,
      "era_plus": 119,
-     "so": 144
+     "so": 144,
+     "pa": 39,
+     "ab": 36,
+     "h": 8,
+     "ip_outs": 365,
+     "er": 48
     },
     {
      "season": 2022,
@@ -1418,7 +1733,12 @@
      "ops_plus": null,
      "era": 2.28,
      "era_plus": 177,
-     "so": 137
+     "so": 137,
+     "pa": 0,
+     "ab": 0,
+     "h": 0,
+     "ip_outs": 379,
+     "er": 32
     },
     {
      "season": 2023,
@@ -1430,7 +1750,12 @@
      "ops_plus": null,
      "era": 2.46,
      "era_plus": 175,
-     "so": 137
+     "so": 137,
+     "pa": 0,
+     "ab": 0,
+     "h": 0,
+     "ip_outs": 395,
+     "er": 36
     },
     {
      "season": 2024,
@@ -1442,7 +1767,12 @@
      "ops_plus": null,
      "era": 4.5,
      "era_plus": 89,
-     "so": 24
+     "so": 24,
+     "pa": 0,
+     "ab": 0,
+     "h": 0,
+     "ip_outs": 90,
+     "er": 15
     },
     {
      "season": 2025,
@@ -1454,10 +1784,15 @@
      "ops_plus": null,
      "era": 3.36,
      "era_plus": 122,
-     "so": 84
+     "so": 84,
+     "pa": 0,
+     "ab": 0,
+     "h": 0,
+     "ip_outs": 338,
+     "er": 42
     }
    ],
-   "isBatter": true,
+   "isBatter": false,
    "isPitcher": true,
    "awards": [
     {
@@ -1669,7 +2004,12 @@
      "ops_plus": null,
      "era": 5.52,
      "era_plus": 74,
-     "so": 20
+     "so": 20,
+     "pa": 13,
+     "ab": 12,
+     "h": 4,
+     "ip_outs": 93,
+     "er": 19
     },
     {
      "season": 1987,
@@ -1681,7 +2021,12 @@
      "ops_plus": null,
      "era": 5.61,
      "era_plus": 76,
-     "so": 101
+     "so": 101,
+     "pa": 49,
+     "ab": 42,
+     "h": 5,
+     "ip_outs": 467,
+     "er": 97
     },
     {
      "season": 1988,
@@ -1693,7 +2038,12 @@
      "ops_plus": null,
      "era": 3.18,
      "era_plus": 114,
-     "so": 140
+     "so": 140,
+     "pa": 97,
+     "ab": 96,
+     "h": 19,
+     "ip_outs": 747,
+     "er": 88
     },
     {
      "season": 1989,
@@ -1705,7 +2055,12 @@
      "ops_plus": null,
      "era": 2.95,
      "era_plus": 129,
-     "so": 135
+     "so": 135,
+     "pa": 91,
+     "ab": 81,
+     "h": 17,
+     "ip_outs": 715,
+     "er": 78
     },
     {
      "season": 1990,
@@ -1717,7 +2072,12 @@
      "ops_plus": null,
      "era": 3.46,
      "era_plus": 119,
-     "so": 144
+     "so": 144,
+     "pa": 89,
+     "ab": 83,
+     "h": 12,
+     "ip_outs": 711,
+     "er": 91
     },
     {
      "season": 1991,
@@ -1729,7 +2089,12 @@
      "ops_plus": null,
      "era": 3.35,
      "era_plus": 116,
-     "so": 198
+     "so": 198,
+     "pa": 101,
+     "ab": 88,
+     "h": 18,
+     "ip_outs": 789,
+     "er": 98
     },
     {
      "season": 1992,
@@ -1741,7 +2106,12 @@
      "ops_plus": null,
      "era": 2.18,
      "era_plus": 166,
-     "so": 199
+     "so": 199,
+     "pa": 102,
+     "ab": 88,
+     "h": 15,
+     "ip_outs": 804,
+     "er": 65
     },
     {
      "season": 1993,
@@ -1753,7 +2123,12 @@
      "ops_plus": null,
      "era": 2.36,
      "era_plus": 170,
-     "so": 197
+     "so": 197,
+     "pa": 102,
+     "ab": 91,
+     "h": 15,
+     "ip_outs": 801,
+     "er": 70
     },
     {
      "season": 1994,
@@ -1765,7 +2140,12 @@
      "ops_plus": null,
      "era": 1.56,
      "era_plus": 271,
-     "so": 156
+     "so": 156,
+     "pa": 73,
+     "ab": 63,
+     "h": 14,
+     "ip_outs": 606,
+     "er": 35
     },
     {
      "season": 1995,
@@ -1777,7 +2157,12 @@
      "ops_plus": null,
      "era": 1.63,
      "era_plus": 260,
-     "so": 181
+     "so": 181,
+     "pa": 81,
+     "ab": 72,
+     "h": 11,
+     "ip_outs": 629,
+     "er": 38
     },
     {
      "season": 1996,
@@ -1789,7 +2174,12 @@
      "ops_plus": null,
      "era": 2.72,
      "era_plus": 162,
-     "so": 172
+     "so": 172,
+     "pa": 82,
+     "ab": 68,
+     "h": 10,
+     "ip_outs": 735,
+     "er": 74
     },
     {
      "season": 1997,
@@ -1801,7 +2191,12 @@
      "ops_plus": null,
      "era": 2.2,
      "era_plus": 189,
-     "so": 177
+     "so": 177,
+     "pa": 78,
+     "ab": 67,
+     "h": 7,
+     "ip_outs": 698,
+     "er": 57
     },
     {
      "season": 1998,
@@ -1813,7 +2208,12 @@
      "ops_plus": null,
      "era": 2.22,
      "era_plus": 187,
-     "so": 204
+     "so": 204,
+     "pa": 85,
+     "ab": 75,
+     "h": 18,
+     "ip_outs": 753,
+     "er": 62
     },
     {
      "season": 1999,
@@ -1825,7 +2225,12 @@
      "ops_plus": null,
      "era": 3.57,
      "era_plus": 126,
-     "so": 136
+     "so": 136,
+     "pa": 79,
+     "ab": 64,
+     "h": 11,
+     "ip_outs": 658,
+     "er": 87
     },
     {
      "season": 2000,
@@ -1837,7 +2242,12 @@
      "ops_plus": null,
      "era": 3,
      "era_plus": 153,
-     "so": 190
+     "so": 190,
+     "pa": 90,
+     "ab": 80,
+     "h": 15,
+     "ip_outs": 748,
+     "er": 83
     },
     {
      "season": 2001,
@@ -1849,7 +2259,12 @@
      "ops_plus": null,
      "era": 3.05,
      "era_plus": 146,
-     "so": 173
+     "so": 173,
+     "pa": 81,
+     "ab": 64,
+     "h": 12,
+     "ip_outs": 699,
+     "er": 79
     },
     {
      "season": 2002,
@@ -1861,7 +2276,12 @@
      "ops_plus": null,
      "era": 2.62,
      "era_plus": 159,
-     "so": 118
+     "so": 118,
+     "pa": 68,
+     "ab": 59,
+     "h": 11,
+     "ip_outs": 598,
+     "er": 58
     },
     {
      "season": 2003,
@@ -1873,7 +2293,12 @@
      "ops_plus": null,
      "era": 3.96,
      "era_plus": 108,
-     "so": 124
+     "so": 124,
+     "pa": 78,
+     "ab": 68,
+     "h": 10,
+     "ip_outs": 655,
+     "er": 96
     },
     {
      "season": 2004,
@@ -1885,7 +2310,12 @@
      "ops_plus": null,
      "era": 4.02,
      "era_plus": 110,
-     "so": 151
+     "so": 151,
+     "pa": 79,
+     "ab": 69,
+     "h": 11,
+     "ip_outs": 638,
+     "er": 95
     },
     {
      "season": 2005,
@@ -1897,7 +2327,12 @@
      "ops_plus": null,
      "era": 4.24,
      "era_plus": 104,
-     "so": 136
+     "so": 136,
+     "pa": 83,
+     "ab": 76,
+     "h": 13,
+     "ip_outs": 675,
+     "er": 106
     },
     {
      "season": 2006,
@@ -1909,7 +2344,12 @@
      "ops_plus": null,
      "era": 4.69,
      "era_plus": 99,
-     "so": 117
+     "so": 117,
+     "pa": 77,
+     "ab": 68,
+     "h": 9,
+     "ip_outs": 630,
+     "er": 98
     },
     {
      "season": 2007,
@@ -1921,7 +2361,12 @@
      "ops_plus": null,
      "era": 4.14,
      "era_plus": 97,
-     "so": 104
+     "so": 104,
+     "pa": 72,
+     "ab": 62,
+     "h": 9,
+     "ip_outs": 594,
+     "er": 91
     },
     {
      "season": 2008,
@@ -1933,10 +2378,15 @@
      "ops_plus": null,
      "era": 3.99,
      "era_plus": 95,
-     "so": 98
+     "so": 98,
+     "pa": 62,
+     "ab": 55,
+     "h": 6,
+     "ip_outs": 582,
+     "er": 91
     }
    ],
-   "isBatter": true,
+   "isBatter": false,
    "isPitcher": true,
    "awards": [
     {
@@ -2218,7 +2668,12 @@
      "ops_plus": 151,
      "era": 3.31,
      "era_plus": 127,
-     "so": 63
+     "so": 63,
+     "pa": 367,
+     "ab": 326,
+     "h": 93,
+     "ip_outs": 155,
+     "er": 19
     },
     {
      "season": 2019,
@@ -2230,7 +2685,12 @@
      "ops_plus": 121,
      "era": null,
      "era_plus": null,
-     "so": 110
+     "so": 110,
+     "pa": 425,
+     "ab": 384,
+     "h": 110,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 2020,
@@ -2242,7 +2702,12 @@
      "ops_plus": 79,
      "era": 37.8,
      "era_plus": null,
-     "so": 3
+     "so": 3,
+     "pa": 175,
+     "ab": 153,
+     "h": 29,
+     "ip_outs": 5,
+     "er": 7
     },
     {
      "season": 2021,
@@ -2254,7 +2719,12 @@
      "ops_plus": 157,
      "era": 3.18,
      "era_plus": 141,
-     "so": 156
+     "so": 156,
+     "pa": 639,
+     "ab": 537,
+     "h": 138,
+     "ip_outs": 391,
+     "er": 46
     },
     {
      "season": 2022,
@@ -2266,7 +2736,12 @@
      "ops_plus": 144,
      "era": 2.33,
      "era_plus": 172,
-     "so": 219
+     "so": 219,
+     "pa": 666,
+     "ab": 586,
+     "h": 160,
+     "ip_outs": 498,
+     "er": 43
     },
     {
      "season": 2023,
@@ -2278,7 +2753,12 @@
      "ops_plus": 185,
      "era": 3.14,
      "era_plus": 142,
-     "so": 167
+     "so": 167,
+     "pa": 599,
+     "ab": 497,
+     "h": 151,
+     "ip_outs": 396,
+     "er": 46
     },
     {
      "season": 2024,
@@ -2290,7 +2770,12 @@
      "ops_plus": 187,
      "era": null,
      "era_plus": null,
-     "so": 162
+     "so": 162,
+     "pa": 731,
+     "ab": 636,
+     "h": 197,
+     "ip_outs": 0,
+     "er": 0
     },
     {
      "season": 2025,
@@ -2302,7 +2787,12 @@
      "ops_plus": 181,
      "era": 2.87,
      "era_plus": 144,
-     "so": 62
+     "so": 62,
+     "pa": 727,
+     "ab": 611,
+     "h": 172,
+     "ip_outs": 141,
+     "er": 15
     },
     {
      "season": 2026,
@@ -2314,7 +2804,12 @@
      "ops_plus": 134,
      "era": 0.97,
      "era_plus": 413,
-     "so": 42
+     "so": 42,
+     "pa": 167,
+     "ab": 133,
+     "h": 33,
+     "ip_outs": 111,
+     "er": 4
     }
    ],
    "isBatter": true,

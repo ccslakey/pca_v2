@@ -56,11 +56,18 @@ Project: https://claude.ai/design/p/3340e21a-8206-4065-bbb4-9aef7abd0345 ("PCA D
 - `sumMetric` computes career rates from season totals (`pa`/`ab`/`h`/`ip_outs`/`er` on `ChartSeason`), matching the backend. Ohtani's career ERA is 2.86, not 7.66.
 - `playerRoles()`: primary pitchers aren't batters, and position players need 100 IP to count as pitchers.
 - Still true: `MonthlyHeatmap` simulates monthly values from season OPS.
-- **Fixture refresh:** `_data.json` predates these fixes (no season totals; Kershaw/Maddux still `isBatter: true`). Regenerate with `fixtures/export.ts` on the next sync.
+- Fixtures regenerated 2026-10-18 after these fixes: seasons carry totals, Kershaw/Maddux are pitcher-only, career ERAs read 2.53 (Kershaw) / 2.86 (Ohtani).
+
+## App findings, not fixed (2026-10-18)
+
+- `StatGrid` below `$bp-lg` is a 3-column grid. A pitcher's 3 blocks (WAR spans 2) leave `STRIKEOUTS` alone on a second row. The one-row fix only covers desktop.
+- `initials()` takes the last word, so "Ken Griffey Jr." renders as "KJ" (HeroSection, SimilarPlayersPanel).
+- `BrushChart`'s right range label clips ("202") at the 900px capture width.
 
 ## Re-sync risks
 
-- `_data.json` is a snapshot (2026-10-14). Active players' seasons will drift; regenerate with `fixtures/export.ts` when previews should look current. Edits to `_data.json` / `_players.ts` do NOT re-key grades (only `<Name>.tsx` does). Force a recapture of affected components after regenerating.
+- `_data.json` is a snapshot (2026-10-18). Active players' seasons will drift; regenerate with `fixtures/export.ts` when previews should look current. Edits to `_data.json` / `_players.ts` do NOT re-key grades (only `<Name>.tsx` does). After regenerating, recapture every data-driven preview: `package-capture.mjs --components <upload.components> --spot-check-components <same>`, then read each sheet. The exporter only hits bundle/similar/aging_curve/james endpoints, so a pending `stats` migration doesn't block it.
+- Removed props linger in previews and conventions examples because esbuild doesn't type-check. Run `npx tsc --noEmit -p .design-sync/previews` (uses `previews/tsconfig.json`, which maps `pca-design-system` to `ds-dist/`) after rebuilding `ds-dist`.
 - `ds-entry.tsx` re-exports components by path. A moved or renamed component fails `build-ds.mjs`; update the barrel.
 - The `.d.ts` files reference app types (`ChartPlayer` etc.) by name only. `conventions.md` documents those shapes, so keep it in sync when `src/types.ts` changes.
 - Toolchain at sync time: node 26.7, vite 6.4.2, sass 1.99, typescript 5.9.3, playwright 1.62.1 (pinned to the cached chromium-1234).

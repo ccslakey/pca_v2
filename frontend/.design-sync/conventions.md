@@ -32,7 +32,8 @@ Do not invent other class names.
 
 ```ts
 type MetricId = 'war'|'hr'|'avg'|'ops'|'ops_plus'|'era'|'era_plus'|'so'; type XMode = 'year'|'age';
-interface ChartSeason { season: number; age: number|null; war, hr, avg, ops, ops_plus, era, era_plus, so: number|null }
+interface ChartSeason { season: number; age: number|null; war, hr, avg, ops, ops_plus, era, era_plus, so: number|null;
+  pa?, ab?, h?, ip_outs?, er?: number /* season totals; include them so sumMetric computes career AVG/ERA from totals */ }
 interface PlayerAward { id: number; year: number; kind: AwardKind; league: string|null; notes: string|null }
 // AwardKind: 'mvp'|'cy'|'roty'|'gg'|'ss'|'tc_b'|'tc_p'|'hof'|'postmvp'|'bat_title'|'era_title'|'all_mlb'|'ws'|'asg'
 interface ChartPlayer { id: string /* bbref id, e.g. 'troutmi01' */; name; color /* CSS color */; initials; pos /* 'CF','LHP','DH' */;
@@ -66,7 +67,7 @@ const color = playerColor(p.id), peak = peakSeason(p.seasons, 'war');
       careerSO={sumMetric(p.seasons,'so') ?? 0} careerAVG={sumMetric(p.seasons,'avg')}
       careerOPS={sumMetric(p.seasons,'ops')} careerERA={sumMetric(p.seasons,'era')} />
     <div className="col-2">
-      <SeasonLogPanel player={p} color={color} peak={peak} tab="standard" setTab={() => {}} />
+      <SeasonLogPanel player={p} color={color} peak={peak} />
       <div className="panel"><div className="panel-header"><div className="panel-title">Notes <span className="muted">your content</span></div></div></div>
     </div>
   </div></div>
