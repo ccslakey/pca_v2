@@ -1,0 +1,83 @@
+{
+  "projectId": "3340e21a-8206-4065-bbb4-9aef7abd0345",
+  "shape": "package",
+  "pkg": "pca-design-system",
+  "globalName": "PCA",
+  "buildCmd": "node .design-sync/build-ds.mjs",
+  "entry": "./ds-dist/index.js",
+  "srcDir": "../src",
+  "cssEntry": "style.css",
+  "provider": {
+    "component": "AppProviders"
+  },
+  "componentSrcMap": {
+    "AppProviders": null,
+    "ThemeProvider": null
+  },
+  "overrides": {
+    "HeroSection": {
+      "cardMode": "column"
+    },
+    "StatGrid": {
+      "cardMode": "column"
+    },
+    "MetricToggle": {
+      "cardMode": "column",
+      "viewport": "1280x400"
+    },
+    "CareerChart": {
+      "cardMode": "single",
+      "primaryStory": "WARByYearWithAwards"
+    },
+    "BrushChart": {
+      "cardMode": "single",
+      "primaryStory": "UnderCareerChart"
+    },
+    "ProfileChart": {
+      "cardMode": "single",
+      "primaryStory": "BatterWAR"
+    },
+    "SparklinePanel": {
+      "cardMode": "column"
+    },
+    "CareerArcPanel": {
+      "cardMode": "single",
+      "primaryStory": "Batter"
+    },
+    "SeasonSheet": {
+      "cardMode": "single",
+      "viewport": "420x720"
+    },
+    "MonthlyHeatmap": {
+      "cardMode": "column"
+    },
+    "ChipBar": {
+      "cardMode": "column"
+    },
+    "PlayerCard": {
+      "cardMode": "column"
+    },
+    "PlayerCardSkeleton": {
+      "cardMode": "column"
+    },
+    "AnnotationGlyph": {
+      "cardMode": "column"
+    },
+    "MobileChart": {
+      "cardMode": "column"
+    },
+    "MobileMultiChart": {
+      "cardMode": "column"
+    },
+    "AwardsPanel": {
+      "cardMode": "column"
+    },
+    "JamesScoresPanel": {
+      "cardMode": "column"
+    },
+    "SeasonLogPanel": {
+      "cardMode": "column"
+    }
+  },
+  "readmeHeader": ".design-sync/conventions.md"
+}

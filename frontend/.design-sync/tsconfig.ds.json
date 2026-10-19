@@ -1,0 +1,15 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "rootDir": "..",
+    "outDir": "../ds-dist/types",
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "types": ["vite/client"]
+  },
+  "include": [],
+  "files": ["./ds-entry.tsx", "../src/vite-env.d.ts"]
+}
