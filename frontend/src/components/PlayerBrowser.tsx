@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useLeaderboard } from "../hooks";
 import type { LeaderboardFilters, LeaderboardPlayer } from "../types";
 import { PLAYER_COLORS, MAX_PLAYERS } from "../constants";
-import { posLabel } from "../utils/format";
+import { initials, posLabel } from "../utils/format";
 import { track } from "../analytics";
 import "./PlayerBrowser.scss";
 
@@ -52,10 +52,6 @@ function playerColor(bbrefId: string): string {
   let hash = 0;
   for (const ch of bbrefId) hash = (hash * 31 + ch.charCodeAt(0)) & 0xffffffff;
   return PLAYER_COLORS[Math.abs(hash) % PLAYER_COLORS.length];
-}
-
-function initials(p: LeaderboardPlayer) {
-  return `${p.first_name[0] ?? ""}${p.last_name[0] ?? ""}`.toUpperCase();
 }
 
 function years(p: LeaderboardPlayer) {
@@ -347,7 +343,7 @@ export function PlayerBrowser({
                           className="player-avatar"
                           style={{ background: color }}
                         >
-                          {initials(p)}
+                          {initials(`${p.first_name} ${p.last_name}`)}
                         </span>
                         <Link
                           to={`/player/${p.bbref_id}`}

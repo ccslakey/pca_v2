@@ -58,11 +58,11 @@ Project: https://claude.ai/design/p/3340e21a-8206-4065-bbb4-9aef7abd0345 ("PCA D
 - Still true: `MonthlyHeatmap` simulates monthly values from season OPS.
 - Fixtures regenerated 2026-10-18 after these fixes: seasons carry totals, Kershaw/Maddux are pitcher-only, career ERAs read 2.53 (Kershaw) / 2.86 (Ohtani).
 
-## App findings, not fixed (2026-10-18)
+## App findings from the 2026-10-18 resync (fixed in src/ the same day)
 
-- `StatGrid` below `$bp-lg` is a 3-column grid. A pitcher's 3 blocks (WAR spans 2) leave `STRIKEOUTS` alone on a second row. The one-row fix only covers desktop.
-- `initials()` takes the last word, so "Ken Griffey Jr." renders as "KJ" (HeroSection, SimilarPlayersPanel).
-- `BrushChart`'s right range label clips ("202") at the 900px capture width.
+- `StatGrid` below `$bp-lg` is now a wrapping flex row (headline on its own row, the rest grow to fill), so no block count leaves a gap. The previews capture at 900px, which is this tablet layout.
+- `initials()` skips Jr./Sr./II-IV, so "Ken Griffey Jr." is "KG". `PlayerBrowser` and `FeaturedGallery` now use it instead of their own first-letter copies.
+- `BrushChart`'s right end label no longer clips: `.brush-svg` is `overflow: visible`, because its 28px right margin is shared with `CareerChart` to keep the axes aligned.
 
 ## Re-sync risks
 
