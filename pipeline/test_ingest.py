@@ -187,6 +187,30 @@ class TestParseName(unittest.TestCase):
         self.assertEqual(first, 'Satchel')
         self.assertEqual(last, '')
 
+    def test_suffix_stays_on_last_name(self) -> None:
+        self.assertEqual(parse_name('Ken Griffey Jr.'), ('Ken', 'Griffey Jr.'))
+        self.assertEqual(parse_name('Cal Ripken Sr.'), ('Cal', 'Ripken Sr.'))
+        self.assertEqual(parse_name('Jim Bunning III'), ('Jim', 'Bunning III'))
+
+    def test_particles_join_surname_without_anchor(self) -> None:
+        self.assertEqual(parse_name('Tony La Russa'), ('Tony', 'La Russa'))
+        self.assertEqual(parse_name('Ramón de los Santos'), ('Ramón', 'de los Santos'))
+        self.assertEqual(parse_name('Randy St. Claire'), ('Randy', 'St. Claire'))
+        self.assertEqual(parse_name('Del Unser'), ('Del', 'Unser'))
+        self.assertEqual(parse_name('Van Lingle Mungo'), ('Van Lingle', 'Mungo'))
+
+    def test_known_last_anchors_split(self) -> None:
+        self.assertEqual(parse_name('Moses Yellow Horse', 'Yellow Horse'), ('Moses', 'Yellow Horse'))
+        self.assertEqual(parse_name('Daniel Ponce de Leon', 'Ponce de Leon'), ('Daniel', 'Ponce de Leon'))
+        self.assertEqual(parse_name('Tony La Russa', 'LaRussa'), ('Tony', 'La Russa'))
+        self.assertEqual(parse_name('Fernando Tatis Jr.', 'Tatís'), ('Fernando', 'Tatis Jr.'))
+
+    def test_known_last_single_word_is_surname(self) -> None:
+        self.assertEqual(parse_name('Carroll', 'Carroll'), ('', 'Carroll'))
+
+    def test_unmatched_known_last_falls_back(self) -> None:
+        self.assertEqual(parse_name('Babe Ruth', 'Smith'), ('Babe', 'Ruth'))
+
 
 class TestParseBrefPositions(unittest.TestCase):
     def test_decodes_numeric_positions_and_markers(self) -> None:
