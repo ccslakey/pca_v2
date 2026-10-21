@@ -79,17 +79,42 @@ verification outcome — which is both logged and surfaced in the UI.
 
 ### 5. Evaluation
 
-`pipeline/eval_narrative.py` scores the agent over a fixed sample:
+`pipeline/eval_narrative.py` scores the agent over a fixed sample of ten
+players:
 
-- **hallucination rate** — fraction of generations the verifier rejected
-  (deterministic; the headline safety metric)
-- **tool-selection accuracy** — did the agent call the tools it should have?
-- **RAG hit-rate@k** — does the expected doc land in the top-k for labeled
-  questions?
-- **faithfulness** — optional LLM-as-judge score
+- **Hallucination rate.** The fraction of first drafts the verifier rejected.
+  It is deterministic and the headline safety metric.
+- **Fallback rate.** The fraction of players served the template with the LLM
+  on, whatever the cause: a draft still rejected after repair, a truncated
+  draft, or an API error. A model that always falls back scores 0%
+  hallucination, so this metric is the one that catches it.
+- **Tool-selection accuracy.** Whether the agent called `get_career_totals`.
+- **RAG hit-rate@k.** Whether the expected doc lands in the top k results for
+  labeled questions.
+- **Faithfulness.** An optional LLM-as-judge score.
 
-The metric functions are pure and take injected callables, so the suite runs
-offline; the CLI has a `--max-hallucination` flag to act as a CI gate.
+The metric functions are pure and take injected callables, so the unit tests
+run offline.
+
+`--max-hallucination` and `--max-fallback` make the eval a gate. The CLI exits
+1 when a rate exceeds its limit. It exits 2 if you pass a gate flag without
+`ANTHROPIC_API_KEY`, because with the LLM off the eval measures nothing.
+
+The `Narrative eval` workflow (`.github/workflows/narrative-eval.yml`) runs
+both gates on Haiku 5.5 for pull requests that change the narrative code, the
+eval, or the methodology docs. The CI database starts empty, so the job loads
+`pipeline/fixtures/eval_players.json` and indexes the methodology docs first.
+Rebuild the fixture with `python pipeline/make_eval_fixture.py` after you
+change `SAMPLE_PLAYERS`. The job writes the scorecard to the run summary and
+uploads `eval.json` even when a gate fails. Pull requests from forks skip the
+job because they get no secrets.
+
+`--inject-fault` shows that the gate can fail. It changes one number in each
+player's first draft to a value that player's data does not support. The real
+verifier, repair loop, and metrics then handle it like a real hallucination,
+so the hallucination gate fails and the scorecard reports how many plants the
+verifier caught. To see a red build, run the workflow by hand with
+`inject_fault` checked.
 
 ---
 
@@ -142,6 +167,7 @@ offline; the CLI has a `--max-hallucination` flag to act as a CI gate.
 | Persistence + corpus models | `players/models.py` (`PlayerNarrative`, `MethodologyChunk`) |
 | Indexing / pre-generation commands | `players/management/commands/` |
 | Eval harness | `pipeline/eval_narrative.py` |
+| Eval CI job and its fixture | `.github/workflows/narrative-eval.yml`, `pipeline/make_eval_fixture.py` |
 | UI: narrative panel + agent trace | `frontend/src/components/profile/panels/NarrativePanel.tsx` |
 | UI: RAG-backed metric explainers | `frontend/src/components/MetricExplainer.tsx` |
 
