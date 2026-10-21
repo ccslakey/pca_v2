@@ -7,7 +7,7 @@ import random
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Callable
+from typing import Any, Callable, NamedTuple
 
 import django
 
@@ -225,6 +225,31 @@ def run_eval(
     return scorecard
 
 
+class Gate(NamedTuple):
+    metric: Callable[[dict[str, Any]], dict[str, Any]]  # scorecard -> section with "n" and "rate"
+    flag: str
+
+
+GATES: dict[str, Gate] = {
+    "hallucination": Gate(lambda sc: sc["hallucination"], "--max-hallucination"),
+    "fallback": Gate(lambda sc: sc["fallback"], "--max-fallback"),
+}
+
+
+def gate_failures(scorecard: dict[str, Any], limits: dict[str, float]) -> list[str]:
+    """One message per gate in `limits` (name -> max rate) that the scorecard
+    fails. A gate that measured no runs fails rather than passing on nothing."""
+    failures: list[str] = []
+    for name, limit in limits.items():
+        gate = GATES[name]
+        metric = gate.metric(scorecard)
+        if not metric["n"]:
+            failures.append(f"{name} measured no runs, so {gate.flag} cannot pass")
+        elif metric["rate"] > limit:
+            failures.append(f"{name} rate {metric['rate']:.1%} exceeds {gate.flag} {limit:.1%}")
+    return failures
+
+
 def sample_players(n: int, seed: int = 0) -> list[str]:
     pool = sorted(
         pid
@@ -270,11 +295,18 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--json", action="store_true", help="Emit the scorecard as JSON.")
     parser.add_argument("--faithfulness", action="store_true", help="Run the LLM-judge metric (needs a key).")
     parser.add_argument("--judge-model", default=None, help="Model for the judge (default NARRATIVE_MODEL).")
-    parser.add_argument(
-        "--max-hallucination", type=float, default=None,
-        help="CI gate: exit 1 if hallucination rate exceeds this (e.g. 0.0).",
-    )
+    for name, gate in GATES.items():
+        parser.add_argument(
+            gate.flag, dest=f"gate_{name}", type=float, metavar="RATE",
+            help=f"CI gate: exit 1 if the {name} rate exceeds RATE (needs ANTHROPIC_API_KEY).",
+        )
     args = parser.parse_args(argv)
+
+    limits = {name: getattr(args, f"gate_{name}") for name in GATES if getattr(args, f"gate_{name}") is not None}
+    if limits and not getattr(settings, "LLM_ENABLED", False):
+        flags = " ".join(GATES[name].flag for name in limits)
+        print(f"{flags}: the gates need ANTHROPIC_API_KEY; with the LLM off nothing is measured.", file=sys.stderr)
+        sys.exit(2)
 
     if args.sample:
         player_ids = sample_players(args.sample, args.seed)
@@ -300,9 +332,10 @@ def main(argv: list[str] | None = None) -> None:
         with open(args.out, "w") as fh:
             json.dump({"scorecard": scorecard, "runs": runs}, fh, indent=2)
 
-    if args.max_hallucination is not None and scorecard["hallucination"]["rate"] > args.max_hallucination:
-        print(f"FAIL: hallucination rate {scorecard['hallucination']['rate']:.1%} "
-              f"exceeds gate {args.max_hallucination:.1%}", file=sys.stderr)
+    failures = gate_failures(scorecard, limits)
+    for failure in failures:
+        print(f"FAIL: {failure}", file=sys.stderr)
+    if failures:
         sys.exit(1)
 
 

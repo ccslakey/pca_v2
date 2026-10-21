@@ -17,6 +17,7 @@ from pipeline.eval_narrative import (
     faithfulness,
     fallback_rate,
     format_scorecard,
+    gate_failures,
     hallucination_rate,
     main,
     make_judge,
@@ -86,6 +87,51 @@ class TestFallbackRate(SimpleTestCase):
         self.assertEqual(
             fallback_rate([_res(None, source="template")], llm_enabled=False),
             {"n": 0, "template": 0, "rate": 0.0},
+        )
+
+
+def _rates(hallucination, fallback):
+    """A scorecard with only the gated sections: each arg is (n, rate)."""
+    return {
+        "hallucination": {"n": hallucination[0], "rate": hallucination[1]},
+        "fallback": {"n": fallback[0], "rate": fallback[1]},
+    }
+
+
+class TestGateFailures(SimpleTestCase):
+    limits = {"hallucination": 0.3, "fallback": 0.2}
+
+    def test_within_limits_passes(self):
+        self.assertEqual(gate_failures(_rates((10, 0.3), (10, 0.2)), self.limits), [])
+
+    def test_hallucination_over_limit(self):
+        self.assertEqual(
+            gate_failures(_rates((10, 0.4), (10, 0.0)), self.limits),
+            ["hallucination rate 40.0% exceeds --max-hallucination 30.0%"],
+        )
+
+    def test_fallback_over_limit(self):
+        self.assertEqual(
+            gate_failures(_rates((10, 0.0), (10, 1.0)), self.limits),
+            ["fallback rate 100.0% exceeds --max-fallback 20.0%"],
+        )
+
+    def test_reports_every_failure(self):
+        self.assertEqual(
+            gate_failures(_rates((10, 0.5), (10, 0.5)), self.limits),
+            [
+                "hallucination rate 50.0% exceeds --max-hallucination 30.0%",
+                "fallback rate 50.0% exceeds --max-fallback 20.0%",
+            ],
+        )
+
+    def test_unrequested_gate_is_not_checked(self):
+        self.assertEqual(gate_failures(_rates((10, 0.0), (10, 1.0)), {"hallucination": 0.3}), [])
+
+    def test_nothing_measured_fails(self):
+        self.assertEqual(
+            gate_failures(_rates((0, 0.0), (10, 1.0)), {"hallucination": 0.3}),
+            ["hallucination measured no runs, so --max-hallucination cannot pass"],
         )
 
 
@@ -206,7 +252,7 @@ def _cli(argv, scorecard=None):
     return 0, err.getvalue(), run
 
 
-class TestFixedSample(TestCase):
+class TestCli(TestCase):
     def test_missing_sample_ids_exit_2_and_are_named(self):
         for pid in SAMPLE_PLAYERS[:-2]:
             Player.objects.create(bbref_id=pid, first_name="F", last_name="L")
@@ -221,3 +267,34 @@ class TestFixedSample(TestCase):
         code, err, run = _cli(["--limit", "3"])
         self.assertEqual((code, err), (0, ""))
         self.assertEqual(run.call_args.args[0], ["ruthba01", "mayswi01", "aaronha01"])
+
+    def test_gate_with_llm_off_exits_2_before_running(self):
+        with self.settings(LLM_ENABLED=False):
+            code, err, run = _cli(["--max-hallucination", "0.3", "--max-fallback", "0.2"])
+        self.assertEqual(code, 2)
+        self.assertEqual(
+            err,
+            "--max-hallucination --max-fallback: the gates need ANTHROPIC_API_KEY; "
+            "with the LLM off nothing is measured.\n",
+        )
+        run.assert_not_called()
+
+    def test_failed_gates_exit_1_with_each_failure(self):
+        for pid in SAMPLE_PLAYERS:
+            Player.objects.create(bbref_id=pid, first_name="F", last_name="L")
+        with self.settings(LLM_ENABLED=True):
+            sc = _offline_scorecard([_res("agentic", flagged=["999"], source="template", repairs=1)])
+            code, err, _ = _cli(["--max-hallucination", "0.3", "--max-fallback", "0.2"], sc)
+        self.assertEqual(code, 1)
+        self.assertEqual(err, (
+            "FAIL: hallucination rate 100.0% exceeds --max-hallucination 30.0%\n"
+            "FAIL: fallback rate 100.0% exceeds --max-fallback 20.0%\n"
+        ))
+
+    def test_passing_gates_exit_0(self):
+        for pid in SAMPLE_PLAYERS:
+            Player.objects.create(bbref_id=pid, first_name="F", last_name="L")
+        with self.settings(LLM_ENABLED=True):
+            sc = _offline_scorecard([_res("agentic")])
+            code, err, _ = _cli(["--max-hallucination", "0.3", "--max-fallback", "0.2"], sc)
+        self.assertEqual((code, err), (0, ""))
