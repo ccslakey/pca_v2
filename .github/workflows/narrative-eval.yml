@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - players/narrative.py
+      - players/models.py
+      - stats/models.py
+      - requirements.txt
       - players/narrative_tools.py
       - players/llm.py
       - players/rag.py
@@ -82,7 +85,7 @@ jobs:
         run: |
           set +e
           python pipeline/eval_narrative.py --workers 5 --out eval.json \
-            --max-hallucination 0.3 --max-fallback 0.2 $INJECT_FAULT > scorecard.txt 2>&1
+            --max-hallucination 0.2 --max-fallback 0.2 $INJECT_FAULT > scorecard.txt 2>&1
           status=$?
           cat scorecard.txt
           { echo '```'; cat scorecard.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"

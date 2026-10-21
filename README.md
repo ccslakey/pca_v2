@@ -186,8 +186,8 @@ fallback rate, tool-selection accuracy, and RAG hit-rate@k.
 
 ```bash
 python pipeline/eval_narrative.py                                            # scorecard (without a key, every narrative is the template)
-python pipeline/eval_narrative.py --max-hallucination 0.3 --max-fallback 0.2 # gate: exit 1 if either rate exceeds its limit
-python pipeline/eval_narrative.py --inject-fault --max-hallucination 0.3     # plant one fake number per player, so the gate fails
+python pipeline/eval_narrative.py --max-hallucination 0.2 --max-fallback 0.2 # gate: exit 1 if either rate exceeds its limit
+python pipeline/eval_narrative.py --inject-fault --max-hallucination 0.2     # plant one fake number per player, so the gate fails
 ```
 
 The gates need `ANTHROPIC_API_KEY`. Without it, the CLI exits 2 instead of
