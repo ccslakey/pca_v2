@@ -3,6 +3,7 @@ name: Narrative eval
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
     paths:
       - players/narrative.py
       - players/models.py
@@ -27,8 +28,15 @@ on:
 jobs:
   eval:
     # Fork PRs get no secrets, and without a key the gates exit 2.
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    if: >-
+      github.event_name != 'pull_request' || (
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        (!contains(fromJSON('["labeled", "unlabeled"]'), github.event.action) || github.event.label.name == 'inject-fault')
+      )
     runs-on: ubuntu-latest
+    concurrency:
+      group: narrative-eval-${{ github.ref }}
+      cancel-in-progress: true
 
     services:
       postgres:
@@ -81,7 +89,7 @@ jobs:
 
       - name: Eval
         env:
-          INJECT_FAULT: ${{ inputs.inject_fault && '--inject-fault' || '' }}
+          INJECT_FAULT: ${{ (inputs.inject_fault || contains(github.event.pull_request.labels.*.name, 'inject-fault')) && '--inject-fault' || '' }}
         run: |
           set +e
           python pipeline/eval_narrative.py --workers 5 --out eval.json \

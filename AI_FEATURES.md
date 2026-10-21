@@ -113,8 +113,9 @@ job because they get no secrets.
 player's first draft to a value that player's data does not support. The real
 verifier, repair loop, and metrics then handle it like a real hallucination,
 so the hallucination gate fails and the scorecard reports how many plants the
-verifier caught. To see a red build, run the workflow by hand with
-`inject_fault` checked.
+verifier caught. To see a red build, add the `inject-fault` label to a pull
+request that changes the narrative code. Remove the label to rerun the clean
+eval. You can also run the workflow by hand with `inject_fault` checked.
 
 ---
 
