@@ -24,7 +24,7 @@ from players.rag import search_methodology
 
 SAMPLE_PLAYERS: list[str] = [
     "ruthba01", "mayswi01", "aaronha01", "bondsba01", "troutmi01",
-    "koufasa01", "johnswa01", "maddugr01", "riverma01", "mantmi01",
+    "koufasa01", "johnswa01", "maddugr01", "riverma01", "mantlmi01",
 ]
 
 # (question, expected methodology doc slug) — the doc that should answer it.
@@ -249,7 +249,7 @@ def format_scorecard(sc: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Evaluate the grounded narrative agent.")
     parser.add_argument("--limit", type=int, default=None, help="Cap number of sample players.")
     parser.add_argument(
@@ -267,15 +267,17 @@ def main() -> None:
         "--max-hallucination", type=float, default=None,
         help="CI gate: exit 1 if hallucination rate exceeds this (e.g. 0.0).",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if args.sample:
         player_ids = sample_players(args.sample, args.seed)
     else:
-        present = list(
-            Player.objects.filter(bbref_id__in=SAMPLE_PLAYERS).values_list("bbref_id", flat=True)
-        )
-        player_ids = [pid for pid in SAMPLE_PLAYERS if pid in present]
+        present = set(Player.objects.filter(bbref_id__in=SAMPLE_PLAYERS).values_list("bbref_id", flat=True))
+        missing = [pid for pid in SAMPLE_PLAYERS if pid not in present]
+        if missing:
+            print(f"SAMPLE_PLAYERS not in the database: {' '.join(missing)}", file=sys.stderr)
+            sys.exit(2)
+        player_ids = list(SAMPLE_PLAYERS)
     if args.limit:
         player_ids = player_ids[: args.limit]
     if not player_ids:

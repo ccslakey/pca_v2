@@ -1,24 +1,29 @@
 from __future__ import annotations
 
+import io
 import os
 import sys
+from contextlib import redirect_stderr, redirect_stdout
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "pca_backend.settings")
 
 from unittest.mock import patch
 
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, TestCase
 
 from pipeline.eval_narrative import (
+    SAMPLE_PLAYERS,
     faithfulness,
     format_scorecard,
     hallucination_rate,
+    main,
     make_judge,
     rag_hit_rate,
     run_eval,
     tool_selection_accuracy,
 )
+from players.models import Player
 
 
 def _res(mode, flagged=None, tools=None, source="llm", text="x", repairs=0):
@@ -154,3 +159,38 @@ class TestRunEval(SimpleTestCase):
         out = format_scorecard(sc)
         self.assertIn("hallucination", out)
         self.assertIn("rag hit_rate@3", out)
+
+
+def _offline_scorecard(results):
+    """A real scorecard from canned narrate results, for driving main()."""
+    by_id = {f"p{i}": r for i, r in enumerate(results)}
+    return run_eval(list(by_id), narrate=by_id.__getitem__, retrieve=_retrieve, rag_cases=[])
+
+
+def _cli(argv, scorecard=None):
+    """Run main(argv) with run_eval stubbed; return (exit code, stderr, run_eval mock)."""
+    err = io.StringIO()
+    with redirect_stderr(err), redirect_stdout(io.StringIO()), patch("pipeline.eval_narrative.run_eval") as run:
+        run.return_value = scorecard or _offline_scorecard([_res("agentic")])
+        try:
+            main(argv)
+        except SystemExit as e:
+            return e.code, err.getvalue(), run
+    return 0, err.getvalue(), run
+
+
+class TestFixedSample(TestCase):
+    def test_missing_sample_ids_exit_2_and_are_named(self):
+        for pid in SAMPLE_PLAYERS[:-2]:
+            Player.objects.create(bbref_id=pid, first_name="F", last_name="L")
+        code, err, run = _cli([])
+        self.assertEqual(code, 2)
+        self.assertEqual(err, "SAMPLE_PLAYERS not in the database: riverma01 mantlmi01\n")
+        run.assert_not_called()
+
+    def test_full_sample_runs_in_order(self):
+        for pid in SAMPLE_PLAYERS:
+            Player.objects.create(bbref_id=pid, first_name="F", last_name="L")
+        code, err, run = _cli(["--limit", "3"])
+        self.assertEqual((code, err), (0, ""))
+        self.assertEqual(run.call_args.args[0], ["ruthba01", "mayswi01", "aaronha01"])
