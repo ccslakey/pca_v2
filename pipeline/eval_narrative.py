@@ -429,7 +429,7 @@ def main(argv: list[str] | None = None) -> None:
     scorecard = run_eval(player_ids, k=args.k, judge=judge, workers=args.workers, inject_fault=args.inject_fault)
     runs = scorecard.pop("runs")
 
-    print(json.dumps(scorecard, indent=2) if args.json else format_scorecard(scorecard))
+    print(json.dumps(scorecard, indent=2) if args.json else format_scorecard(scorecard), flush=True)
     if args.out:
         with open(args.out, "w") as fh:
             json.dump({"scorecard": scorecard, "runs": runs}, fh, indent=2)
