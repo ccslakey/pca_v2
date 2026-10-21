@@ -15,6 +15,7 @@ from django.test import SimpleTestCase, TestCase
 from pipeline.eval_narrative import (
     SAMPLE_PLAYERS,
     faithfulness,
+    fallback_rate,
     format_scorecard,
     hallucination_rate,
     main,
@@ -52,12 +53,12 @@ class TestHallucinationRate(SimpleTestCase):
             _res(None, source="template"),             # no-key template — not an attempt
         ]
         hr = hallucination_rate(results)
-        self.assertEqual((hr["n"], hr["caught"], hr["fell_back"]), (3, 1, 1))
+        self.assertEqual((hr["n"], hr["caught"]), (3, 1))
         self.assertAlmostEqual(hr["rate"], 1 / 3)
 
     def test_repaired_draft_counts_as_caught(self):
         hr = hallucination_rate([_res("agentic", repairs=1), _res("agentic")])
-        self.assertEqual((hr["n"], hr["caught"], hr["fell_back"]), (2, 1, 0))
+        self.assertEqual((hr["n"], hr["caught"]), (2, 1))
 
     def test_typed_mode_is_an_attempt(self):
         hr = hallucination_rate([_res("agentic_typed", repairs=1), _res("agentic_typed")])
@@ -66,6 +67,26 @@ class TestHallucinationRate(SimpleTestCase):
     def test_no_attempts_is_zero(self):
         hr = hallucination_rate([_res(None, source="template")])
         self.assertEqual((hr["n"], hr["rate"]), (0, 0.0))
+
+
+class TestFallbackRate(SimpleTestCase):
+    def test_every_template_cause_counts(self):
+        incomplete = _res("agentic", source="template")
+        incomplete["trace"]["incomplete"] = "max_tokens"
+        results = [
+            _res(None, source="template"),                                   # generation raised
+            incomplete,                                                      # truncated draft
+            _res("agentic", flagged=["999"], source="template", repairs=1),  # rejected after repair
+            _res("agentic", repairs=1),                                      # repaired, served LLM
+            _res("agentic"),
+        ]
+        self.assertEqual(fallback_rate(results, llm_enabled=True), {"n": 5, "template": 3, "rate": 0.6})
+
+    def test_llm_off_measures_nothing(self):
+        self.assertEqual(
+            fallback_rate([_res(None, source="template")], llm_enabled=False),
+            {"n": 0, "template": 0, "rate": 0.0},
+        )
 
 
 class TestToolSelection(SimpleTestCase):
@@ -149,16 +170,22 @@ class TestRunEval(SimpleTestCase):
         self.assertEqual(sc["llm_errors"], 1)
         self.assertEqual([r["player_id"] for r in sc["runs"]], ["p1", "p2"])
 
-    def test_format_scorecard_smoke(self):
-        sc = run_eval(
-            ["p1"],
-            narrate=lambda pid: _res("agentic", flagged=["999"], tools=["get_career_totals"]),
-            retrieve=_retrieve,
-            rag_cases=[("qB", "war")],
-        )
-        out = format_scorecard(sc)
-        self.assertIn("hallucination", out)
-        self.assertIn("rag hit_rate@3", out)
+    def test_format_scorecard(self):
+        results = {
+            "p1": _res("agentic", flagged=["999"], source="template", repairs=1, tools=["get_career_totals"]),
+            "p2": _res("agentic", tools=["get_career_totals"]),
+        }
+        with self.settings(LLM_ENABLED=True, RAG_ENABLED=True):
+            sc = run_eval(list(results), narrate=results.__getitem__, retrieve=_retrieve, rag_cases=[("qB", "war")])
+        self.assertEqual(format_scorecard(sc).splitlines(), [
+            "Narrative eval scorecard",
+            "  players evaluated : 2  (llm=on, rag=on)",
+            "  llm errors        : 0  (generation raised, served template)",
+            "  hallucination     : 50.0% (1/2 first drafts rejected)",
+            "  fallback          : 50.0% (1/2 served the template)",
+            "  tool selection    : 100.0% (2/2 called ['get_career_totals'])",
+            "  rag hit_rate@3    : 100.0% (1/1, 0 empty)",
+        ])
 
 
 def _offline_scorecard(results):

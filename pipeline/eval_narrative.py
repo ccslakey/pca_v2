@@ -51,17 +51,22 @@ def hallucination_rate(results: list[dict[str, Any]]) -> dict[str, Any]:
     """Among runs where the LLM actually generated text, the fraction whose first
     draft the verifier rejected. A rejected draft either gets repaired (trace
     `repairs` > 0, served as LLM text) or falls back (`flagged` set, served as the
-    template); both count. `fell_back` is how many runs ended on the template."""
+    template); both count."""
     attempts = [r for r in results if r.get("trace", {}).get("mode") in LLM_MODES]
     caught = [r for r in attempts if r["trace"].get("repairs") or r.get("flagged")]
-    fell_back = [r for r in attempts if r.get("source") == "template"]
     n = len(attempts)
-    return {
-        "n": n,
-        "caught": len(caught),
-        "fell_back": len(fell_back),
-        "rate": (len(caught) / n) if n else 0.0,
-    }
+    return {"n": n, "caught": len(caught), "rate": (len(caught) / n) if n else 0.0}
+
+
+def fallback_rate(results: list[dict[str, Any]], llm_enabled: bool) -> dict[str, Any]:
+    """With the LLM on, the fraction of players served the template, whatever the
+    cause: verifier rejection after repair, a truncated or empty draft, or a
+    generation error. A model that only ever falls back scores 0% hallucination,
+    so this is the metric that catches it."""
+    attempts = results if llm_enabled else []
+    template = sum(1 for r in attempts if r.get("source") == "template")
+    n = len(attempts)
+    return {"n": n, "template": template, "rate": (template / n) if n else 0.0}
 
 
 def tool_selection_accuracy(
@@ -183,6 +188,7 @@ def run_eval(
         # silently degraded to the template (API error, rate limit, ...).
         "llm_errors": sum(1 for r in results if not r.get("trace")) if llm_enabled else 0,
         "hallucination": hallucination_rate(results),
+        "fallback": fallback_rate(results, llm_enabled),
         "tool_selection": tool_selection_accuracy(results),
         "rag_hit_rate": rag_hit_rate(rag_cases, retrieve, k=k),
     }
@@ -236,8 +242,9 @@ def format_scorecard(sc: dict[str, Any]) -> str:
         f"rag={'on' if sc['rag_enabled'] else 'off'})",
         f"  llm errors        : {sc['llm_errors']}  (generation raised, served template)",
         f"  hallucination     : {sc['hallucination']['rate']:.1%} "
-        f"({sc['hallucination']['caught']}/{sc['hallucination']['n']} first drafts rejected, "
-        f"{sc['hallucination']['fell_back']} fell back to template)",
+        f"({sc['hallucination']['caught']}/{sc['hallucination']['n']} first drafts rejected)",
+        f"  fallback          : {sc['fallback']['rate']:.1%} "
+        f"({sc['fallback']['template']}/{sc['fallback']['n']} served the template)",
         f"  tool selection    : {sc['tool_selection']['rate']:.1%} "
         f"({sc['tool_selection']['ok']}/{sc['tool_selection']['n']} called {sorted(REQUIRED_TOOLS)})",
         f"  rag hit_rate@{sc['rag_hit_rate']['k']}    : {sc['rag_hit_rate']['rate']:.1%} "
