@@ -1,0 +1,97 @@
+name: Narrative eval
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - players/narrative.py
+      - players/narrative_tools.py
+      - players/llm.py
+      - players/rag.py
+      - players/embeddings.py
+      - players/similarity.py
+      - pipeline/eval_narrative.py
+      - pipeline/fixtures/eval_players.json
+      - frontend/src/methodology/**
+      - .github/workflows/narrative-eval.yml
+  workflow_dispatch:
+    inputs:
+      inject_fault:
+        description: Plant one unsupported number per player. The gate should fail.
+        type: boolean
+        default: false
+
+jobs:
+  eval:
+    # Fork PRs get no secrets, and without a key the gates exit 2.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: pca_test
+          POSTGRES_USER: pca
+          POSTGRES_PASSWORD: pca
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgres://pca:pca@localhost:5432/pca_test
+      DJANGO_SETTINGS_MODULE: pca_backend.settings
+      SECRET_KEY: ci-secret-key-not-used-in-production
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      NARRATIVE_MODEL: claude-haiku-5-5
+      NARRATIVE_MAX_TOKENS: '1024'
+      SENTRY_DSN: ''
+      FASTEMBED_CACHE_PATH: ${{ github.workspace }}/.fastembed_cache
+      PYTHONUNBUFFERED: '1'
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run migrations
+        run: python manage.py migrate
+
+      - name: Load eval players
+        run: python manage.py loaddata pipeline/fixtures/eval_players.json
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.FASTEMBED_CACHE_PATH }}
+          key: fastembed-${{ runner.os }}-bge-small-en-v1.5
+
+      - name: Index methodology
+        run: python manage.py index_methodology
+
+      - name: Eval
+        env:
+          INJECT_FAULT: ${{ inputs.inject_fault && '--inject-fault' || '' }}
+        run: |
+          set +e
+          python pipeline/eval_narrative.py --workers 5 --out eval.json \
+            --max-hallucination 0.3 --max-fallback 0.2 $INJECT_FAULT > scorecard.txt 2>&1
+          status=$?
+          cat scorecard.txt
+          { echo '```'; cat scorecard.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit $status
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: narrative-eval
+          path: eval.json
+          if-no-files-found: ignore
