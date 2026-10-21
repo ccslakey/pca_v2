@@ -622,8 +622,6 @@ def get_or_generate(player: Player, data_version: str | None, force: bool = Fals
 
 
 def narrative_mode() -> str:
-    """The path generate_narrative takes under the current settings. The LLM
-    modes match the trace's `mode`."""
     if not getattr(settings, "LLM_ENABLED", False):
         return "template"
     if not getattr(settings, "NARRATIVE_USE_TOOLS", True):

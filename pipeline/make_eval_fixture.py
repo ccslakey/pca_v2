@@ -1,7 +1,5 @@
-"""Write pipeline/fixtures/eval_players.json from the local database: the
-SAMPLE_PLAYERS rows plus their batting, pitching, and award rows, which is
-everything build_facts, the narrative tools, and similar_players read. The
-narrative eval CI job loads it into a freshly migrated, empty database.
+"""Write pipeline/fixtures/eval_players.json, the database the narrative eval
+CI job loads. Rerun after changing SAMPLE_PLAYERS.
 
     python pipeline/make_eval_fixture.py
 """

@@ -51,8 +51,6 @@ AGENTIC_MODES = ("agentic", "agentic_typed")
 
 
 def _first_draft_rejected(result: dict[str, Any]) -> bool:
-    """The verifier rejected the first draft: it was repaired (trace `repairs` > 0,
-    served as LLM text) or fell back (`flagged` set, served as the template)."""
     return bool(result.get("trace", {}).get("repairs") or result.get("flagged"))
 
 
@@ -66,10 +64,8 @@ def hallucination_rate(results: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def fallback_rate(results: list[dict[str, Any]], llm_enabled: bool) -> dict[str, Any]:
-    """With the LLM on, the fraction of players served the template, whatever the
-    cause: verifier rejection after repair, a truncated or empty draft, or a
-    generation error. A model that only ever falls back scores 0% hallucination,
-    so this is the metric that catches it."""
+    """A model that only ever falls back scores 0% hallucination, so this is the
+    metric that catches it."""
     attempts = results if llm_enabled else []
     template = sum(1 for r in attempts if r.get("source") == "template")
     n = len(attempts)
@@ -77,7 +73,6 @@ def fallback_rate(results: list[dict[str, Any]], llm_enabled: bool) -> dict[str,
 
 
 def injection_caught(results: list[dict[str, Any]], plants: list[Plant | None]) -> dict[str, Any]:
-    """Of the runs that got a planted number, how many the verifier rejected."""
     planted = [r for r, plant in zip(results, plants) if plant is not None]
     return {"planted": len(planted), "caught": sum(1 for r in planted if _first_draft_rejected(r))}
 
@@ -147,16 +142,12 @@ def _map(fn: Callable[[Any], Any], items: list[Any], workers: int = 1) -> list[A
 
 @dataclass(frozen=True)
 class Plant:
-    """One unsupported number planted in a player's first final draft."""
     player_id: str
     original: str
     planted: str
 
 
 def _fabricate(text: str, supported: set[float]) -> tuple[str, str, str] | None:
-    """Bump the first non-year number in `text` to the nearest value, at the same
-    precision and format, that verify_numbers rejects against `supported`.
-    Returns (new_text, original, planted), or None if no number can be bumped."""
     for m in narrative._NUM_RE.finditer(text):
         tok = m.group()
         val, decimals = narrative._parse_token(tok)
@@ -178,15 +169,11 @@ class _Draft:
     plant: Plant | None = None
 
 
-# Per eval thread: the player whose first final draft has not been seen yet.
 _awaiting_draft = threading.local()
 
 
 @contextmanager
 def _planting_faults(supported_for: Callable[[str], set[float]]) -> Iterator[None]:
-    """While active, llm.complete plants one unsupported number in each player's
-    first final draft (the first response with no tool_use) and passes every
-    other response through, so tool turns and repair drafts are untouched."""
     real = llm.complete
 
     def complete(*args: Any, **kwargs: Any) -> Any:
@@ -317,7 +304,7 @@ def run_eval(
 
 
 class Gate(NamedTuple):
-    metric: Callable[[dict[str, Any]], dict[str, Any]]  # scorecard -> section with "n" and "rate"
+    metric: Callable[[dict[str, Any]], dict[str, Any]]
     flag: str
 
 
@@ -328,8 +315,6 @@ GATES: dict[str, Gate] = {
 
 
 def gate_failures(scorecard: dict[str, Any], limits: dict[str, float]) -> list[str]:
-    """One message per gate in `limits` (name -> max rate) that the scorecard
-    fails. A gate that measured no runs fails rather than passing on nothing."""
     failures: list[str] = []
     for name, limit in limits.items():
         gate = GATES[name]

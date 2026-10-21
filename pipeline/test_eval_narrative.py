@@ -84,10 +84,10 @@ class TestFallbackRate(SimpleTestCase):
         incomplete = _res("agentic", source="template")
         incomplete["trace"]["incomplete"] = "max_tokens"
         results = [
-            _res(None, source="template"),                                   # generation raised
-            incomplete,                                                      # truncated draft
-            _res("agentic", flagged=["999"], source="template", repairs=1),  # rejected after repair
-            _res("agentic", repairs=1),                                      # repaired, served LLM
+            _res(None, source="template"),
+            incomplete,
+            _res("agentic", flagged=["999"], source="template", repairs=1),
+            _res("agentic", repairs=1),
             _res("agentic"),
         ]
         self.assertEqual(fallback_rate(results, llm_enabled=True), {"n": 5, "template": 3, "rate": 0.6})
@@ -100,7 +100,6 @@ class TestFallbackRate(SimpleTestCase):
 
 
 def _rates(hallucination, fallback):
-    """A scorecard with only the gated sections: each arg is (n, rate)."""
     return {
         "hallucination": {"n": hallucination[0], "rate": hallucination[1]},
         "fallback": {"n": fallback[0], "rate": fallback[1]},
@@ -244,13 +243,11 @@ class TestRunEval(SimpleTestCase):
 
 
 def _offline_scorecard(results):
-    """A real scorecard from canned narrate results, for driving main()."""
     by_id = {f"p{i}": r for i, r in enumerate(results)}
     return run_eval(list(by_id), narrate=by_id.__getitem__, retrieve=_retrieve, rag_cases=[])
 
 
 def _cli(argv, scorecard=None):
-    """Run main(argv) with run_eval stubbed; return (exit code, stderr, run_eval mock)."""
     err = io.StringIO()
     with redirect_stderr(err), redirect_stdout(io.StringIO()), patch("pipeline.eval_narrative.run_eval") as run:
         run.return_value = scorecard or _offline_scorecard([_res("agentic")])
@@ -350,8 +347,6 @@ def _text(text):
 
 
 def _agent_model(drafts):
-    """Stands in for llm.complete: one get_career_totals call, then
-    drafts[player_id][i] as the i-th text-only reply."""
     def complete(system, messages, tools=None, **kwargs):
         pid = re.search(r"'(\w+)'", messages[0]["content"]).group(1)
         if len(messages) == 1:
@@ -362,8 +357,6 @@ def _agent_model(drafts):
 
 
 class TestInjectFault(TestCase):
-    """The planted number goes through the real agent loop and verifier."""
-
     def setUp(self):
         cache.clear()
         ruth = Player.objects.create(
