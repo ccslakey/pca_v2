@@ -5,9 +5,12 @@ import json
 import os
 import random
 import sys
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Callable, NamedTuple
+from contextlib import contextmanager, nullcontext
+from dataclasses import asdict, dataclass
+from typing import Any, Callable, Iterator, NamedTuple
 
 import django
 
@@ -17,9 +20,9 @@ django.setup()
 
 from django.conf import settings
 
-from players import llm
+from players import llm, narrative
 from players.models import Player
-from players.narrative import build_facts, generate_narrative
+from players.narrative import allowed_numbers, build_facts, generate_narrative, narrative_mode, verify_numbers
 from players.rag import search_methodology
 
 SAMPLE_PLAYERS: list[str] = [
@@ -47,13 +50,17 @@ LLM_MODES = ("agentic", "agentic_typed", "single_shot")
 AGENTIC_MODES = ("agentic", "agentic_typed")
 
 
+def _first_draft_rejected(result: dict[str, Any]) -> bool:
+    """The verifier rejected the first draft: it was repaired (trace `repairs` > 0,
+    served as LLM text) or fell back (`flagged` set, served as the template)."""
+    return bool(result.get("trace", {}).get("repairs") or result.get("flagged"))
+
+
 def hallucination_rate(results: list[dict[str, Any]]) -> dict[str, Any]:
     """Among runs where the LLM actually generated text, the fraction whose first
-    draft the verifier rejected. A rejected draft either gets repaired (trace
-    `repairs` > 0, served as LLM text) or falls back (`flagged` set, served as the
-    template); both count."""
+    draft the verifier rejected."""
     attempts = [r for r in results if r.get("trace", {}).get("mode") in LLM_MODES]
-    caught = [r for r in attempts if r["trace"].get("repairs") or r.get("flagged")]
+    caught = [r for r in attempts if _first_draft_rejected(r)]
     n = len(attempts)
     return {"n": n, "caught": len(caught), "rate": (len(caught) / n) if n else 0.0}
 
@@ -67,6 +74,12 @@ def fallback_rate(results: list[dict[str, Any]], llm_enabled: bool) -> dict[str,
     template = sum(1 for r in attempts if r.get("source") == "template")
     n = len(attempts)
     return {"n": n, "template": template, "rate": (template / n) if n else 0.0}
+
+
+def injection_caught(results: list[dict[str, Any]], plants: list[Plant | None]) -> dict[str, Any]:
+    """Of the runs that got a planted number, how many the verifier rejected."""
+    planted = [r for r, plant in zip(results, plants) if plant is not None]
+    return {"planted": len(planted), "caught": sum(1 for r in planted if _first_draft_rejected(r))}
 
 
 def tool_selection_accuracy(
@@ -132,6 +145,72 @@ def _map(fn: Callable[[Any], Any], items: list[Any], workers: int = 1) -> list[A
         return list(pool.map(fn, items))
 
 
+@dataclass(frozen=True)
+class Plant:
+    """One unsupported number planted in a player's first final draft."""
+    player_id: str
+    original: str
+    planted: str
+
+
+def _fabricate(text: str, supported: set[float]) -> tuple[str, str, str] | None:
+    """Bump the first non-year number in `text` to the nearest value, at the same
+    precision and format, that verify_numbers rejects against `supported`.
+    Returns (new_text, original, planted), or None if no number can be bumped."""
+    for m in narrative._NUM_RE.finditer(text):
+        tok = m.group()
+        val, decimals = narrative._parse_token(tok)
+        if decimals == 0 and 1850 <= val <= 2030:  # a bumped year usually lands on another active year
+            continue
+        sep = "," if "," in tok else ""
+        for bump in range(1, 20):
+            new = f"{val + bump * 10 ** -decimals:{sep}.{decimals}f}"
+            if tok.startswith("."):
+                new = new.removeprefix("0")
+            if verify_numbers(new, supported):
+                return text[: m.start()] + new + text[m.end():], tok, new
+    return None
+
+
+@dataclass
+class _Draft:
+    player_id: str
+    plant: Plant | None = None
+
+
+# Per eval thread: the player whose first final draft has not been seen yet.
+_awaiting_draft = threading.local()
+
+
+@contextmanager
+def _planting_faults(supported_for: Callable[[str], set[float]]) -> Iterator[None]:
+    """While active, llm.complete plants one unsupported number in each player's
+    first final draft (the first response with no tool_use) and passes every
+    other response through, so tool turns and repair drafts are untouched."""
+    real = llm.complete
+
+    def complete(*args: Any, **kwargs: Any) -> Any:
+        resp = real(*args, **kwargs)
+        draft: _Draft | None = getattr(_awaiting_draft, "draft", None)
+        if draft is None or any(getattr(b, "type", None) == "tool_use" for b in resp.content):
+            return resp
+        _awaiting_draft.draft = None
+        supported = supported_for(draft.player_id)
+        for block in (b for b in resp.content if getattr(b, "type", None) == "text"):
+            found = _fabricate(block.text, supported)
+            if found:
+                block.text, original, planted = found
+                draft.plant = Plant(draft.player_id, original, planted)
+                break
+        return resp
+
+    llm.complete = complete
+    try:
+        yield
+    finally:
+        llm.complete = real
+
+
 def _default_narrate(bbref_id: str) -> dict[str, Any]:
     return generate_narrative(Player.objects.get(pk=bbref_id))
 
@@ -170,14 +249,24 @@ def run_eval(
     judge: Callable[[str, dict[str, Any]], int] | None = None,
     facts_for: Callable[[str], dict[str, Any]] | None = None,
     workers: int = 1,
+    inject_fault: bool = False,
 ) -> dict[str, Any]:
-    def timed(pid: str) -> tuple[dict[str, Any], int]:
-        started = time.monotonic()
-        result = narrate(pid)
-        return result, round((time.monotonic() - started) * 1000)
+    get_facts = facts_for or (lambda pid: build_facts(Player.objects.get(pk=pid)))
 
-    timed_results = _map(timed, player_ids, workers)
-    results = [r for r, _ in timed_results]
+    def timed(pid: str) -> tuple[dict[str, Any], int, Plant | None]:
+        draft = _awaiting_draft.draft = _Draft(pid)
+        started = time.monotonic()
+        try:
+            result = narrate(pid)
+        finally:
+            _awaiting_draft.draft = None
+        return result, round((time.monotonic() - started) * 1000), draft.plant
+
+    planting = _planting_faults(lambda pid: allowed_numbers(get_facts(pid))) if inject_fault else nullcontext()
+    with planting:
+        timed_results = _map(timed, player_ids, workers)
+    results = [r for r, _, _ in timed_results]
+    plants = [plant for _, _, plant in timed_results]
     llm_enabled = bool(getattr(settings, "LLM_ENABLED", False))
 
     scorecard: dict[str, Any] = {
@@ -192,10 +281,11 @@ def run_eval(
         "tool_selection": tool_selection_accuracy(results),
         "rag_hit_rate": rag_hit_rate(rag_cases, retrieve, k=k),
     }
+    if inject_fault:
+        scorecard["injected"] = injection_caught(results, plants)
 
     judged: dict[str, int | None] = {}
     if judge is not None:
-        get_facts = facts_for or (lambda pid: build_facts(Player.objects.get(pk=pid)))
         llm_ids = [pid for pid, r in zip(player_ids, results) if r.get("source") == "llm"]
         by_id = dict(zip(player_ids, results))
         samples = _map(lambda pid: (by_id[pid], get_facts(pid)), llm_ids, workers)
@@ -219,8 +309,9 @@ def run_eval(
             "output_tokens": r.get("trace", {}).get("output_tokens", 0),
             "cache_read_tokens": r.get("trace", {}).get("cache_read_tokens", 0),
             "text": r.get("text"),
+            "plant": asdict(plant) if plant else None,
         }
-        for pid, (r, ms) in zip(player_ids, timed_results)
+        for pid, (r, ms, plant) in zip(player_ids, timed_results)
     ]
     return scorecard
 
@@ -275,6 +366,8 @@ def format_scorecard(sc: dict[str, Any]) -> str:
         f"  rag hit_rate@{sc['rag_hit_rate']['k']}    : {sc['rag_hit_rate']['rate']:.1%} "
         f"({sc['rag_hit_rate']['hits']}/{sc['rag_hit_rate']['n']}, {sc['rag_hit_rate']['empty']} empty)",
     ]
+    if "injected" in sc:
+        lines.append(f"  injected faults   : {sc['injected']['caught']}/{sc['injected']['planted']} caught")
     if "faithfulness" in sc:
         f = sc["faithfulness"]
         lines.append(f"  faithfulness      : {f['mean']}/5  (n={f['n']})")
@@ -295,6 +388,10 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--json", action="store_true", help="Emit the scorecard as JSON.")
     parser.add_argument("--faithfulness", action="store_true", help="Run the LLM-judge metric (needs a key).")
     parser.add_argument("--judge-model", default=None, help="Model for the judge (default NARRATIVE_MODEL).")
+    parser.add_argument(
+        "--inject-fault", action="store_true",
+        help="Plant one unsupported number in each player's first draft, to prove the verifier and gates react.",
+    )
     for name, gate in GATES.items():
         parser.add_argument(
             gate.flag, dest=f"gate_{name}", type=float, metavar="RATE",
@@ -306,6 +403,11 @@ def main(argv: list[str] | None = None) -> None:
     if limits and not getattr(settings, "LLM_ENABLED", False):
         flags = " ".join(GATES[name].flag for name in limits)
         print(f"{flags}: the gates need ANTHROPIC_API_KEY; with the LLM off nothing is measured.", file=sys.stderr)
+        sys.exit(2)
+    mode = narrative_mode()
+    if args.inject_fault and mode != "agentic":
+        print(f"--inject-fault needs the agentic mode (LLM on, NARRATIVE_USE_TOOLS=true, "
+              f"NARRATIVE_TYPED_VERIFY=false); settings select {mode}.", file=sys.stderr)
         sys.exit(2)
 
     if args.sample:
@@ -324,7 +426,7 @@ def main(argv: list[str] | None = None) -> None:
         sys.exit(2)
 
     judge = make_judge(args.judge_model) if (args.faithfulness and getattr(settings, "LLM_ENABLED", False)) else None
-    scorecard = run_eval(player_ids, k=args.k, judge=judge, workers=args.workers)
+    scorecard = run_eval(player_ids, k=args.k, judge=judge, workers=args.workers, inject_fault=args.inject_fault)
     runs = scorecard.pop("runs")
 
     print(json.dumps(scorecard, indent=2) if args.json else format_scorecard(scorecard))

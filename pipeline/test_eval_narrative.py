@@ -1,19 +1,25 @@
 from __future__ import annotations
 
+import datetime
 import io
 import os
+import re
 import sys
+import threading
 from contextlib import redirect_stderr, redirect_stdout
+from types import SimpleNamespace
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "pca_backend.settings")
 
 from unittest.mock import patch
 
+from django.core.cache import cache
 from django.test import SimpleTestCase, TestCase
 
 from pipeline.eval_narrative import (
     SAMPLE_PLAYERS,
+    _fabricate,
     faithfulness,
     fallback_rate,
     format_scorecard,
@@ -25,7 +31,10 @@ from pipeline.eval_narrative import (
     run_eval,
     tool_selection_accuracy,
 )
+from players import llm
 from players.models import Player
+from players.narrative import verify_numbers
+from stats.models import BattingSeason
 
 
 def _res(mode, flagged=None, tools=None, source="llm", text="x", repairs=0):
@@ -291,6 +300,21 @@ class TestCli(TestCase):
             "FAIL: fallback rate 100.0% exceeds --max-fallback 20.0%\n"
         ))
 
+    def test_inject_fault_outside_agentic_mode_exits_2(self):
+        for mode, overrides in (
+            ("single_shot", {"NARRATIVE_USE_TOOLS": False}),
+            ("agentic_typed", {"NARRATIVE_TYPED_VERIFY": True}),
+            ("template", {"LLM_ENABLED": False}),
+        ):
+            with self.subTest(mode), self.settings(**{"LLM_ENABLED": True, **overrides}):
+                code, err, run = _cli(["--inject-fault"])
+                self.assertEqual(code, 2)
+                self.assertEqual(err, (
+                    "--inject-fault needs the agentic mode (LLM on, NARRATIVE_USE_TOOLS=true, "
+                    f"NARRATIVE_TYPED_VERIFY=false); settings select {mode}.\n"
+                ))
+                run.assert_not_called()
+
     def test_passing_gates_exit_0(self):
         for pid in SAMPLE_PLAYERS:
             Player.objects.create(bbref_id=pid, first_name="F", last_name="L")
@@ -298,3 +322,103 @@ class TestCli(TestCase):
             sc = _offline_scorecard([_res("agentic")])
             code, err, _ = _cli(["--max-hallucination", "0.3", "--max-fallback", "0.2"], sc)
         self.assertEqual((code, err), (0, ""))
+
+
+class TestFabricate(SimpleTestCase):
+    def test_skips_years_and_plants_a_rejected_number(self):
+        supported = {1927.0, 60.0, 61.0, 162.4}
+        text = "In 1927 he hit 60 home runs and posted 162.4 WAR."
+        self.assertEqual(
+            _fabricate(text, supported),
+            ("In 1927 he hit 62 home runs and posted 162.4 WAR.", "60", "62"),
+        )
+        self.assertEqual(verify_numbers("In 1927 he hit 62 home runs and posted 162.4 WAR.", supported), ["62"])
+
+    def test_keeps_leading_dot_rate_format(self):
+        self.assertEqual(_fabricate("a .342 average", {0.342, 0.343}), ("a .344 average", ".342", ".344"))
+
+    def test_keeps_comma_grouping(self):
+        self.assertEqual(_fabricate("2,213 hits", {2213.0}), ("2,214 hits", "2,213", "2,214"))
+
+    def test_nothing_to_plant(self):
+        self.assertIsNone(_fabricate("He played from 1914 to 1935.", {1914.0, 1935.0}))
+        self.assertIsNone(_fabricate("A great career.", set()))
+
+
+def _text(text):
+    return SimpleNamespace(content=[SimpleNamespace(type="text", text=text)], stop_reason="end_turn")
+
+
+def _agent_model(drafts):
+    """Stands in for llm.complete: one get_career_totals call, then
+    drafts[player_id][i] as the i-th text-only reply."""
+    def complete(system, messages, tools=None, **kwargs):
+        pid = re.search(r"'(\w+)'", messages[0]["content"]).group(1)
+        if len(messages) == 1:
+            call = SimpleNamespace(type="tool_use", name="get_career_totals", input={"player_id": pid}, id="t1")
+            return SimpleNamespace(content=[call], stop_reason="tool_use")
+        return _text(drafts[pid][(len(messages) - 3) // 2])
+    return complete
+
+
+class TestInjectFault(TestCase):
+    """The planted number goes through the real agent loop and verifier."""
+
+    def setUp(self):
+        cache.clear()
+        ruth = Player.objects.create(
+            bbref_id="ruthba01", first_name="Babe", last_name="Ruth",
+            debut=datetime.date(1914, 5, 6), final_game=datetime.date(1935, 5, 30),
+        )
+        BattingSeason.objects.create(player=ruth, year=1920, stint=1, team="NYA", league="AL", war=11.5, home_runs=54)
+
+    def test_verifier_catches_plant_and_repair_draft_is_untouched(self):
+        clean = "He compiled 11.5 WAR with 54 home runs."
+        fake = _agent_model({"ruthba01": [clean, clean]})
+        with self.settings(LLM_ENABLED=True, NARRATIVE_USE_TOOLS=True, NARRATIVE_TYPED_VERIFY=False), \
+                patch.object(llm, "complete", side_effect=fake) as model:
+            sc = run_eval(["ruthba01"], retrieve=_retrieve, rag_cases=[], inject_fault=True)
+            self.assertIs(llm.complete, model)
+        run = sc["runs"][0]
+        self.assertEqual(run["plant"], {"player_id": "ruthba01", "original": "11.5", "planted": "11.6"})
+        self.assertEqual((run["source"], run["repairs"], run["model_calls"], run["text"]), ("llm", 1, 3, clean))
+        self.assertEqual(sc["injected"], {"planted": 1, "caught": 1})
+        self.assertEqual(sc["hallucination"]["rate"], 1.0)
+        self.assertIn("  injected faults   : 1/1 caught", format_scorecard(sc).splitlines())
+
+    def test_off_by_default(self):
+        clean = "He compiled 11.5 WAR with 54 home runs."
+        with self.settings(LLM_ENABLED=True, NARRATIVE_USE_TOOLS=True, NARRATIVE_TYPED_VERIFY=False), \
+                patch.object(llm, "complete", side_effect=_agent_model({"ruthba01": [clean]})):
+            sc = run_eval(["ruthba01"], retrieve=_retrieve, rag_cases=[])
+        self.assertEqual((sc["runs"][0]["plant"], sc["runs"][0]["repairs"]), (None, 0))
+        self.assertNotIn("injected", sc)
+
+
+class TestInjectFaultThreads(SimpleTestCase):
+    def test_each_thread_plants_in_its_own_player(self):
+        both_drafting = threading.Barrier(2, timeout=5)
+
+        def model(system, messages, tools=None, **kwargs):
+            pid = messages[0]["content"]
+            if len(messages) == 1:
+                both_drafting.wait()
+            return _text({"p1": "He hit 47 home runs.", "p2": "He posted 2.5 WAR."}[pid])
+
+        drafts = {}
+
+        def narrate(pid):
+            drafts[pid] = llm.complete("sys", [{"role": "user", "content": pid}]).content[0].text
+            repair = llm.complete("sys", [{"role": "user", "content": pid}, {}]).content[0].text
+            return {"text": repair, "source": "llm", "flagged": [], "trace": {"mode": "agentic", "repairs": 1}}
+
+        facts = {"p1": {"hr": 47}, "p2": {"war": 2.5}}
+        with patch.object(llm, "complete", side_effect=model):
+            sc = run_eval(["p1", "p2"], narrate=narrate, retrieve=_retrieve, rag_cases=[],
+                          facts_for=facts.__getitem__, workers=2, inject_fault=True)
+        self.assertEqual([r["plant"] for r in sc["runs"]], [
+            {"player_id": "p1", "original": "47", "planted": "48"},
+            {"player_id": "p2", "original": "2.5", "planted": "2.6"},
+        ])
+        self.assertEqual(drafts, {"p1": "He hit 48 home runs.", "p2": "He posted 2.6 WAR."})
+        self.assertEqual([r["text"] for r in sc["runs"]], ["He hit 47 home runs.", "He posted 2.5 WAR."])

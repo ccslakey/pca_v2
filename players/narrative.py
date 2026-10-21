@@ -621,17 +621,28 @@ def get_or_generate(player: Player, data_version: str | None, force: bool = Fals
     return obj.as_dict()
 
 
+def narrative_mode() -> str:
+    """The path generate_narrative takes under the current settings. The LLM
+    modes match the trace's `mode`."""
+    if not getattr(settings, "LLM_ENABLED", False):
+        return "template"
+    if not getattr(settings, "NARRATIVE_USE_TOOLS", True):
+        return "single_shot"
+    return "agentic_typed" if getattr(settings, "NARRATIVE_TYPED_VERIFY", False) else "agentic"
+
+
 def generate_narrative(player: Player) -> dict[str, Any]:
     facts = build_facts(player)
+    mode = narrative_mode()
 
-    if not getattr(settings, "LLM_ENABLED", False):
+    if mode == "template":
         return _result(render_template(facts), "template", None)
 
     try:
-        if getattr(settings, "NARRATIVE_USE_TOOLS", True):
-            if getattr(settings, "NARRATIVE_TYPED_VERIFY", False):
-                return _generate_agentic_typed(player, facts)
+        if mode == "agentic":
             return _generate_agentic(player, facts)
+        if mode == "agentic_typed":
+            return _generate_agentic_typed(player, facts)
         return _generate_single_shot(facts)
     except Exception:
         # Any API/SDK failure degrades to the always-correct template.
