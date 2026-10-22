@@ -180,13 +180,22 @@ Backend tests use a temporary database and rolled-back transactions — they do 
 
 ### Narrative eval harness
 
-Scores the narrative agent — hallucination rate (verifier-based), tool-selection
-accuracy, and RAG hit-rate@k — over a fixed player/question sample:
+`pipeline/eval_narrative.py` scores the narrative agent over a fixed sample of
+players and methodology questions. It reports the hallucination rate, the
+fallback rate, tool-selection accuracy, and RAG hit-rate@k.
 
 ```bash
-python pipeline/eval_narrative.py                  # scorecard (degrades gracefully without keys)
-python pipeline/eval_narrative.py --max-hallucination 0.0   # CI gate: exit 1 if any hallucination slips through
+python pipeline/eval_narrative.py                                            # scorecard (without a key, every narrative is the template)
+python pipeline/eval_narrative.py --max-hallucination 0.2 --max-fallback 0.2 # gate: exit 1 if either rate exceeds its limit
+python pipeline/eval_narrative.py --inject-fault --max-hallucination 0.2     # plant one fake number per player, so the gate fails
 ```
+
+The gates need `ANTHROPIC_API_KEY`. Without it, the CLI exits 2 instead of
+passing. The `Narrative eval` workflow runs the gates on pull requests that
+change the narrative code. It uses `pipeline/fixtures/eval_players.json` as its
+data. Rebuild that file with `python pipeline/make_eval_fixture.py`. See
+[`AI_FEATURES.md`](AI_FEATURES.md) for how the metrics and the fault injection
+work.
 
 ---
 
