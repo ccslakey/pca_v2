@@ -4,7 +4,7 @@
 
 **Live at:** [pcav2-production.up.railway.app](https://pcav2-production.up.railway.app) · share state via URL — `/?compare=ruthba01,bondsba01` round-trips into the app.
 
-**What's analytically interesting:** the similarity engine. Z-scored weighted distance over six role-specific features, with a two-axis position embedding (so catchers don't match with corner OFs) and saves-rate detection (Mariano clusters with Hoffman and Wagner, not starters at the same WAR). Pool-calibrated scores so the median candidate is always 30, era-adjusted metrics treated as first-class, and the full methodology in [`SIMILARITY.md`](SIMILARITY.md). Backed by ~150 years of season data from Baseball Reference plus Statcast pitch-level data from 2015+.
+**What's analytically interesting:** the similarity engine. Z-scored weighted distance over six role-specific features, with a two-axis position embedding (so catchers don't match with corner OFs) and saves-rate detection (Mariano clusters with Wagner and Papelbon, not starters at the same WAR). Pool-calibrated scores so the median candidate is always 30, era-adjusted metrics treated as first-class, and the full methodology in [`similarity.md`](frontend/src/methodology/similarity.md). Backed by ~150 years of season data from Baseball Reference plus Statcast pitch-level data from 2015+.
 
 <!-- TODO: hero screenshot of compare chart -->
 
@@ -34,7 +34,7 @@ Z-scored weighted Euclidean k-NN over a 6-feature vector per role:
 - **Batters:** career WAR, peak WAR, OPS+, HR rate, position defensive value, position kind
 - **Pitchers:** career WAR, peak WAR, ERA+, K/9, starter %, saves rate (closer detection)
 
-Scores are pool-calibrated so the median candidate is always 30 — relative, not absolute. Two-axis position embedding keeps catchers from matching with corner outfielders. Saves-rate clusters Mariano Rivera with Hoffman/Wagner instead of starters with the same WAR. Full methodology in [`SIMILARITY.md`](SIMILARITY.md).
+Scores are pool-calibrated so the median candidate is always 30 — relative, not absolute. Two-axis position embedding keeps catchers from matching with corner outfielders. Saves-rate clusters Mariano Rivera with Wagner/Papelbon instead of starters with the same WAR. Full methodology in [`similarity.md`](frontend/src/methodology/similarity.md).
 
 ---
 
@@ -202,7 +202,5 @@ work.
 ## Documentation
 
 - [`ROADMAP.md`](ROADMAP.md) — full feature backlog, prioritized
-- [`RELEASE_ROADMAP.md`](RELEASE_ROADMAP.md) — what ships when (resume / public release thresholds)
-- [`SIMILARITY.md`](SIMILARITY.md) — similarity engine methodology
+- [`similarity.md`](frontend/src/methodology/similarity.md) — similarity engine methodology
 - [`AI_FEATURES.md`](AI_FEATURES.md) — grounded narrative agent: tool calls, RAG, evals, verification
-- [`SCHEDULED_JOBS.md`](SCHEDULED_JOBS.md) — data refresh cron requirements

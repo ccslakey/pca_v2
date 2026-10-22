@@ -133,7 +133,7 @@ eval. You can also run the workflow by hand with `inject_fault` checked.
 - **Graceful degradation:** every external dependency is optional. No Anthropic
   key → template narrative. Unindexed corpus or an embedding error → empty
   search (logged, not silent). Both seams are
-  mockable, so the full test suite (116 tests) runs with no keys and no network.
+  mockable, so the full test suite (276 tests) runs with no keys and no network.
 - **Prompt caching** is applied to the system prompt / tool definitions, which
   matters most in the multi-turn agent loop.
 
