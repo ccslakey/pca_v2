@@ -31,7 +31,6 @@ export { BrushChart } from '../src/components/compare/BrushChart';
 
 export { ProfileChart } from '../src/components/profile/charts/ProfileChart';
 export { Sparkline } from '../src/components/profile/charts/Sparkline';
-export { MonthlyHeatmap } from '../src/components/profile/charts/MonthlyHeatmap';
 export { StatGrid } from '../src/components/profile/panels/StatGrid';
 export { HeroSection } from '../src/components/profile/panels/HeroSection';
 export { AwardsPanel } from '../src/components/profile/panels/AwardsPanel';

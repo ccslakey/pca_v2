@@ -16,10 +16,10 @@ Project: https://claude.ai/design/p/3340e21a-8206-4065-bbb4-9aef7abd0345 ("PCA D
 
 ## Scope decisions (made with the user, 2026-10-14)
 
-- **Exported:** 26 presentational components, plus `AppProviders` (glue in `ds-entry.tsx`: `QueryClientProvider` + `MemoryRouter` + `ThemeProvider`, mirroring `main.tsx`/`App.tsx`), `ThemeProvider`, `useTheme`, `THEMES`, `METRICS`, `PLAYER_COLORS`, `MAX_PLAYERS`, and the pure helpers `peakSeason`, `careerWar`, `sumMetric`, `fmtMetric`, `playerColor`, `colorTint`.
+- **Exported:** 25 presentational components, plus `AppProviders` (glue in `ds-entry.tsx`: `QueryClientProvider` + `MemoryRouter` + `ThemeProvider`, mirroring `main.tsx`/`App.tsx`), `ThemeProvider`, `useTheme`, `THEMES`, `METRICS`, `PLAYER_COLORS`, `MAX_PLAYERS`, and the pure helpers `peakSeason`, `careerWar`, `sumMetric`, `fmtMetric`, `playerColor`, `colorTint`.
 - **No cards for** `AppProviders` and `ThemeProvider` (`componentSrcMap: null`). They're still exported.
 - **Excluded because they need the live `/api`:** pages, mobile screens, `MobileApp`, `PlayerSearch`, `TopBar`, `FeaturedGallery`, `PlayerBrowser`, `ChartArea`, `PitchZone`, `NarrativePanel`, `MetricExplainer` (it's still bundled inside `MetricToggle`, which is why the provider needs a QueryClient).
-- **Rich previews:** the 20 core components, plus `MobileChart`, `MobileMultiChart` and `SeasonSheet`. Without data those three rendered blank or broken.
+- **Rich previews:** the 19 core components, plus `MobileChart`, `MobileMultiChart` and `SeasonSheet`. Without data those three rendered blank or broken.
 - **Placeholder cards (render fine with no props):** `ChartSkeleton`, `ProfilePageSkeleton`, `MobileTabBar`.
 - `@phosphor-icons/react` is not exposed as an extra entry. The full icon set would add megabytes; only the icons the components use are bundled.
 
@@ -34,7 +34,6 @@ Project: https://claude.ai/design/p/3340e21a-8206-4065-bbb4-9aef7abd0345 ("PCA D
 - **Sizes and capture viewport:**
   - Per-story capture is 900px wide, so wide components use fluid wrappers (`width: '100%'`).
   - `MetricToggle` has a `1280x400` column viewport because its desktop layout needs about 1100px.
-  - `MonthlyHeatmap` has `min-width: 600px`, so its panel is 660px.
 - **Layout dependencies:**
   - `SeasonSheet` is `position: absolute` and needs a positioned phone-height parent (`.m-app` with fixed height).
   - `ThemePicker`'s open state is shown by clicking `.tp-trigger` on mount. Its wrapper needs `alignItems: flex-start`, or the menu drops to the bottom of the stretched cell.
@@ -55,7 +54,7 @@ Project: https://claude.ai/design/p/3340e21a-8206-4065-bbb4-9aef7abd0345 ("PCA D
 - `MetricToggle` legend glyphs, which were hard-coded `#f5f7fb`, now use `--text-1`. The `BrushChart` area, which was hard-coded white, is now tinted from `--text-0`.
 - `sumMetric` computes career rates from season totals (`pa`/`ab`/`h`/`ip_outs`/`er` on `ChartSeason`), matching the backend. Ohtani's career ERA is 2.86, not 7.66.
 - `playerRoles()`: primary pitchers aren't batters, and position players need 100 IP to count as pitchers.
-- Still true: `MonthlyHeatmap` simulates monthly values from season OPS.
+- `MonthlyHeatmap` simulated monthly values from season OPS and nothing rendered it. It was deleted 2026-10-25.
 - Fixtures regenerated 2026-10-18 after these fixes: seasons carry totals, Kershaw/Maddux are pitcher-only, career ERAs read 2.53 (Kershaw) / 2.86 (Ohtani).
 
 ## App findings from the 2026-10-18 resync (fixed in src/ the same day)
