@@ -80,7 +80,7 @@ Not scheduled. Pulled into "Now" when the slot opens.
 
 ### Analytical depth (resume differentiators)
 
-- **"Similar through age N"** — extend the similarity engine to support comps at any career stage, not just career totals. Canonical prospect-comp question. See [`SIMILARITY.md`](SIMILARITY.md).
+- **"Similar through age N"** — extend the similarity engine to support comps at any career stage, not just career totals. Canonical prospect-comp question.
 - **Stuff+** — pitch-quality metric measuring expected whiffs and weak contact, holding location constant. Requires Statcast pitch-level data; regress whiff rate on pitch characteristics within pitch-type buckets.
 - **Pitch arsenal analysis** — usage rates by count/platoon/leverage, movement profile plots, tunnel analysis.
 - **WAR decomposition (data ingest)** — break career WAR into batting / fielding / baserunning / positional components on the profile page. BBref exposes these.
@@ -118,7 +118,7 @@ Not scheduled. Pulled into "Now" when the slot opens.
 - Env-driven Django settings
 - 215 MB production database (full local dataset including Statcast zones)
 - Methodology page documenting similarity weights, era cutoffs, qualification thresholds, and where numbers diverge from bWAR/fWAR (linked from footer)
-- Scheduled data jobs: weekly stats refresh + season-start + post-season awards + similarity recompute, with failure alerting, staleness detection (`/api/meta/`), and dependency ordering (similarity after stats) — see [`SCHEDULED_JOBS.md`](SCHEDULED_JOBS.md)
+- Scheduled data jobs: weekly stats refresh + season-start + post-season awards + similarity recompute, with failure alerting, staleness detection (`/api/meta/`), and dependency ordering (similarity after stats) — see `.github/workflows/weekly-refresh.yml` and `annual-awards.yml`
 
 ### Analytical features
 - Positional percentile rankings: career WAR vs same-position pool, shown on profile stat grid and compare cards with rank-on-hover tooltip
