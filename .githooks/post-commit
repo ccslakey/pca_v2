@@ -1,0 +1,4 @@
+#!/bin/sh
+# Re-index the codebase-memory-mcp graph in the background so the commit returns at once.
+command -v codebase-memory-mcp >/dev/null 2>&1 || exit 0
+nohup codebase-memory-mcp cli --quiet index_repository --repo-path "$(git rev-parse --show-toplevel)" >/dev/null 2>&1 &
