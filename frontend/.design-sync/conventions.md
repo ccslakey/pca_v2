@@ -51,7 +51,6 @@ Derive props with the exported helpers, as the app does: `peakSeason(seasons, me
 
 - `CareerChart`, `BrushChart` and `ProfileChart` need a numeric `width`.
 - `Sparkline` and `CareerArcPanel` fill their parent, so give the parent a width.
-- `MonthlyHeatmap` has `min-width: 600px`.
 - `SeasonSheet` is an absolutely positioned bottom sheet, so put it inside `.m-app` with a fixed height.
 - `MetricToggle`'s desktop layout needs about 1100px.
 

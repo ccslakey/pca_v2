@@ -34,8 +34,9 @@ metrics like WAR, OPS+, and ERA+.
 `build_facts` assembles the only data the model is allowed to see — career
 totals, a season log, awards, comps. `verify_numbers` then extracts every
 numeric token from the generated text and checks each against the set of numbers
-that data permits (exact for integers, rounding-aware for rate stats, years
-constrained to the player's active span). Any unsupported number is rejected.
+that data permits, plus every year the player was active. A token matches when
+some permitted value rounds to it at the token's own precision, so a career WAR
+of 7.6 supports both "7.6" and "8". Any unsupported number is rejected.
 
 This is the centerpiece. It's a deterministic grader, so it doubles as the
 headline metric in the eval suite (below) — no LLM judge required to answer "is
@@ -133,7 +134,7 @@ eval. You can also run the workflow by hand with `inject_fault` checked.
 - **Graceful degradation:** every external dependency is optional. No Anthropic
   key → template narrative. Unindexed corpus or an embedding error → empty
   search (logged, not silent). Both seams are
-  mockable, so the full test suite (116 tests) runs with no keys and no network.
+  mockable, so the full test suite (276 tests) runs with no keys and no network.
 - **Prompt caching** is applied to the system prompt / tool definitions, which
   matters most in the multi-turn agent loop.
 

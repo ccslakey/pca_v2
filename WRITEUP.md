@@ -14,7 +14,7 @@ Even era-adjusted stats don't capture the shape of a career. Two players can fin
 
 ## The similarity engine
 
-The core of the tool is a multi-dimensional weighted distance function. For any two players, it computes a similarity score based on a set of career metrics, each weighted according to how much that metric actually differentiates players. The result is a score, not a ranking, calibrated so that "90% similar" means something consistent regardless of who you're comparing.
+The core of the tool is a multi-dimensional weighted distance function. For any two players, it computes a similarity score based on a set of career metrics, each weighted according to how much that metric actually differentiates players. The result is a 0–100 score calibrated against the pool: for each player, the median candidate scores 30. A high score means "close to this player compared to everyone else in the pool," not a universal percentage, so scores for two different players aren't directly comparable.
 
 The hard part isn't the math. The hard part is deciding what to include and how much to weight each dimension.
 
@@ -24,9 +24,9 @@ Rate stats are included alongside counting stats. A player who put up a .950 OPS
 
 Position is handled through role embeddings rather than a strict positional filter. Comparing a shortstop to a second baseman is reasonable. Comparing an infielder to a starting pitcher is not. The engine respects that boundary without forcing rigid position-by-position silos.
 
-The similarity computation is two-way. Player A's similarity to Player B is calculated separately from Player B's similarity to Player A, then averaged. This matters because asymmetric comparisons are real: Sandy Koufax looks a lot like a peak Greg Maddux, but Maddux's longevity makes him look less like Koufax in return. The two-way split surfaces that asymmetry instead of hiding it.
+The scores aren't symmetric. The distance between two players is the same in both directions, but each player's scale is calibrated to their own median distance, so A's score for B can differ from B's score for A.
 
-Scores decay exponentially with distance. Similar players cluster tightly; dissimilar ones don't score at all rather than scoring low. The goal was to avoid a long tail of meaningless 30% matches that just add noise.
+Scores decay exponentially with distance, and only the top four comps per role reach the profile, so the long tail of weak matches never shows up on the page.
 
 ---
 
@@ -36,7 +36,7 @@ The comparison chart has an era-adjusted toggle that switches between raw stats 
 
 The similarity engine itself uses adjusted metrics as its input, not raw stats. A player's similarity score reflects their adjusted production, not their counting numbers. This means the engine doesn't reward players for playing in a run-scoring environment and doesn't penalize pitchers who played in the 60s.
 
-Qualification thresholds are applied before any comparison. A player with 50 career plate appearances isn't in the similarity pool. The cutoffs are documented on the methodology page and explained rather than hidden.
+Qualification thresholds are applied before any comparison. A player needs at least 1.0 career WAR in a role to enter that role's similarity pool. The cutoffs are documented on the methodology page and explained rather than hidden.
 
 The aging curve overlay is pulled from positional averages by age, displayed with confidence tiers. It answers the natural follow-up question when you're looking at a career arc: is this player aging normally, ahead of the curve, or declining early? The tiers fade to indicate how much variance there is at the extremes of age, where sample sizes shrink.
 
@@ -64,7 +64,7 @@ The pitch zone panels and Statcast-based features have a hard wall at 2015. Pre-
 
 ## Engineering notes
 
-The backend is Django with a Postgres database, deployed on Railway. The ingest pipeline handles data from Baseball Reference and Statcast, with retry/backoff, idempotency, and 53 tests covering the critical paths. Similarity scores are recomputed on a schedule after each stats refresh, with dependency ordering enforced (similarity runs after stats, not concurrently). The scheduled jobs include failure alerting and staleness detection, so the app knows when its data is stale and says so rather than serving confidently wrong numbers.
+The backend is Django with a Postgres database, deployed on Railway. The ingest pipeline handles data from Baseball Reference and Statcast, with retry/backoff, idempotency, and 100 tests covering the critical paths. Derived values (James scores, primary positions) are recomputed after each weekly stats refresh, with dependency ordering enforced (they run after stats, not concurrently), and the similarity engine picks up fresh data within an hour, when its cache expires. The profile and compare pages show the date of the last successful ingest, so a reader can tell how fresh the numbers are. A failed job is visible only in GitHub Actions, and nothing alerts on it yet.
 
 The frontend is React with TypeScript, Visx for charts, and TanStack Query for data fetching. The chart library choice (Visx over something like Recharts) was made because this project's chart requirements are specific enough that a lower-level primitive-based library is easier to control than fighting a higher-level abstraction. Skeleton loading states are in place throughout and performance was explicitly tuned: no flicker on metric switches, prefetch on hover for leaderboard rows, no jank.
 

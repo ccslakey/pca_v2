@@ -48,9 +48,6 @@
       "cardMode": "single",
       "viewport": "420x720"
     },
-    "MonthlyHeatmap": {
-      "cardMode": "column"
-    },
     "ChipBar": {
       "cardMode": "column"
     },
