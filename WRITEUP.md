@@ -36,7 +36,7 @@ The comparison chart has an era-adjusted toggle that switches between raw stats 
 
 The similarity engine itself uses adjusted metrics as its input, not raw stats. A player's similarity score reflects their adjusted production, not their counting numbers. This means the engine doesn't reward players for playing in a run-scoring environment and doesn't penalize pitchers who played in the 60s.
 
-Qualification thresholds are applied before any comparison. A player with 50 career plate appearances isn't in the similarity pool. The cutoffs are documented on the methodology page and explained rather than hidden.
+Qualification thresholds are applied before any comparison. A player needs at least 1.0 career WAR in a role to enter that role's similarity pool. The cutoffs are documented on the methodology page and explained rather than hidden.
 
 The aging curve overlay is pulled from positional averages by age, displayed with confidence tiers. It answers the natural follow-up question when you're looking at a career arc: is this player aging normally, ahead of the curve, or declining early? The tiers fade to indicate how much variance there is at the extremes of age, where sample sizes shrink.
 
@@ -64,7 +64,7 @@ The pitch zone panels and Statcast-based features have a hard wall at 2015. Pre-
 
 ## Engineering notes
 
-The backend is Django with a Postgres database, deployed on Railway. The ingest pipeline handles data from Baseball Reference and Statcast, with retry/backoff, idempotency, and 100 tests covering the critical paths. Derived values (James scores, primary positions) are recomputed after each weekly stats refresh, with dependency ordering enforced (they run after stats, not concurrently), and the similarity engine picks up fresh data within an hour, when its cache expires. The scheduled jobs include failure alerting and staleness detection, so the app knows when its data is stale and says so rather than serving confidently wrong numbers.
+The backend is Django with a Postgres database, deployed on Railway. The ingest pipeline handles data from Baseball Reference and Statcast, with retry/backoff, idempotency, and 100 tests covering the critical paths. Derived values (James scores, primary positions) are recomputed after each weekly stats refresh, with dependency ordering enforced (they run after stats, not concurrently), and the similarity engine picks up fresh data within an hour, when its cache expires. The profile and compare pages show the date of the last successful ingest, so a reader can tell how fresh the numbers are. A failed job is visible only in GitHub Actions, and nothing alerts on it yet.
 
 The frontend is React with TypeScript, Visx for charts, and TanStack Query for data fetching. The chart library choice (Visx over something like Recharts) was made because this project's chart requirements are specific enough that a lower-level primitive-based library is easier to control than fighting a higher-level abstraction. Skeleton loading states are in place throughout and performance was explicitly tuned: no flicker on metric switches, prefetch on hover for leaderboard rows, no jank.
 

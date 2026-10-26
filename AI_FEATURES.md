@@ -34,8 +34,9 @@ metrics like WAR, OPS+, and ERA+.
 `build_facts` assembles the only data the model is allowed to see — career
 totals, a season log, awards, comps. `verify_numbers` then extracts every
 numeric token from the generated text and checks each against the set of numbers
-that data permits (exact for integers, rounding-aware for rate stats, years
-constrained to the player's active span). Any unsupported number is rejected.
+that data permits, plus every year the player was active. A token matches when
+some permitted value rounds to it at the token's own precision, so a career WAR
+of 7.6 supports both "7.6" and "8". Any unsupported number is rejected.
 
 This is the centerpiece. It's a deterministic grader, so it doubles as the
 headline metric in the eval suite (below) — no LLM judge required to answer "is
