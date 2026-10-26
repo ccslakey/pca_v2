@@ -137,6 +137,11 @@ NARRATIVE_USE_TOOLS = os.environ.get('NARRATIVE_USE_TOOLS', 'true').lower() == '
 # Off by default: it changes the model contract and only applies on the tool path.
 NARRATIVE_TYPED_VERIFY = os.environ.get('NARRATIVE_TYPED_VERIFY', 'false').lower() == 'true'
 
+# Prototype Compare-page chat (CopilotKit). COPILOT_VERIFY holds each reply until
+# verify_numbers passes against the tool results, which turns off token streaming.
+COPILOT_MODEL = os.environ.get('COPILOT_MODEL', 'claude-haiku-5-5')
+COPILOT_VERIFY = os.environ.get('COPILOT_VERIFY', 'true').lower() == 'true'
+
 # Methodology RAG. Embeddings are computed in-process by a small local ONNX
 # model (fastembed), so there is no key, rate limit, or network call; the
 # Docker image bakes the model in. Changing EMBED_MODEL means a migration to
@@ -158,5 +163,6 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'anon': '100/hour',
         'user': '1000/hour',
+        'copilot': '600/hour',
     },
 }
