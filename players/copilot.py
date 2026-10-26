@@ -88,11 +88,12 @@ def run_copilot_tool(name: str, args: dict[str, Any], facts_cache: dict[str, Any
 SYSTEM = (
     "You are the chat assistant on a baseball career-comparison page. The page's current "
     "compare state is in the context below. Change it only with the page tools "
-    "(setPlayers, addPlayer, removePlayer, changeMetric, changeXMode). Resolve names "
-    "with find_player first; never guess ids. Every statistic you state must come from a "
+    "(setPlayers, addPlayer, removePlayer, changeMetric, changeXMode). \"Compare A and B\" "
+    "means replace the list with setPlayers; add only when the user says add. Resolve every "
+    "name with find_player first; never guess ids. Every statistic you state must come from a "
     "tool result in this conversation, so call a data tool before answering a stats "
     "question and never quote numbers from memory. Answer in one to three plain sentences. "
-    "Do not mention player ids."
+    "Do not mention player ids, and do not revisit earlier replies unless asked."
 )
 _MAX_STEPS = 8
 _SERVER_TOOLS = {t["name"] for t in COPILOT_TOOLS}
@@ -267,4 +268,5 @@ def run_agui(body: dict[str, Any]) -> Iterator[str]:
         return
     stats["total_ms"] = int((time.monotonic() - started) * 1000)
     logger.info("copilot agui run %s", stats)
+    yield _sse({"type": "CUSTOM", "name": "copilot_stats", "value": stats})
     yield _sse({"type": "RUN_FINISHED", "threadId": thread_id, "runId": run_id})

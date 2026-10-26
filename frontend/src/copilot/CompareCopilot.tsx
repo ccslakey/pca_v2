@@ -10,6 +10,7 @@ import {
 import '@copilotkit/react-core/v2/styles.css';
 import { z } from 'zod';
 import { MAX_PLAYERS, METRICS } from '../constants';
+import { useTheme } from '../themes/ThemeContext';
 import type { MetricId, XMode } from '../types';
 import './CompareCopilot.scss';
 
@@ -44,7 +45,8 @@ function Bindings(props: CompareCopilotProps) {
   const p = props;
   useAgentContext({
     description:
-      'Compare page state. players: who is on the chart (Baseball Reference id and name, max 10). ' +
+      'Current compare page state, already including any page tools you called. ' +
+      'players: who is on the chart (Baseball Reference id and name, max 10). ' +
       `metric: the plotted stat, one of ${METRIC_IDS.join(', ')}. xMode: x-axis, "year" or "age".`,
     value: {
       players: p.playerIds.map(id => ({ id, name: p.playerNames[id] ?? '(loading)' })),
@@ -125,6 +127,7 @@ class ChatBoundary extends Component<{ children: ReactNode }, { failed: boolean 
 
 export default function CompareCopilot(props: CompareCopilotProps) {
   const [error, setError] = useState<string | null>(null);
+  const { theme } = useTheme();
   const agents = useMemo(
     () => (props.variant === 'agui' ? { default: new HttpAgent({ url: '/api/copilot/agui/' }) } : undefined),
     [props.variant],
@@ -135,7 +138,8 @@ export default function CompareCopilot(props: CompareCopilotProps) {
 
   return (
     <ChatBoundary>
-      <div className="pca-copilot" data-variant={props.variant}>
+      {/* CopilotKit keys its dark styles off a .dark ancestor. */}
+      <div className={`pca-copilot ${theme.mode === 'dark' ? 'dark' : ''}`} data-variant={props.variant}>
         <CopilotKit
           {...transport}
           enableInspector={false}
