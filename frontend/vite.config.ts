@@ -5,7 +5,9 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/api': 'http://localhost:8000',
+      // Prototype chat sidecar (copilot/); must precede the /api catch-all.
+      '/api/copilotkit': process.env.COPILOT_URL ?? 'http://localhost:4000',
+      '/api': process.env.API_URL ?? 'http://localhost:8000',
     },
   },
   build: {

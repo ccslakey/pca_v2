@@ -1,0 +1,46 @@
+// CopilotKit's v2 tokens (shadcn names) reuse --accent, --radius and --chart-*
+// inside [data-copilotkit], so capture the app's values on the wrapper first.
+.pca-copilot {
+  --pca-accent: var(--accent);
+  --pca-radius: var(--radius);
+
+  [data-copilotkit] {
+    --background: var(--bg-1);
+    --foreground: var(--text-0);
+    --card: var(--bg-2);
+    --card-foreground: var(--text-0);
+    --popover: var(--bg-2);
+    --popover-foreground: var(--text-0);
+    --primary: var(--pca-accent);
+    --primary-foreground: var(--bg-0);
+    --secondary: var(--bg-2);
+    --secondary-foreground: var(--text-1);
+    --muted: var(--bg-3);
+    --muted-foreground: var(--text-2);
+    --accent: var(--bg-3);
+    --accent-foreground: var(--text-0);
+    --destructive: var(--danger);
+    --border: var(--line);
+    --input: var(--line);
+    --ring: var(--pca-accent);
+    --radius: var(--pca-radius);
+    --sidebar: var(--bg-1);
+    --sidebar-foreground: var(--text-0);
+    --sidebar-border: var(--line);
+    --cpk-default-font-family: var(--font-sans);
+    color: var(--text-0);
+  }
+}
+
+.pca-copilot-down {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 1000;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg-2);
+  color: var(--warning);
+  font: 12px var(--font-sans);
+}

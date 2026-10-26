@@ -11,10 +11,16 @@ import { ChartSkeleton } from '../components/compare/ChartSkeleton';
 import { FeaturedGallery } from '../components/compare/FeaturedGallery';
 import { PlayerBrowser } from '../components/PlayerBrowser';
 import { track } from '../analytics';
+import { MAX_PLAYERS } from '../constants';
 
 const ChartArea = lazy(() =>
   import('../components/compare/ChartArea').then(m => ({ default: m.ChartArea })),
 );
+const CompareCopilot = lazy(() => import('../copilot/CompareCopilot'));
+
+function copilotVariant(raw: string | null): 'sidecar' | 'agui' | null {
+  return raw === 'sidecar' || raw === 'agui' ? raw : null;
+}
 
 export function ComparePage() {
   const [searchParams] = useSearchParams();
@@ -26,10 +32,15 @@ export function ComparePage() {
   const [metric, setMetric] = useState<MetricId>('war');
   const [xMode, setXMode] = useState<XMode>('year');
   const [showGlyphs, setShowGlyphs] = useState(true);
+  const [copilot] = useState(() => copilotVariant(searchParams.get('copilot')));
   const [hoverPlayerId, setHoverPlayerId] = useState<string | null>(null);
 
   useEffect(() => {
-    const url = selectedIds.length ? `/?compare=${selectedIds.join(',')}` : '/';
+    const params = [
+      selectedIds.length ? `compare=${selectedIds.join(',')}` : '',
+      copilot ? `copilot=${copilot}` : '',
+    ].filter(Boolean);
+    const url = params.length ? `/?${params.join('&')}` : '/';
     navigate(url, { replace: true });
   }, [selectedIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -70,7 +81,7 @@ export function ComparePage() {
     setYearRange(fullRange);
   }, [fullRange[0], fullRange[1]]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function addPlayer(id: string, source: 'search' | 'browser') {
+  function addPlayer(id: string, source: 'search' | 'browser' | 'chat') {
     if (selectedIds.includes(id)) return;
     track('compare_player_added', { player_id: id, player_count: selectedIds.length + 1, source, surface: 'desktop' });
     setSelectedIds(prev => prev.includes(id) ? prev : [...prev, id]);
@@ -79,6 +90,10 @@ export function ComparePage() {
   function removePlayer(id: string) {
     track('compare_player_removed', { player_id: id, player_count: selectedIds.length - 1, surface: 'desktop' });
     setSelectedIds(prev => prev.filter(x => x !== id));
+  }
+
+  function setPlayers(ids: string[]) {
+    setSelectedIds([...new Set(ids)].slice(0, MAX_PLAYERS));
   }
 
   function selectFeatured(ids: string[]) {
@@ -165,6 +180,23 @@ export function ComparePage() {
         <FeaturedGallery onSelect={selectFeatured} />
 
         <PlayerBrowser selectedIds={selectedIds} onSelect={id => addPlayer(id, 'browser')} />
+
+        {copilot && (
+          <Suspense fallback={null}>
+            <CompareCopilot
+              variant={copilot}
+              playerIds={selectedIds}
+              playerNames={Object.fromEntries(players.map(pl => [pl.id, pl.name]))}
+              metric={metric}
+              xMode={xMode}
+              addPlayer={id => addPlayer(id, 'chat')}
+              removePlayer={removePlayer}
+              setPlayers={setPlayers}
+              changeMetric={changeMetric}
+              changeXMode={changeXMode}
+            />
+          </Suspense>
+        )}
 
         <p className="footer-note">
           Data: Baseball Reference · All WAR values are bWAR
