@@ -12,7 +12,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.serializers import BaseSerializer
 
-from stats.models import BattingSeason, IngestionLog, PitchingSeason, PlayerAward
+from stats.models import ZONE_GRID, BattingSeason, IngestionLog, PitchingSeason, PlayerAward, zone_cell_center
 from stats.serializers import (
     BattingSeasonSerializer,
     FieldingSeasonSerializer,
@@ -279,21 +279,20 @@ class PlayerViewSet(viewsets.ReadOnlyModelViewSet[Player]):
         if role not in VALID_ROLES or outcome not in VALID_OUTCOMES:
             return Response({"detail": "Invalid role or outcome."}, status=400)
 
-        by_location = (
-            player.zone_buckets.filter(role=role, outcome=outcome)
-            .values("plate_x", "plate_z")
-            .annotate(count_sum=Sum("count"), total_sum=Sum("total"))
+        # Every season's pitches, by heatmap cell; a cell where the outcome never happened counts 0 of its pitches.
+        cells = (
+            player.zone_cells.filter(
+                role=role, cell_x__gte=0, cell_x__lt=ZONE_GRID, cell_z__gte=0, cell_z__lt=ZONE_GRID,
+            )
+            .values("cell_x", "cell_z")
+            .annotate(count_sum=Sum(outcome), total_sum=Sum("pitches"))
+            .order_by("cell_z", "cell_x")
         )
-        return Response(
-            {
-                "role": role,
-                "outcome": outcome,
-                "buckets": [
-                    {"plate_x": b["plate_x"], "plate_z": b["plate_z"], "count": b["count_sum"], "total": b["total_sum"]}
-                    for b in by_location
-                ],
-            }
-        )
+        buckets = []
+        for c in cells:
+            plate_x, plate_z = zone_cell_center(c["cell_x"], c["cell_z"])
+            buckets.append({"plate_x": plate_x, "plate_z": plate_z, "count": c["count_sum"], "total": c["total_sum"]})
+        return Response({"role": role, "outcome": outcome, "buckets": buckets})
 
     @action(detail=True, url_path="similar")
     def similar(self, request: Request, pk: str | None = None) -> Response:

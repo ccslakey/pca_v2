@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime
+import math
 
 from django.core.cache import cache
 from django.core.management import call_command
@@ -10,12 +11,18 @@ from rest_framework.test import APITestCase
 from players.models import Player
 from players.views import _build_aging_curve, _build_leaderboard_rows
 from stats.models import (
+    ZONE_GRID,
+    ZONE_X_MAX,
+    ZONE_X_MIN,
+    ZONE_Z_MAX,
+    ZONE_Z_MIN,
     BattingSeason,
     FieldingPositionToken,
     FieldingSeason,
     PitchingSeason,
     PlayerAward,
-    StatcastZoneBucket,
+    StatcastZoneCell,
+    zone_cell_center,
 )
 
 
@@ -367,15 +374,15 @@ class TestPitchZoneAction(APITestCase):
     def setUp(self):
         self.player = make_player('troutmi01', 'Mike', 'Trout')
         add_batting(self.player, 2023, 8.0)
-        for px, pz, count, total in [(-0.5, 2.5, 10, 40), (0.3, 3.1, 5, 20), (0.8, 1.8, 2, 15)]:
-            StatcastZoneBucket.objects.create(
-                player=self.player, role='B', outcome='contact',
-                plate_x=px, plate_z=pz, count=count, total=total,
+        for cell_x, cell_z, pitches, contact, hits, whiffs in [(7, 11, 40, 10, 4, 6), (11, 8, 20, 5, 2, 0), (14, 14, 15, 0, 0, 3)]:
+            StatcastZoneCell.objects.create(
+                player=self.player, role='B', season=2023, cell_x=cell_x, cell_z=cell_z,
+                pitches=pitches, contact=contact, hits=hits, whiffs=whiffs,
             )
-        StatcastZoneBucket.objects.create(
-            player=self.player, role='B', outcome='whiffs',
-            plate_x=0.5, plate_z=3.0, count=8, total=12,
-        )
+
+    def _buckets(self, role: str = 'B', outcome: str = 'contact') -> list[dict]:
+        r = self.client.get(reverse('player-pitch-zone', kwargs={'pk': 'troutmi01'}), {'role': role, 'outcome': outcome})
+        return r.data['buckets']
 
     def test_returns_200(self):
         r = self.client.get(reverse('player-pitch-zone', kwargs={'pk': 'troutmi01'}))
@@ -386,37 +393,44 @@ class TestPitchZoneAction(APITestCase):
         self.assertEqual(r.data['role'], 'B')
         self.assertEqual(r.data['outcome'], 'contact')
 
-    def test_bucket_count_matches_outcome(self):
-        r = self.client.get(reverse('player-pitch-zone', kwargs={'pk': 'troutmi01'}),
-                            {'role': 'B', 'outcome': 'contact'})
-        self.assertEqual(len(r.data['buckets']), 3)
+    def test_each_cell_at_its_centre_with_the_outcome_over_all_its_pitches(self):
+        self.assertEqual(self._buckets(outcome='whiffs'), [
+            {'plate_x': 0.3, 'plate_z': 3.0875, 'count': 0, 'total': 20},
+            {'plate_x': -0.5, 'plate_z': 2.4125, 'count': 6, 'total': 40},
+            {'plate_x': 0.9, 'plate_z': 1.7375, 'count': 3, 'total': 15},
+        ])
 
-    def test_outcome_filter(self):
-        r = self.client.get(reverse('player-pitch-zone', kwargs={'pk': 'troutmi01'}),
-                            {'role': 'B', 'outcome': 'whiffs'})
-        self.assertEqual(len(r.data['buckets']), 1)
+    def test_a_cell_where_the_outcome_never_happened_still_counts_its_pitches(self):
+        contact = {(b['plate_x'], b['plate_z']): (b['count'], b['total']) for b in self._buckets(outcome='contact')}
+        self.assertEqual(contact[(0.9, 1.7375)], (0, 15))
 
-    def test_bucket_fields(self):
-        r = self.client.get(reverse('player-pitch-zone', kwargs={'pk': 'troutmi01'}))
-        b = r.data['buckets'][0]
-        for field in ('plate_x', 'plate_z', 'count', 'total'):
-            self.assertIn(field, b)
+    def test_sums_seasons_in_a_cell(self):
+        for season, pitches, whiffs in [(2023, 10, 3), (2024, 6, 4)]:
+            StatcastZoneCell.objects.create(
+                player=self.player, role='P', season=season, cell_x=10, cell_z=13,
+                pitches=pitches, contact=0, hits=0, whiffs=whiffs,
+            )
+        self.assertEqual(self._buckets(role='P', outcome='whiffs'), [{'plate_x': 0.1, 'plate_z': 1.9625, 'count': 7, 'total': 16}])
+
+    def test_leaves_out_cells_outside_the_grid(self):
+        StatcastZoneCell.objects.create(
+            player=self.player, role='P', season=2023, cell_x=-16, cell_z=25, pitches=1, contact=0, hits=0, whiffs=1,
+        )
+        self.assertEqual(self._buckets(role='P', outcome='whiffs'), [])
+
+    def test_cell_centres_land_back_in_their_cells(self):
+        # As PitchZone.tsx bins a bucket: the centre the API sends must fall in the cell it came from.
+        for cell_x in range(ZONE_GRID):
+            for cell_z in range(ZONE_GRID):
+                x, z = zone_cell_center(cell_x, cell_z)
+                self.assertEqual(math.floor((x - ZONE_X_MIN) / (ZONE_X_MAX - ZONE_X_MIN) * ZONE_GRID), cell_x)
+                self.assertEqual(math.floor((ZONE_Z_MAX - z) / (ZONE_Z_MAX - ZONE_Z_MIN) * ZONE_GRID), cell_z)
 
     def test_empty_for_no_data(self):
         make_player('nobody00', 'No', 'Data')
         r = self.client.get(reverse('player-pitch-zone', kwargs={'pk': 'nobody00'}))
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.data['buckets'], [])
-
-    def test_sums_seasons_at_one_location(self):
-        for season, count, total in [(2023, 3, 10), (2024, 4, 6)]:
-            StatcastZoneBucket.objects.create(
-                player=self.player, role='P', season=season, outcome='whiffs',
-                plate_x=0.1, plate_z=2.4, count=count, total=total,
-            )
-        r = self.client.get(reverse('player-pitch-zone', kwargs={'pk': 'troutmi01'}),
-                            {'role': 'P', 'outcome': 'whiffs'})
-        self.assertEqual(r.data['buckets'], [{'plate_x': 0.1, 'plate_z': 2.4, 'count': 7, 'total': 16}])
 
     def test_invalid_outcome_returns_400(self):
         r = self.client.get(reverse('player-pitch-zone', kwargs={'pk': 'troutmi01'}),
