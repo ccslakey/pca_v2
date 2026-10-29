@@ -40,7 +40,9 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         if not getattr(settings, "RAG_ENABLED", False):
-            raise CommandError("RAG is disabled (RAG_ENABLED=false) — nothing to index.")
+            # Not an error: it runs before every deploy, and a deploy with RAG off should go out.
+            self.stdout.write("RAG is disabled (RAG_ENABLED=false), so there is nothing to index.")
+            return
 
         doc_dir = Path(settings.BASE_DIR) / "frontend" / "src" / "methodology"
         md_files = sorted(doc_dir.glob("*.md"))

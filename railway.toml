@@ -2,6 +2,8 @@
 builder = "dockerfile"
 
 [deploy]
+# Migrations and the methodology RAG index, before each deploy goes live: predeploy.sh.
+preDeployCommand = ["sh predeploy.sh"]
 healthcheckPath = "/api/meta/"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"

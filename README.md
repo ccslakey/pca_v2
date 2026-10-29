@@ -137,6 +137,9 @@ using a local ONNX embedding model (no API key; the first run downloads ~65 MB):
 python manage.py index_methodology
 ```
 
+Production runs it before every deploy, after the migrations, in `predeploy.sh`
+(Railway's pre-deploy command), so an edited doc goes live already indexed.
+
 ### Player bio backfill
 Birth dates and debut/final game are populated from Lahman's People.csv:
 ```bash
