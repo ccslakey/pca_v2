@@ -203,40 +203,6 @@ class PlayerAward(models.Model):
         return f"{self.player_id} {self.year} {self.kind}"
 
 
-class StatcastZoneBucket(models.Model):
-    """
-    Aggregated Statcast pitch-location data for the pitch zone heatmap.
-    plate_x / plate_z are raw Statcast coordinates rounded to 0.1 ft —
-    the frontend bins these into a grid at render time.
-    """
-
-    class Role(models.TextChoices):
-        BATTER  = 'B', 'Batter'
-        PITCHER = 'P', 'Pitcher'
-
-    class Outcome(models.TextChoices):
-        CONTACT = 'contact', 'Contact'
-        HITS    = 'hits',    'Hits'
-        WHIFFS  = 'whiffs',  'Whiffs'
-
-    player  = models.ForeignKey(Player, on_delete=models.CASCADE, related_name='zone_buckets')
-    role    = models.CharField(max_length=1, choices=Role.choices)
-    season  = models.PositiveSmallIntegerField(null=True)
-    outcome = models.CharField(max_length=10, choices=Outcome.choices)
-    plate_x = models.FloatField()
-    plate_z = models.FloatField()
-    count   = models.IntegerField()  # pitches with this outcome at (x, z)
-    total   = models.IntegerField()  # total pitches seen at (x, z)
-
-    class Meta:
-        unique_together = ('player', 'role', 'season', 'outcome', 'plate_x', 'plate_z')
-        indexes = [models.Index(fields=['player', 'role', 'outcome'])]
-
-    def __str__(self):
-        return f"{self.player_id} {self.role} {self.outcome} ({self.plate_x:.1f}, {self.plate_z:.1f})"
-
-
-
 # The pitch zone heatmap's grid: GRID x GRID cells over these plate coordinates, in feet.
 # frontend/src/components/profile/charts/PitchZone.tsx draws the same one.
 ZONE_X_MIN, ZONE_X_MAX = -2.0, 2.0
