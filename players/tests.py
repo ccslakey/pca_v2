@@ -1327,3 +1327,26 @@ class TestPregenerateCommand(APITestCase):
         with patch.object(narrative, "generate_narrative", return_value=_fake_result()):
             call_command("pregenerate_narratives", "--bbref-ids", "ruthba01", stdout=StringIO())
         self.assertTrue(PlayerNarrative.objects.filter(player_id="ruthba01").exists())
+
+
+@override_settings(RAG_ENABLED=True)
+class TestIndexMethodologyCommand(APITestCase):
+    def _index(self) -> str:
+        out = StringIO()
+        with patch.object(embeddings, "embed", side_effect=lambda texts, input_type: [_unit_vec(0) for _ in texts]):
+            call_command("index_methodology", stdout=out)
+        return out.getvalue()
+
+    def test_replaces_the_index_with_every_doc(self):
+        MethodologyChunk.objects.create(slug="gone", title="Gone", chunk_index=0, content="stale", embedding=_unit_vec(0))
+        self.assertIn("Indexed", self._index())
+        slugs = set(MethodologyChunk.objects.values_list("slug", flat=True))
+        self.assertNotIn("gone", slugs)
+        self.assertIn("pitch-zones", slugs)
+
+    def test_with_rag_off_does_nothing_and_succeeds(self):
+        # It runs before every deploy (predeploy.sh), so RAG being off mustn't fail the deploy.
+        MethodologyChunk.objects.create(slug="kept", title="Kept", chunk_index=0, content="x", embedding=_unit_vec(0))
+        with override_settings(RAG_ENABLED=False):
+            self.assertIn("RAG is disabled", self._index())
+        self.assertEqual(list(MethodologyChunk.objects.values_list("slug", flat=True)), ["kept"])

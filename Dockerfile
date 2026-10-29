@@ -38,8 +38,8 @@ USER appuser
 
 EXPOSE 8000
 
-CMD sh -c "python manage.py migrate --noinput && \
-    gunicorn pca_backend.wsgi:application \
+# Migrations run before each deploy, in Railway's pre-deploy command (predeploy.sh).
+CMD sh -c "gunicorn pca_backend.wsgi:application \
     --bind 0.0.0.0:${PORT:-8000} \
     --workers ${WEB_CONCURRENCY:-2} \
     --threads 2 \
