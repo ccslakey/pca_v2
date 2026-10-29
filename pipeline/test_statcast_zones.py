@@ -272,6 +272,15 @@ class TestWriteCells(TestCase):
         write_cells(self.player, "B", [_cell(2024, 10, 13, 10, whiffs=5)], dry_run=True)
         self.assertFalse(StatcastZoneCell.objects.filter(player=self.player).exists())
 
+    def test_failed_write_keeps_the_season_it_was_replacing(self):
+        write_cells(self.player, "B", [_cell(2024, 10, 13, 20, whiffs=10)], dry_run=False)
+        with (
+            patch.object(StatcastZoneCell.objects, "bulk_create", side_effect=OperationalError("connection dropped")),
+            self.assertRaises(OperationalError),
+        ):
+            write_cells(self.player, "B", [_cell(2024, 10, 13, 5, whiffs=1)], dry_run=False)
+        self.assertEqual(self._stored(), [(2024, 10, 20)])
+
     def test_reconnects_and_retries_once_after_a_dropped_connection(self):
         calls = []
 

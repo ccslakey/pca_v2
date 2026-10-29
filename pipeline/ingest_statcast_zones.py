@@ -42,7 +42,7 @@ warnings.filterwarnings('ignore', category=pd.errors.DtypeWarning, module='pybas
 
 pybaseball.cache.enable()
 
-from django.db import InterfaceError, OperationalError, close_old_connections
+from django.db import InterfaceError, OperationalError, close_old_connections, connection, transaction
 from django.db.models import Sum
 from pybaseball import statcast, statcast_batter, statcast_pitcher
 
@@ -125,10 +125,12 @@ def write_cells(player: Player, role: str, cells: list[Cell], dry_run: bool) -> 
         return len(cells)
 
     seasons = {c['season'] for c in cells}
-    StatcastZoneCell.objects.filter(player=player, role=role, season__in=seasons).delete()
-    StatcastZoneCell.objects.bulk_create(
-        (StatcastZoneCell(player=player, role=role, **c) for c in cells), batch_size=2000,
-    )
+    # One transaction, so a dropped connection can't leave these seasons deleted and not yet rewritten.
+    with transaction.atomic():
+        StatcastZoneCell.objects.filter(player=player, role=role, season__in=seasons).delete()
+        StatcastZoneCell.objects.bulk_create(
+            (StatcastZoneCell(player=player, role=role, **c) for c in cells), batch_size=2000,
+        )
     return len(cells)
 
 
@@ -218,6 +220,10 @@ def ingest_bulk(targets: list[tuple[Player, set[str]]], season: int,
         print('  no pitches returned for window')
         return 0
     print(f'  pulled {len(df):,} pitches')
+    # The connection sat idle through the pull and may have been dropped. Outside a request Django never
+    # health-checks it again, so check it here; once closed, the next query opens a new one.
+    if not connection.is_usable():
+        connection.close()
 
     target_mlbams = {p.mlbam_id for p, _ in pending}
     # groupby() drops rows where the key is NaN by default — fine here since
