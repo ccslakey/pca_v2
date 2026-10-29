@@ -2,8 +2,8 @@
 Tests for pipeline/ingest_statcast_zones.py.
 
 Covers:
-  - aggregate_buckets correctness
-  - bulk path parity: groupby slice produces identical buckets to per-player filter
+  - aggregate_cells correctness, on the heatmap's grid
+  - bulk path parity: groupby slice produces identical cells to per-player filter
   - float64 batter/pitcher dtype tolerance (statcast CSV uses float64 when NaN rows present)
   - ingest_bulk: skips already-ingested, logs success/error
 
@@ -24,20 +24,22 @@ from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
+from django.db import OperationalError
 from django.test import TestCase
 from django.urls import reverse
 
 from pipeline.ingest_statcast_zones import (
-    BATTER_OUTCOMES,
     _source_key,
-    aggregate_buckets,
+    aggregate_cells,
+    cell_index,
     ingest_bulk,
     main,
     players_by_war,
-    write_buckets,
+    write_cells,
+    write_cells_retrying,
 )
 from players.models import Player
-from stats.models import BattingSeason, IngestionLog, PitchingSeason, StatcastZoneBucket
+from stats.models import BattingSeason, IngestionLog, PitchingSeason, StatcastZoneCell
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -87,26 +89,33 @@ def _make_player(bbref_id: str, mlbam_id: int) -> Player:
 
 
 # ---------------------------------------------------------------------------
-# aggregate_buckets
+# aggregate_cells
 # ---------------------------------------------------------------------------
 
 
-class TestAggregateBuckets(TestCase):
-    def test_counts_whiffs_correctly(self):
+def _cell(season: int, cell_x: int, cell_z: int, pitches: int, contact: int = 0, hits: int = 0, whiffs: int = 0) -> dict:
+    return {"season": season, "cell_x": cell_x, "cell_z": cell_z, "pitches": pitches, "contact": contact, "hits": hits, "whiffs": whiffs}
+
+
+class TestAggregateCells(TestCase):
+    def test_counts_every_pitch_and_each_outcome_in_a_cell(self):
         df = _make_pitch_df(
             [
                 {"plate_x": 0.0, "plate_z": 2.0, "description": "swinging_strike"},
                 {"plate_x": 0.0, "plate_z": 2.0, "description": "swinging_strike"},
                 {"plate_x": 0.0, "plate_z": 2.0, "description": "ball"},
+                {"plate_x": 0.05, "plate_z": 2.0, "description": "hit_into_play", "events": "double"},
             ]
         )
-        buckets = aggregate_buckets(df, BATTER_OUTCOMES)
-        whiff = next(b for b in buckets if b["outcome"] == "whiffs")
-        self.assertEqual(whiff["count"], 2)
-        self.assertEqual(whiff["total"], 3)
+        self.assertEqual(aggregate_cells(df), [_cell(2024, 10, 13, 4, contact=1, hits=1, whiffs=2)])
+
+    def test_a_cell_where_no_outcome_happened_keeps_its_pitches(self):
+        df = _make_pitch_df([{"plate_x": 1.0, "plate_z": 1.0, "description": "ball"}])
+        self.assertEqual(aggregate_cells(df), [_cell(2024, 15, 17, 1)])
 
     def test_empty_dataframe_returns_empty_list(self):
-        self.assertEqual(aggregate_buckets(pd.DataFrame(), BATTER_OUTCOMES), [])
+        self.assertEqual(aggregate_cells(pd.DataFrame()), [])
+        self.assertEqual(aggregate_cells(None), [])
 
     def test_drops_rows_missing_plate_coordinates(self):
         df = _make_pitch_df(
@@ -115,22 +124,26 @@ class TestAggregateBuckets(TestCase):
                 {"plate_x": 0.0, "plate_z": 2.0, "description": "swinging_strike"},
             ]
         )
-        buckets = aggregate_buckets(df, BATTER_OUTCOMES)
-        whiff = next(b for b in buckets if b["outcome"] == "whiffs")
-        self.assertEqual(whiff["count"], 1)
-        self.assertEqual(whiff["total"], 1)
+        self.assertEqual(aggregate_cells(df), [_cell(2024, 10, 13, 1, whiffs=1)])
 
-    def test_coordinates_rounded_to_one_decimal(self):
+    def test_cells_are_the_heatmaps(self):
+        # PitchZone.tsx: 20 cells over x -2.0 to 2.0 and z 5.0 down to 0.5, left edge and top edge inclusive.
+        cell_x, cell_z = cell_index(pd.Series([-2.0, 1.99, 2.0, 0.0]), pd.Series([5.0, 0.51, 0.5, 2.75]))
+        self.assertEqual(list(cell_x), [0, 19, 20, 10])
+        self.assertEqual(list(cell_z), [0, 19, 20, 10])
+
+    def test_keeps_pitches_outside_the_grid_in_cells_beyond_it(self):
+        df = _make_pitch_df([{"plate_x": -5.1, "plate_z": 9.6, "description": "ball"}])
+        self.assertEqual(aggregate_cells(df), [_cell(2024, -16, -21, 1)])
+
+    def test_splits_seasons(self):
         df = _make_pitch_df(
             [
-                {"plate_x": 0.04, "plate_z": 2.04, "description": "swinging_strike"},
-                {"plate_x": 0.06, "plate_z": 2.06, "description": "swinging_strike"},
+                {"plate_x": 0.0, "plate_z": 2.0, "description": "swinging_strike", "game_year": 2023},
+                {"plate_x": 0.0, "plate_z": 2.0, "description": "ball", "game_year": 2024},
             ]
         )
-        buckets = aggregate_buckets(df, BATTER_OUTCOMES)
-        xs = {b["plate_x"] for b in buckets if b["outcome"] == "whiffs"}
-        # 0.04 rounds to 0.0, 0.06 rounds to 0.1 → two distinct buckets
-        self.assertEqual(xs, {0.0, 0.1})
+        self.assertEqual(aggregate_cells(df), [_cell(2023, 10, 13, 1, whiffs=1), _cell(2024, 10, 13, 1)])
 
 
 # ---------------------------------------------------------------------------
@@ -140,7 +153,7 @@ class TestAggregateBuckets(TestCase):
 
 class TestBulkPathParity(TestCase):
     """
-    Verify that running aggregate_buckets on a per-player slice of the bulk
+    Verify that running aggregate_cells on a per-player slice of the bulk
     DataFrame produces identical results to running it on the full DataFrame
     filtered by batter/pitcher — the two code paths are equivalent.
     """
@@ -202,17 +215,12 @@ class TestBulkPathParity(TestCase):
         by_batter = {mlbam: g for mlbam, g in bat_df.groupby("batter")}
 
         # Per-player path: filter then aggregate
-        per_player_1001 = aggregate_buckets(
-            df[df["batter"] == np.float64(1001)].reset_index(drop=True),
-            BATTER_OUTCOMES,
-        )
+        per_player_1001 = aggregate_cells(df[df["batter"] == np.float64(1001)].reset_index(drop=True))
         # Bulk path: groupby slice then aggregate (int key lookup)
-        bulk_1001 = aggregate_buckets(by_batter.get(1001), BATTER_OUTCOMES)
+        bulk_1001 = aggregate_cells(by_batter.get(1001))
 
-        self.assertEqual(
-            sorted(per_player_1001, key=lambda b: (b["outcome"], b["plate_x"], b["plate_z"])),
-            sorted(bulk_1001, key=lambda b: (b["outcome"], b["plate_x"], b["plate_z"])),
-        )
+        self.assertEqual(per_player_1001, bulk_1001)
+        self.assertEqual(sum(c["pitches"] for c in bulk_1001), 3)
 
     def test_float64_batter_column_isin_with_int_targets(self):
         """isin() must work when df['batter'] is float64 but target_mlbams is a set of ints."""
@@ -238,34 +246,48 @@ class TestBulkPathParity(TestCase):
 
 
 # ---------------------------------------------------------------------------
-# write_buckets
+# write_cells
 # ---------------------------------------------------------------------------
 
 
-class TestWriteBuckets(TestCase):
+class TestWriteCells(TestCase):
     def setUp(self):
         self.player = _make_player("troutmi01", 1001)
 
-    def _whiffs_at_origin(self, season: int, count: int, total: int) -> dict:
-        return {"season": season, "outcome": "whiffs", "plate_x": 0.0, "plate_z": 2.0, "count": count, "total": total}
-
     def _stored(self) -> list[tuple[int, int, int]]:
-        rows = StatcastZoneBucket.objects.filter(player=self.player, role="B").order_by("season")
-        return [(r.season, r.count, r.total) for r in rows]
+        rows = StatcastZoneCell.objects.filter(player=self.player, role="B").order_by("season")
+        return [(r.season, r.whiffs, r.pitches) for r in rows]
 
     def test_replaces_written_season(self):
-        write_buckets(self.player, "B", [self._whiffs_at_origin(2024, 99, 100)], dry_run=False)
-        write_buckets(self.player, "B", [self._whiffs_at_origin(2024, 1, 5)], dry_run=False)
+        write_cells(self.player, "B", [_cell(2024, 10, 13, 100, whiffs=99)], dry_run=False)
+        write_cells(self.player, "B", [_cell(2024, 10, 13, 5, whiffs=1)], dry_run=False)
         self.assertEqual(self._stored(), [(2024, 1, 5)])
 
     def test_keeps_other_seasons(self):
-        write_buckets(self.player, "B", [self._whiffs_at_origin(2023, 10, 20)], dry_run=False)
-        write_buckets(self.player, "B", [self._whiffs_at_origin(2024, 5, 5)], dry_run=False)
+        write_cells(self.player, "B", [_cell(2023, 10, 13, 20, whiffs=10)], dry_run=False)
+        write_cells(self.player, "B", [_cell(2024, 10, 13, 5, whiffs=5)], dry_run=False)
         self.assertEqual(self._stored(), [(2023, 10, 20), (2024, 5, 5)])
 
     def test_dry_run_writes_nothing(self):
-        write_buckets(self.player, "B", [self._whiffs_at_origin(2024, 5, 10)], dry_run=True)
-        self.assertFalse(StatcastZoneBucket.objects.filter(player=self.player).exists())
+        write_cells(self.player, "B", [_cell(2024, 10, 13, 10, whiffs=5)], dry_run=True)
+        self.assertFalse(StatcastZoneCell.objects.filter(player=self.player).exists())
+
+    def test_reconnects_and_retries_once_after_a_dropped_connection(self):
+        calls = []
+
+        def drops_once(*args, **kwargs):
+            calls.append(1)
+            if len(calls) == 1:
+                raise OperationalError("server closed the connection unexpectedly")
+            return write_cells(*args, **kwargs)
+
+        with (
+            patch("pipeline.ingest_statcast_zones.write_cells", side_effect=drops_once),
+            patch("pipeline.ingest_statcast_zones.close_old_connections") as reconnect,
+        ):
+            n = write_cells_retrying(self.player, "B", [_cell(2024, 10, 13, 5, whiffs=1)], dry_run=False)
+        self.assertEqual((n, len(calls), reconnect.call_count), (1, 2, 1))
+        self.assertEqual(self._stored(), [(2024, 1, 5)])
 
 
 # ---------------------------------------------------------------------------
@@ -300,13 +322,13 @@ class TestIngestBulk(TestCase):
         )
 
     @patch("pipeline.ingest_statcast_zones.statcast")
-    def test_writes_buckets_for_target_player(self, mock_statcast):
+    def test_writes_cells_for_target_player(self, mock_statcast):
         mock_statcast.side_effect = FakeSavant(self._bulk_df()).statcast
         ingest_bulk([(self.player, {"B"})], 2024, force=False, dry_run=False, verbose=False)
-        stored = StatcastZoneBucket.objects.filter(player=self.player, role="B").values_list(
-            "season", "outcome", "count", "total"
+        stored = StatcastZoneCell.objects.filter(player=self.player, role="B").values_list(
+            "season", "pitches", "contact", "hits", "whiffs"
         )
-        self.assertEqual(sorted(stored), [(2024, "contact", 1, 2), (2024, "hits", 1, 2), (2024, "whiffs", 1, 2)])
+        self.assertEqual(list(stored), [(2024, 2, 1, 1, 1)])
 
     @patch("pipeline.ingest_statcast_zones.statcast")
     def test_skips_already_ingested_player(self, mock_statcast):
@@ -325,13 +347,13 @@ class TestIngestBulk(TestCase):
         IngestionLog.objects.create(source=key, rows_loaded=5, status="success")
 
         n = ingest_bulk([(self.player, {"B"})], 2024, force=True, dry_run=False, verbose=False)
-        self.assertEqual(n, 3)
+        self.assertEqual(n, 1)
 
     @patch("pipeline.ingest_statcast_zones.statcast")
     def test_dry_run_does_not_write(self, mock_statcast):
         mock_statcast.return_value = self._bulk_df()
         ingest_bulk([(self.player, {"B"})], 2024, force=False, dry_run=True, verbose=False)
-        self.assertFalse(StatcastZoneBucket.objects.filter(player=self.player).exists())
+        self.assertFalse(StatcastZoneCell.objects.filter(player=self.player).exists())
 
     @patch("pipeline.ingest_statcast_zones.statcast")
     def test_player_with_no_mlbam_skipped(self, mock_statcast):
@@ -472,4 +494,4 @@ class TestWeeklyRefresh(TestCase):
         self._run_weekly_refresh(date(2026, 9, 21))
         self._run_weekly_refresh(date(2026, 9, 21))
 
-        self.assertEqual(self._whiff_buckets(), [{"plate_x": 0.0, "plate_z": 2.0, "count": 20, "total": 20}])
+        self.assertEqual(self._whiff_buckets(), [{"plate_x": 0.1, "plate_z": 1.9625, "count": 20, "total": 20}])

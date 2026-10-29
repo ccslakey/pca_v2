@@ -1,5 +1,7 @@
 """
-Ingest Statcast pitch-location data into StatcastZoneBucket.
+Ingest Statcast pitch-location data into StatcastZoneCell: per player, role
+and season, every pitch counted in the pitch zone heatmap's cell, with how
+many were contact, hits and whiffs.
 
 Usage:
     python pipeline/ingest_statcast_zones.py [options]
@@ -9,7 +11,7 @@ Options:
     --limit INT           Stop after this many players (useful for testing)
     --force               Re-ingest even if already logged as successful
     --dry-run             Print what would be ingested without writing to DB
-    --verbose             Print per-player bucket counts
+    --verbose             Print per-player cell counts
     --roles B|P|both      Which role to ingest (default: both)
     --bbref-ids ID…       Ingest specific players by bbref_id (skips WAR filter)
     --season YEAR         Rebuild one season from a bulk Savant pull
@@ -30,6 +32,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'pca_backend.settings')
 django.setup()
 
+import numpy as np
 import pandas as pd
 import pybaseball
 
@@ -39,12 +42,22 @@ warnings.filterwarnings('ignore', category=pd.errors.DtypeWarning, module='pybas
 
 pybaseball.cache.enable()
 
+from django.db import InterfaceError, OperationalError, close_old_connections
 from django.db.models import Sum
 from pybaseball import statcast, statcast_batter, statcast_pitcher
 
 from pipeline.ingest_utils import already_ingested, log_error, log_success
 from players.models import Player
-from stats.models import BattingSeason, PitchingSeason, StatcastZoneBucket
+from stats.models import (
+    ZONE_GRID,
+    ZONE_X_MAX,
+    ZONE_X_MIN,
+    ZONE_Z_MAX,
+    ZONE_Z_MIN,
+    BattingSeason,
+    PitchingSeason,
+    StatcastZoneCell,
+)
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -52,29 +65,25 @@ from stats.models import BattingSeason, PitchingSeason, StatcastZoneBucket
 
 FIRST_SEASON = 2015
 
-BATTER_OUTCOMES = {
+# The same pitches count for a batter and for the pitcher who threw them.
+OUTCOMES = {
     'contact': lambda df: df['description'] == 'hit_into_play',
     'hits':    lambda df: df['events'].isin(['single', 'double', 'triple', 'home_run']),
     'whiffs':  lambda df: df['description'].isin(['swinging_strike', 'swinging_strike_blocked']),
-}
-
-PITCHER_OUTCOMES = {
-    'whiffs':  lambda df: df['description'].isin(['swinging_strike', 'swinging_strike_blocked']),
-    'contact': lambda df: df['description'] == 'hit_into_play',
-    'hits':    lambda df: df['events'].isin(['single', 'double', 'triple', 'home_run']),
 }
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-class Bucket(TypedDict):
+class Cell(TypedDict):
     season:  int
-    outcome: str
-    plate_x: float
-    plate_z: float
-    count:   int
-    total:   int
+    cell_x:  int
+    cell_z:  int
+    pitches: int
+    contact: int
+    hits:    int
+    whiffs:  int
 
 
 def season_window(season: int | None) -> tuple[date, date]:
@@ -84,46 +93,56 @@ def season_window(season: int | None) -> tuple[date, date]:
     return date(season, 3, 1), min(date(season, 12, 31), today)
 
 
-def aggregate_buckets(df: pd.DataFrame, outcome_fns: dict) -> list[Bucket]:
+def cell_index(plate_x: pd.Series, plate_z: pd.Series) -> tuple[pd.Series, pd.Series]:
+    """Each pitch's heatmap cell, as PitchZone.tsx bins it; outside the grid, a cell beyond 0..ZONE_GRID-1."""
+    cell_x = np.floor((plate_x - ZONE_X_MIN) / (ZONE_X_MAX - ZONE_X_MIN) * ZONE_GRID).astype(int)
+    cell_z = np.floor((ZONE_Z_MAX - plate_z) / (ZONE_Z_MAX - ZONE_Z_MIN) * ZONE_GRID).astype(int)
+    return cell_x, cell_z
+
+
+def aggregate_cells(df: pd.DataFrame | None) -> list[Cell]:
+    """Every cell with a pitch, per season: all its pitches, and each outcome's count, 0 when none happened."""
     if df is None or df.empty:
         return []
-    df = df.dropna(subset=['plate_x', 'plate_z']).reset_index(drop=True)
+    df = df.dropna(subset=['plate_x', 'plate_z'])
     if df.empty:
         return []
 
-    df = df.copy()
-    df['px'] = (df['plate_x'] * 10).round() / 10
-    df['pz'] = (df['plate_z'] * 10).round() / 10
-
-    total_by_loc = df.groupby(['game_year', 'px', 'pz']).size().rename('total')
-
-    buckets: list[Bucket] = []
-    for outcome, mask_fn in outcome_fns.items():
-        mask = mask_fn(df)
-        counts = df[mask].groupby(['game_year', 'px', 'pz']).size().rename('count')
-        merged = counts.to_frame().join(total_by_loc, how='left')
-        for (season, px, pz), row in merged.iterrows():
-            buckets.append({
-                'season':  int(season),
-                'outcome': outcome,
-                'plate_x': px,
-                'plate_z': pz,
-                'count':   int(row['count']),
-                'total':   int(row['total']),
-            })
-    return buckets
+    cell_x, cell_z = cell_index(df['plate_x'], df['plate_z'])
+    pitches = pd.DataFrame({
+        'season':  df['game_year'].astype(int),
+        'cell_x':  cell_x,
+        'cell_z':  cell_z,
+        'pitches': 1,
+        **{outcome: rule(df).astype(int) for outcome, rule in OUTCOMES.items()},
+    })
+    cells = pitches.groupby(['season', 'cell_x', 'cell_z'], as_index=False).sum()
+    return [{key: int(value) for key, value in row.items()} for row in cells.to_dict('records')]  # type: ignore[misc]
 
 
-def write_buckets(player: Player, role: str, buckets: list[Bucket], dry_run: bool) -> int:
-    if dry_run or not buckets:
-        return len(buckets)
+def write_cells(player: Player, role: str, cells: list[Cell], dry_run: bool) -> int:
+    if dry_run or not cells:
+        return len(cells)
 
-    seasons = {b['season'] for b in buckets}
-    StatcastZoneBucket.objects.filter(player=player, role=role, season__in=seasons).delete()
-    StatcastZoneBucket.objects.bulk_create(
-        StatcastZoneBucket(player=player, role=role, **b) for b in buckets
+    seasons = {c['season'] for c in cells}
+    StatcastZoneCell.objects.filter(player=player, role=role, season__in=seasons).delete()
+    StatcastZoneCell.objects.bulk_create(
+        (StatcastZoneCell(player=player, role=role, **c) for c in cells), batch_size=2000,
     )
-    return len(buckets)
+    return len(cells)
+
+
+def write_cells_retrying(player: Player, role: str, cells: list[Cell], dry_run: bool) -> int:
+    """
+    write_cells, once more if the database connection dropped. Outside a
+    request Django never reconnects by itself, so the broken connection is
+    closed first and the retry opens a new one.
+    """
+    try:
+        return write_cells(player, role, cells, dry_run)
+    except (OperationalError, InterfaceError):
+        close_old_connections()
+        return write_cells(player, role, cells, dry_run)
 
 
 def _source_key(player: Player, role: str, season: int | None) -> str:
@@ -153,18 +172,14 @@ def ingest_player_role(player: Player, role: str, force: bool,
     try:
         if role == 'B':
             df = statcast_batter(str(start), str(end), mlbam)
-            outcome_fns = BATTER_OUTCOMES
         else:
             df = statcast_pitcher(str(start), str(end), mlbam)
-            outcome_fns = PITCHER_OUTCOMES
-
-        buckets = aggregate_buckets(df, outcome_fns)
-        n = write_buckets(player, role, buckets, dry_run)
+        n = write_cells(player, role, aggregate_cells(df), dry_run)
 
         if not dry_run:
             log_success(source_key, n)
         if verbose:
-            print(f'    [{player.bbref_id}] {role} → {n} buckets')
+            print(f'    [{player.bbref_id}] {role} → {n} cells')
         return n
 
     except Exception as exc:
@@ -217,24 +232,20 @@ def ingest_bulk(targets: list[tuple[Player, set[str]]], season: int,
         print(f'  [{i}/{len(pending)}] {player.bbref_id} — {player.first_name} {player.last_name}')
         for role in sorted(player_roles):
             source_key = _source_key(player, role, season)
-            if role == 'B':
-                pdf = by_batter.get(player.mlbam_id)
-                outcome_fns = BATTER_OUTCOMES
-            else:
-                pdf = by_pitcher.get(player.mlbam_id)
-                outcome_fns = PITCHER_OUTCOMES
+            pdf = by_batter.get(player.mlbam_id) if role == 'B' else by_pitcher.get(player.mlbam_id)
 
             try:
-                buckets = aggregate_buckets(pdf, outcome_fns)
-                n = write_buckets(player, role, buckets, dry_run)
+                n = write_cells_retrying(player, role, aggregate_cells(pdf), dry_run)
                 if not dry_run:
                     log_success(source_key, n)
                 total += n
                 if verbose:
-                    print(f'    [{player.bbref_id}] {role} → {n} buckets')
+                    print(f'    [{player.bbref_id}] {role} → {n} cells')
             except Exception as exc:
                 print(f'    ERROR [{player.bbref_id}] {role}: {exc}')
                 if not dry_run:
+                    # The failure may have been the connection: drop it if so, so the log and the next player reconnect.
+                    close_old_connections()
                     log_error(source_key, exc)
     return total
 
@@ -323,7 +334,7 @@ def main() -> None:
     parser.add_argument('--dry-run', action='store_true',
                         help='Parse without writing to DB')
     parser.add_argument('--verbose', action='store_true',
-                        help='Print per-player bucket counts')
+                        help='Print per-player cell counts')
     parser.add_argument('--roles', choices=['B', 'P', 'both'], default='both',
                         help='Which role to ingest (default: both)')
     parser.add_argument('--bbref-ids', nargs='+', metavar='ID',
@@ -377,19 +388,19 @@ def main() -> None:
 
     if args.season is not None:
         print(f'Rebuilding season {args.season} from a bulk Savant pull')
-        total_buckets = ingest_bulk(targets, args.season, args.force, args.dry_run, args.verbose)
+        total_cells = ingest_bulk(targets, args.season, args.force, args.dry_run, args.verbose)
     else:
         print(f'Rebuilding every season since {FIRST_SEASON} with per-player Savant calls')
-        total_buckets = 0
+        total_cells = 0
         for i, (player, player_roles) in enumerate(targets, 1):
             print(f'  [{i}/{len(targets)}] {player.bbref_id} — {player.first_name} {player.last_name}')
             for role in sorted(player_roles):
                 n = ingest_player_role(player, role, args.force, args.dry_run, args.verbose)
-                total_buckets += n
+                total_cells += n
                 if not args.dry_run:
                     time.sleep(2)
 
-    print(f'\nDone. Total buckets written: {total_buckets:,}')
+    print(f'\nDone. Total cells written: {total_cells:,}')
 
 
 if __name__ == '__main__':

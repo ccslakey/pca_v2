@@ -236,6 +236,53 @@ class StatcastZoneBucket(models.Model):
         return f"{self.player_id} {self.role} {self.outcome} ({self.plate_x:.1f}, {self.plate_z:.1f})"
 
 
+
+# The pitch zone heatmap's grid: GRID x GRID cells over these plate coordinates, in feet.
+# frontend/src/components/profile/charts/PitchZone.tsx draws the same one.
+ZONE_X_MIN, ZONE_X_MAX = -2.0, 2.0
+ZONE_Z_MIN, ZONE_Z_MAX = 0.5, 5.0
+ZONE_GRID = 20
+
+
+def zone_cell_center(cell_x: int, cell_z: int) -> tuple[float, float]:
+    """A cell's centre in plate coordinates (feet), as the heatmap places it."""
+    x = ZONE_X_MIN + (cell_x + 0.5) * (ZONE_X_MAX - ZONE_X_MIN) / ZONE_GRID
+    z = ZONE_Z_MAX - (cell_z + 0.5) * (ZONE_Z_MAX - ZONE_Z_MIN) / ZONE_GRID
+    return round(x, 4), round(z, 4)
+
+
+class StatcastZoneCell(models.Model):
+    """
+    Statcast pitches by heatmap cell, for the pitch zone heatmap: for one
+    player, role and season, every pitch whose plate location falls in the
+    cell, and how many of those were contact, hits and whiffs. A cell with
+    pitches but none of an outcome stores 0 for it, so every rate has its
+    true denominator. cell_x counts from ZONE_X_MIN and cell_z from
+    ZONE_Z_MAX (the top), as the heatmap draws them. A pitch outside the
+    grid lands in a cell outside 0..ZONE_GRID-1: the heatmap leaves it out,
+    and totals keep it.
+    """
+
+    class Role(models.TextChoices):
+        BATTER  = 'B', 'Batter'
+        PITCHER = 'P', 'Pitcher'
+
+    player  = models.ForeignKey(Player, on_delete=models.CASCADE, related_name='zone_cells')
+    role    = models.CharField(max_length=1, choices=Role.choices)
+    season  = models.PositiveSmallIntegerField()
+    cell_x  = models.SmallIntegerField()
+    cell_z  = models.SmallIntegerField()
+    pitches = models.IntegerField()  # every pitch in the cell
+    contact = models.IntegerField()  # put in play
+    hits    = models.IntegerField()  # singles, doubles, triples and home runs
+    whiffs  = models.IntegerField()  # swinging strikes
+
+    class Meta:
+        unique_together = ('player', 'role', 'season', 'cell_x', 'cell_z')
+
+    def __str__(self):
+        return f"{self.player_id} {self.role} {self.season} ({self.cell_x}, {self.cell_z})"
+
 class IngestionLog(models.Model):
     source       = models.CharField(max_length=50)   # e.g. 'bref_batting_MLB_2023'
     rows_loaded  = models.IntegerField(default=0)

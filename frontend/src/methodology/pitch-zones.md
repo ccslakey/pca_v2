@@ -18,7 +18,7 @@ Raw Statcast data records the plate location of every pitch in (x, z) coordinate
 - **x:** horizontal position. Negative = catcher's left (batter's right); positive = catcher's right (batter's left).
 - **z:** vertical height above the ground at home plate.
 
-We aggregate pitch counts and outcome counts into spatial buckets by rounding plate_x and plate_z coordinates to 0.1-foot precision. The frontend bins these raw coordinates into a display grid at render time, producing the heatmap cells.
+We count pitches straight into the heatmap's grid: 20 × 20 cells over x from −2 to 2 feet and z from 0.5 to 5 feet, so each cell is 0.2 ft wide and 0.225 ft tall, kept separately for each player, role and season. Each cell stores every pitch that crossed the plate there and how many of them were contact, hits and whiffs. A cell where an outcome never happened still counts its pitches, so it shows a 0% rate rather than being left blank. Pitches outside the grid are counted too, though not drawn.
 
 The strike zone boundaries displayed on the heatmap are approximate league averages (roughly 1.5–3.5 feet in height, 0.83 feet wide on each side of center). The actual called-strike zone varies by umpire, batter height, and stance.
 
@@ -34,7 +34,7 @@ Three outcome views are available per player-role:
 | **Hits** | Balls that became hits (hit rate at each location) |
 | **Whiffs** | Swings and misses (whiff rate at each location) |
 
-Each view is the **rate** for that outcome — contact / total pitches seen at that location, hits / total pitches seen, whiffs / total pitches seen — not the raw count.
+Each view is the **rate** for that outcome — contact / total pitches seen in that cell, hits / total pitches seen, whiffs / total pitches seen — not the raw count.
 
 ---
 
