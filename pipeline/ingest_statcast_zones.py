@@ -42,6 +42,7 @@ warnings.filterwarnings('ignore', category=pd.errors.DtypeWarning, module='pybas
 
 pybaseball.cache.enable()
 
+from django.db import InterfaceError, OperationalError, close_old_connections
 from django.db.models import Sum
 from pybaseball import statcast, statcast_batter, statcast_pitcher
 
@@ -129,6 +130,19 @@ def write_cells(player: Player, role: str, cells: list[Cell], dry_run: bool) -> 
         (StatcastZoneCell(player=player, role=role, **c) for c in cells), batch_size=2000,
     )
     return len(cells)
+
+
+def write_cells_retrying(player: Player, role: str, cells: list[Cell], dry_run: bool) -> int:
+    """
+    write_cells, once more if the database connection dropped. Outside a
+    request Django never reconnects by itself, so the broken connection is
+    closed first and the retry opens a new one.
+    """
+    try:
+        return write_cells(player, role, cells, dry_run)
+    except (OperationalError, InterfaceError):
+        close_old_connections()
+        return write_cells(player, role, cells, dry_run)
 
 
 def _source_key(player: Player, role: str, season: int | None) -> str:
@@ -221,7 +235,7 @@ def ingest_bulk(targets: list[tuple[Player, set[str]]], season: int,
             pdf = by_batter.get(player.mlbam_id) if role == 'B' else by_pitcher.get(player.mlbam_id)
 
             try:
-                n = write_cells(player, role, aggregate_cells(pdf), dry_run)
+                n = write_cells_retrying(player, role, aggregate_cells(pdf), dry_run)
                 if not dry_run:
                     log_success(source_key, n)
                 total += n
@@ -230,6 +244,8 @@ def ingest_bulk(targets: list[tuple[Player, set[str]]], season: int,
             except Exception as exc:
                 print(f'    ERROR [{player.bbref_id}] {role}: {exc}')
                 if not dry_run:
+                    # The failure may have been the connection: drop it if so, so the log and the next player reconnect.
+                    close_old_connections()
                     log_error(source_key, exc)
     return total
 
